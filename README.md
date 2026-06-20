@@ -57,9 +57,12 @@ Rust backend tests: `cd src-tauri && cargo test`.
 > full-window overlay shows while a drag hovers. Dropping onto an empty list activates+plays the
 > first imported video (drop never disturbs an already-playing video). The viewport renders a real `<video>`; play/pause, prev/next, and clicking a row all
 > drive playback. Spacebar toggles play/pause. **Universal playback:** every opened file is probed
-> by a Rust `prepare_media` command (ffprobe); H.264/AAC plays directly, anything the webview can't
-> decode (WebM/VP9/MKV/AVI/AV1/Opus) is transcoded on the fly by ffmpeg to a streaming fragmented
-> MP4 that starts playing in under a second. Single-clicking the viewport toggles
+> by a Rust `prepare_media` command (ffprobe reads container + codecs); H.264/AAC already in an
+> MP4/MOV plays directly. Anything else is converted by ffmpeg to a **complete, finalized** MP4
+> (`+faststart`) before playback - copying the streams that are already fine and re-encoding only
+> those the webview can't decode: a wrong-container-only file (H.264 in MKV/AVI) is remuxed with
+> stream-copy (near-instant), while undecodable codecs (VP9/AV1/HEVC/Opus) are re-encoded (slower,
+> spinner shows until done). The completed transcode is cached and reused on re-open. Single-clicking the viewport toggles
 > play/pause; double-clicking it (or the green button /
 > F11) enters fullscreen, which hides the chrome (sidebar, transport, overlay) and restores the
 > pre-fullscreen visibility on exit. **ffmpeg/ffprobe are bundled** as Tauri sidecars
