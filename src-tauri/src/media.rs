@@ -1,12 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::path::PathBuf;
 
 use serde::Serialize;
-use tauri::async_runtime;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
@@ -16,16 +12,49 @@ pub struct PreparedMedia {
     pub transcoded: bool,
 }
 
-const DIRECT_VIDEO: &[&str] = &["h264"];
-const DIRECT_AUDIO: &[&str] = &["aac", "mp3", ""];
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum VideoAction {
+    Copy,
+    Reencode,
+}
 
-// How long to wait for the first streamable bytes before giving up, and how big
-// the growing fragmented MP4 must get before we hand it to <video>.
-const FIRST_BYTES_TIMEOUT: Duration = Duration::from_secs(20);
-const MIN_STREAM_BYTES: u64 = 256 * 1024;
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum AudioAction {
+    Copy,
+    Reencode,
+    Drop,
+}
 
-fn is_directly_playable(vcodec: &str, acodec: &str) -> bool {
-    DIRECT_VIDEO.contains(&vcodec) && DIRECT_AUDIO.contains(&acodec)
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum MediaPlan {
+    Passthrough,
+    Convert {
+        video: VideoAction,
+        audio: AudioAction,
+    },
+}
+
+// Pure decision: given the container (ffprobe format_name), video codec and audio
+// codec (a:"" = no audio), decide what the webview needs. MP4-family + h264 +
+// webview-playable audio is served untouched; anything else is converted, copying
+// the streams that are already fine and re-encoding only those that are not.
+fn plan_media(container: &str, vcodec: &str, acodec: &str) -> MediaPlan {
+    let video = if vcodec == "h264" {
+        VideoAction::Copy
+    } else {
+        VideoAction::Reencode
+    };
+    let audio = match acodec {
+        "" => AudioAction::Drop,
+        "aac" | "mp3" => AudioAction::Copy,
+        _ => AudioAction::Reencode,
+    };
+    let is_mp4_container = container.contains("mp4");
+    let is_webview_ready = video == VideoAction::Copy && audio != AudioAction::Reencode;
+    if is_mp4_container && is_webview_ready {
+        return MediaPlan::Passthrough;
+    }
+    MediaPlan::Convert { video, audio }
 }
 
 async fn probe_stream(app: &tauri::AppHandle, path: &str, stream: &str) -> String {
@@ -46,6 +75,24 @@ async fn probe_stream(app: &tauri::AppHandle, path: &str, stream: &str) -> Strin
     }
 }
 
+async fn probe_container(app: &tauri::AppHandle, path: &str) -> String {
+    let command = match app.shell().sidecar("ffprobe") {
+        Ok(command) => command,
+        Err(_) => return String::new(),
+    };
+    let output = command
+        .args([
+            "-v", "error", "-show_entries", "format=format_name",
+            "-of", "csv=p=0", path,
+        ])
+        .output()
+        .await;
+    match output {
+        Ok(out) => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+        Err(_) => String::new(),
+    }
+}
+
 fn cache_path(source: &str) -> PathBuf {
     let mut hasher = DefaultHasher::new();
     source.hash(&mut hasher);
@@ -56,8 +103,24 @@ fn cache_path(source: &str) -> PathBuf {
     dir
 }
 
-fn file_len(path: &Path) -> u64 {
-    std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)
+fn video_convert_args(action: VideoAction) -> Vec<&'static str> {
+    match action {
+        VideoAction::Copy => vec!["-c:v", "copy"],
+        VideoAction::Reencode if cfg!(target_os = "macos") => {
+            vec!["-c:v", "h264_videotoolbox", "-b:v", "6M"]
+        }
+        VideoAction::Reencode => {
+            vec!["-c:v", "libx264", "-preset", "veryfast", "-crf", "23"]
+        }
+    }
+}
+
+fn audio_convert_args(action: AudioAction) -> Vec<&'static str> {
+    match action {
+        AudioAction::Copy => vec!["-c:a", "copy"],
+        AudioAction::Reencode => vec!["-c:a", "aac"],
+        AudioAction::Drop => vec!["-an"],
+    }
 }
 
 #[tauri::command]
@@ -72,128 +135,147 @@ pub async fn prepare_media(
         ));
     }
     let acodec = probe_stream(&app, &path, "a:0").await;
+    let container = probe_container(&app, &path).await;
 
-    if is_directly_playable(&vcodec, &acodec) {
-        return Ok(PreparedMedia { path, transcoded: false });
-    }
+    let plan = plan_media(&container, &vcodec, &acodec);
+    let (video, audio) = match plan {
+        MediaPlan::Passthrough => {
+            return Ok(PreparedMedia { path, transcoded: false });
+        }
+        MediaPlan::Convert { video, audio } => (video, audio),
+    };
 
     let target = cache_path(&path);
-    // A previously completed transcode is reused as-is.
-    if target.exists() && file_len(&target) > MIN_STREAM_BYTES {
+    // Only a COMPLETE encode is ever renamed to the final path, so existence
+    // alone means a finished, reusable file.
+    if target.exists() {
         return Ok(PreparedMedia {
             path: target.to_string_lossy().into_owned(),
             transcoded: true,
         });
     }
-    let _ = std::fs::remove_file(&target);
+    let part = target.with_extension("mp4.part");
+    let _ = std::fs::remove_file(&part);
 
-    // Spawn ffmpeg writing a FRAGMENTED MP4 and DON'T wait for it to finish.
-    // Fragmented output is progressively playable, so <video> can start as soon
-    // as the first fragments land while encoding races ahead (faster than
-    // realtime). h264_videotoolbox is hardware-accelerated on macOS.
-    let target_str = target.to_string_lossy().into_owned();
-    let video_args: &[&str] = if cfg!(target_os = "macos") {
-        &["-c:v", "h264_videotoolbox", "-b:v", "6M"]
-    } else {
-        &["-c:v", "libx264", "-preset", "veryfast", "-crf", "23"]
-    };
+    // Write a COMPLETE, finalized MP4 (moov written + faststart, seekable) - NOT
+    // a fragmented/empty-moov stream. A growing fragmented file made <video> read
+    // a stale size and report the wrong duration. We wait for ffmpeg to finish,
+    // then atomically rename .part -> final. Copying a stream (remux) is near
+    // instant; only a true re-encode is slow.
+    let part_str = part.to_string_lossy().into_owned();
     let command = app
         .shell()
         .sidecar("ffmpeg")
         .map_err(|e| format!("failed to resolve bundled ffmpeg: {e}"))?
         .args(["-y", "-v", "error", "-i", &path])
-        .args(video_args)
-        .args([
-            "-c:a", "aac", "-movflags",
-            "frag_keyframe+empty_moov+default_base_moof", &target_str,
-        ]);
+        .args(video_convert_args(video))
+        .args(audio_convert_args(audio))
+        .args(["-movflags", "+faststart", &part_str]);
 
-    let (mut rx, child) = command
+    let (mut rx, _child) = command
         .spawn()
         .map_err(|e| format!("failed to start ffmpeg: {e}"))?;
 
-    // The shell plugin force-pipes stdout/stderr into a bounded channel; nobody
-    // draining it would stall ffmpeg once the pipe buffer fills. Drain it in a
-    // detached task that records termination so the loop below can react. The
-    // child is NOT killed when prepare_media returns (CommandChild has no Drop),
-    // so encoding races ahead while <video> streams the growing fragmented MP4.
-    let terminated = Arc::new(AtomicBool::new(false));
-    let succeeded = Arc::new(AtomicBool::new(false));
-    let terminated_drain = terminated.clone();
-    let succeeded_drain = succeeded.clone();
-    async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            if let CommandEvent::Terminated(payload) = event {
-                succeeded_drain.store(payload.code == Some(0), Ordering::SeqCst);
-                terminated_drain.store(true, Ordering::SeqCst);
-            }
+    // The shell plugin force-pipes stdout/stderr into a bounded channel; drain it
+    // to completion (which also yields the Terminated exit code) so ffmpeg never
+    // blocks on a full pipe buffer.
+    let mut code = None;
+    while let Some(event) = rx.recv().await {
+        if let CommandEvent::Terminated(payload) = event {
+            code = payload.code;
         }
-    });
-
-    // Wait only until enough bytes exist to start streaming (not full encode).
-    let started = Instant::now();
-    loop {
-        if file_len(&target) > MIN_STREAM_BYTES {
-            break;
-        }
-        if terminated.load(Ordering::SeqCst) {
-            // ffmpeg exited. Only an actual failure is an error; a clean exit
-            // whose output is below the stream threshold (a very short clip) is
-            // still a complete, playable file.
-            if !succeeded.load(Ordering::SeqCst) {
-                let _ = std::fs::remove_file(&target);
-                return Err(format!("ffmpeg transcode failed for: {path}"));
-            }
-            break;
-        }
-        if started.elapsed() > FIRST_BYTES_TIMEOUT {
-            let _ = child.kill();
-            let _ = std::fs::remove_file(&target);
-            return Err(format!("timed out preparing: {path}"));
-        }
-        std::thread::sleep(Duration::from_millis(50));
     }
 
-    Ok(PreparedMedia { path: target_str, transcoded: true })
+    if code != Some(0) {
+        let _ = std::fs::remove_file(&part);
+        return Err(format!("ffmpeg transcode failed for: {path}"));
+    }
+    std::fs::rename(&part, &target)
+        .map_err(|e| format!("failed to finalize transcode for {path}: {e}"))?;
+
+    Ok(PreparedMedia {
+        path: target.to_string_lossy().into_owned(),
+        transcoded: true,
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{cache_path, is_directly_playable};
+    use super::{cache_path, plan_media, AudioAction, MediaPlan, VideoAction};
 
+    const MP4: &str = "mov,mp4,m4a,3gp,3g2,mj2";
+    const MKV: &str = "matroska,webm";
+
+    // TC-001: mp4 + h264 + aac is served untouched (AC-005)
     #[test]
-    fn should_be_directly_playable_when_h264_with_aac() {
-        assert!(is_directly_playable("h264", "aac"));
+    fn should_passthrough_when_mp4_h264_aac() {
+        assert_eq!(plan_media(MP4, "h264", "aac"), MediaPlan::Passthrough);
     }
 
+    // TC-007: mp4 + h264 + mp3 is also fine (AC-005)
     #[test]
-    fn should_be_directly_playable_when_h264_with_mp3() {
-        assert!(is_directly_playable("h264", "mp3"));
+    fn should_passthrough_when_mp4_h264_mp3() {
+        assert_eq!(plan_media(MP4, "h264", "mp3"), MediaPlan::Passthrough);
     }
 
+    // TC-002: h264 in mkv only needs a container remux - copy both streams (AC-002)
     #[test]
-    fn should_be_directly_playable_when_h264_with_no_audio() {
-        assert!(is_directly_playable("h264", ""));
+    fn should_remux_copy_when_mkv_h264_aac() {
+        assert_eq!(
+            plan_media(MKV, "h264", "aac"),
+            MediaPlan::Convert {
+                video: VideoAction::Copy,
+                audio: AudioAction::Copy,
+            }
+        );
     }
 
+    // TC-003: vp9 + opus needs full re-encode of both (AC-003, AC-004)
     #[test]
-    fn should_not_be_directly_playable_when_vp9_with_opus() {
-        assert!(!is_directly_playable("vp9", "opus"));
+    fn should_reencode_both_when_mkv_vp9_opus() {
+        assert_eq!(
+            plan_media(MKV, "vp9", "opus"),
+            MediaPlan::Convert {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            }
+        );
     }
 
+    // TC-004: mp4 container but av1 video - re-encode video, copy the fine audio (AC-003)
     #[test]
-    fn should_not_be_directly_playable_when_av1_with_aac() {
-        assert!(!is_directly_playable("av1", "aac"));
+    fn should_reencode_video_copy_audio_when_mp4_av1_aac() {
+        assert_eq!(
+            plan_media(MP4, "av1", "aac"),
+            MediaPlan::Convert {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Copy,
+            }
+        );
     }
 
+    // TC-005: no audio stream -> drop audio (AC-004)
     #[test]
-    fn should_not_be_directly_playable_when_h264_with_ac3() {
-        assert!(!is_directly_playable("h264", "ac3"));
+    fn should_drop_audio_when_mkv_h264_no_audio() {
+        assert_eq!(
+            plan_media(MKV, "h264", ""),
+            MediaPlan::Convert {
+                video: VideoAction::Copy,
+                audio: AudioAction::Drop,
+            }
+        );
     }
 
+    // TC-006: avi + h264 + ac3 - copy video, re-encode the bad audio (AC-004)
     #[test]
-    fn should_not_be_directly_playable_when_no_codecs() {
-        assert!(!is_directly_playable("", ""));
+    fn should_copy_video_reencode_audio_when_avi_h264_ac3() {
+        assert_eq!(
+            plan_media("avi", "h264", "ac3"),
+            MediaPlan::Convert {
+                video: VideoAction::Copy,
+                audio: AudioAction::Reencode,
+            }
+        );
     }
 
     #[test]
