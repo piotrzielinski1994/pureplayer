@@ -10,6 +10,8 @@ import {
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
 import { Workspace } from "@/components/workspace/workspace";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
 import { fixtureVideos } from "./fixtures";
 
@@ -109,9 +111,11 @@ const renderWorkspace = (
 ) =>
   render(
     <HotkeysProvider>
-      <WorkspaceProvider {...props}>
-        <Workspace />
-      </WorkspaceProvider>
+      <SettingsProvider store={createInMemorySettingsStore()}>
+        <WorkspaceProvider {...props}>
+          <Workspace />
+        </WorkspaceProvider>
+      </SettingsProvider>
     </HotkeysProvider>,
   );
 

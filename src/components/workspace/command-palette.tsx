@@ -12,6 +12,7 @@ import type { ShortcutAction } from "@/lib/shortcuts/registry";
 export type PaletteCommand = {
   action: ShortcutAction;
   binding: string;
+  keywords: string[];
   run: () => void;
 };
 
@@ -31,10 +32,11 @@ export function CommandPalette({
       <CommandInput placeholder="Type a command…" />
       <CommandList>
         <CommandEmpty>No matching commands</CommandEmpty>
-        {commands.map(({ action, binding, run }) => (
+        {commands.map(({ action, binding, keywords, run }) => (
           <CommandItem
             key={action.id}
             value={action.name}
+            keywords={keywords}
             onSelect={() => {
               run();
               onOpenChange(false);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { DropOverlay } from "@/components/workspace/drop-overlay";
 import {
@@ -10,10 +11,12 @@ import { videosFromPaths } from "@/components/workspace/videos-from-paths";
 import {
   expandDroppedPaths,
   openVideoFiles,
+  toggleFullscreen,
   watchFileDrop,
   watchFullscreen,
   watchWindowFocus,
 } from "@/lib/tauri";
+import { useSettings } from "@/lib/settings/settings-context";
 import { useActionHotkeys } from "@/lib/shortcuts/use-action-hotkeys";
 import {
   SHORTCUT_ACTIONS,
@@ -38,8 +41,10 @@ export function Workspace() {
     toggleTransport,
     setFullscreen,
   } = useWorkspace();
+  const { settings, saveRevealTransportOnHover } = useSettings();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const navigate = useNavigate();
 
   // Drive isFullscreen from the REAL window state (every path: native F11, green
   // button, double-click) and re-arm the WKWebView first responder on each
@@ -101,6 +106,10 @@ export function Workspace() {
     "toggle-sort-direction": toggleSortDirection,
     "toggle-sidebar": toggleSidebar,
     "toggle-transport": toggleTransport,
+    "toggle-fullscreen": () => void toggleFullscreen(),
+    "toggle-reveal-transport": () =>
+      saveRevealTransportOnHover(!settings.revealTransportOnHover),
+    "open-settings": () => void navigate({ to: "/settings" }),
   };
 
   useActionHotkeys({
@@ -116,7 +125,12 @@ export function Workspace() {
       if (!run) {
         return null;
       }
-      return { action, binding: action.defaultHotkey, run };
+      return {
+        action,
+        binding: action.defaultHotkey,
+        keywords: action.keywords ?? [],
+        run,
+      };
     })
     .filter((command): command is PaletteCommand => command !== null);
 

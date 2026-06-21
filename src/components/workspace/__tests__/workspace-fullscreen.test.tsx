@@ -7,6 +7,8 @@ import {
   useWorkspace,
 } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { fixtureVideos } from "./fixtures";
 
 vi.mock("@/lib/tauri", () => ({
@@ -26,13 +28,19 @@ function Controls() {
   );
 }
 
-const renderLayout = () =>
-  render(
-    <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
-      <WorkspaceLayout />
-      <Controls />
-    </WorkspaceProvider>,
+const renderLayout = async () => {
+  const result = render(
+    <SettingsProvider store={createInMemorySettingsStore()}>
+      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+        <WorkspaceLayout />
+        <Controls />
+      </WorkspaceProvider>
+    </SettingsProvider>,
   );
+  // SettingsProvider renders null until its async load resolves; wait for it.
+  await screen.findByRole("button", { name: "enter-fullscreen" });
+  return result;
+};
 
 const sidebarList = () => screen.queryByRole("list", { name: /playlist/i });
 const transportButton = () =>
@@ -46,7 +54,7 @@ describe("Chrome visibility is driven only by its own state (regression)", () =>
   // behavior: the sidebar toggle hides and shows the playlist (not gated on anything else)
   it("should hide then show the sidebar via its toggle", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     expect(sidebarList()).toBeInTheDocument();
 
@@ -60,7 +68,7 @@ describe("Chrome visibility is driven only by its own state (regression)", () =>
   // behavior: the transport toggle hides and shows the transport bar
   it("should hide then show the transport bar via its toggle", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     expect(transportButton()).toBeInTheDocument();
 
@@ -78,7 +86,7 @@ describe("Chrome visibility is driven only by its own state (regression)", () =>
   // behavior: the viewport region survives a sidebar toggle (no remount churn)
   it("should keep the viewport region mounted if the sidebar is toggled", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     expect(
       screen.getByRole("region", { name: /video viewport/i }),
@@ -96,7 +104,7 @@ describe("Fullscreen hides chrome immersively (AC-006)", () => {
   // behavior: entering fullscreen hides BOTH sidebar and transport bar
   it("should hide the sidebar and transport bar if fullscreen is entered", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     expect(sidebarList()).toBeInTheDocument();
     expect(transportButton()).toBeInTheDocument();
@@ -110,7 +118,7 @@ describe("Fullscreen hides chrome immersively (AC-006)", () => {
   // behavior: leaving fullscreen restores the chrome (no lock-out)
   it("should restore the sidebar and transport bar if fullscreen is exited", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     await user.click(screen.getByRole("button", { name: "enter-fullscreen" }));
     await waitFor(() => expect(sidebarList()).not.toBeInTheDocument());
@@ -125,7 +133,7 @@ describe("Fullscreen hides chrome immersively (AC-006)", () => {
   // sidebar can be brought back without leaving fullscreen (no lock-out).
   it("should let the sidebar toggle back on while still fullscreen", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     await user.click(screen.getByRole("button", { name: "enter-fullscreen" }));
     await waitFor(() => expect(sidebarList()).not.toBeInTheDocument());
@@ -144,7 +152,7 @@ describe("Fullscreen hides chrome immersively (AC-006)", () => {
   // behavior: exiting fullscreen RESTORES the pre-fullscreen chrome, not defaults
   it("should keep the sidebar hidden after a fullscreen round-trip if it was hidden before", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     // windowed: hide the sidebar (keep transport visible)
     await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
@@ -164,7 +172,7 @@ describe("Fullscreen hides chrome immersively (AC-006)", () => {
   // behavior: the viewport survives entering fullscreen (no remount -> playback intact)
   it("should keep the viewport region mounted if fullscreen is entered", async () => {
     const user = userEvent.setup();
-    renderLayout();
+    await renderLayout();
 
     await user.click(screen.getByRole("button", { name: "enter-fullscreen" }));
 
