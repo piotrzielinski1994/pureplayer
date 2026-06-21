@@ -74,7 +74,8 @@ Rust backend tests: `cd src-tauri && cargo test`.
 > `WorkspaceProvider` context (no prop drilling). The `greet` Tauri command stays wired as the IPC proof for later use. A `Mod+K` command
 > palette (cmdk) lists the workspace actions (open files, play/pause, next, prev, relative seek,
 > volume up/down, mute, speed up/down, toggle shuffle, cycle repeat, toggle sort, toggle sidebar,
-> toggle transport bar, toggle fullscreen, toggle reveal-on-hover, open settings) - every runnable
+> toggle transport bar, toggle fullscreen, toggle reveal-on-hover, rotate, cycle fit mode, zoom
+> in/out, reset viewport, open settings) - every runnable
 > action is in the palette, and entries carry search keywords (e.g. "bottom bar" finds the transport
 > toggle); each action also has its own global hotkey (fullscreen `Mod+Shift+F`, reveal toggle `Mod+Shift+H`). **Extended transport:** arrows seek the active video
 > (Left/Right ±5s, Shift+Left/Right ±1s), Up/Down adjust volume (±5%) and `M` mutes (mute button +
@@ -83,7 +84,11 @@ Rust backend tests: `cd src-tauri && cargo test`.
 > to the next; a repeat control (`R`, off -> all -> one) loops the list or replays one, and a shuffle
 > toggle (`S`) plays a stable shuffled order that drives both auto-advance and next/prev. With repeat
 > off, the last video's end stops playback (no wrap); repeat-all wraps. Both are buttons in the
-> transport bar. **User settings:** a `/settings` screen (`Mod+,`, or the palette; `Escape`/Back
+> transport bar. **Viewport transforms:** `Mod+Shift+R` rotates the video 90° (cycles back to 0),
+`F` cycles how it fits its frame (contain -> cover -> fill), `=`/`-` zoom in/out by 0.1x within
+1x-4x (centered), and `Mod+0` resets all three; a transform readout shows in the bar only when
+off-default. They are session-sticky (persist across video switches, reset on app restart).
+**User settings:** a `/settings` screen (`Mod+,`, or the palette; `Escape`/Back
 > returns) lists every action with its binding and lets you **rebind any hotkey** by recording a
 > new combination (conflicts are rejected and named, Reset reverts to default). Settings persist to
 > disk via `tauri-plugin-store` and restore on next launch: the remapped hotkeys plus playback

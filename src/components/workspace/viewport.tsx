@@ -20,6 +20,7 @@ export function Viewport() {
     isMuted,
     playbackRate,
     isFullscreen,
+    viewportTransform,
     togglePlay,
     reportProgress,
     reportEnded,
@@ -124,7 +125,7 @@ export function Viewport() {
       aria-label="Video viewport"
       onClick={handleClick}
       onDoubleClick={() => void toggleFullscreen()}
-      className="relative flex h-full w-full items-center justify-center bg-black"
+      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black"
     >
       {!activeVideo && (
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -150,7 +151,12 @@ export function Viewport() {
           <video
             ref={videoRef}
             src={sourceForActive.url}
-            className="max-h-full max-w-full"
+            className="h-full w-full"
+            style={{
+              objectFit: viewportTransform.fitMode,
+              transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
+              transformOrigin: "center",
+            }}
             onLoadedData={(event) => {
               if (isPlaying) {
                 void event.currentTarget.play().catch(logPlayError);

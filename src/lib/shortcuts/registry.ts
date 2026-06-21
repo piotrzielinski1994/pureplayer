@@ -23,7 +23,12 @@ export type ShortcutActionId =
   | "toggle-sidebar"
   | "toggle-transport"
   | "toggle-fullscreen"
-  | "toggle-reveal-transport";
+  | "toggle-reveal-transport"
+  | "rotate-cw"
+  | "cycle-fit-mode"
+  | "zoom-in"
+  | "zoom-out"
+  | "reset-viewport";
 
 export type ShortcutAction = {
   id: ShortcutActionId;
@@ -192,5 +197,40 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
       "When the transport bar is hidden, show it while the mouse is over the video.",
     defaultHotkey: "Mod+Shift+H",
     keywords: ["bottom bar", "hover", "auto show", "auto hide"],
+  },
+  {
+    id: "rotate-cw",
+    name: "Rotate clockwise",
+    description: "Rotate the video 90 degrees clockwise (cycles back to 0).",
+    defaultHotkey: "Mod+Shift+R",
+    keywords: ["rotate", "turn", "orientation", "sideways"],
+  },
+  {
+    id: "cycle-fit-mode",
+    name: "Cycle fit mode",
+    description: "Cycle how the video fits its frame: contain, cover, then fill.",
+    defaultHotkey: "F",
+    keywords: ["fit", "aspect", "contain", "cover", "fill", "crop", "stretch"],
+  },
+  {
+    id: "zoom-in",
+    name: "Zoom in",
+    description: "Zoom into the video by 10% (up to 4x).",
+    defaultHotkey: "=",
+    keywords: ["zoom", "magnify", "scale"],
+  },
+  {
+    id: "zoom-out",
+    name: "Zoom out",
+    description: "Zoom out of the video by 10% (down to 1x).",
+    defaultHotkey: "-",
+    keywords: ["zoom", "scale"],
+  },
+  {
+    id: "reset-viewport",
+    name: "Reset viewport",
+    description: "Reset rotation, fit mode and zoom to defaults.",
+    defaultHotkey: "Mod+0",
+    keywords: ["reset", "transform", "rotate", "zoom", "fit"],
   },
 ];
