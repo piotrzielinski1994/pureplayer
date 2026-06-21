@@ -9,6 +9,7 @@ import { fixtureVideos } from "./fixtures";
 
 // Viewport pulls in the Tauri IPC boundary; mock the seam, not the components.
 vi.mock("@/lib/tauri", () => ({
+  logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) => Promise.resolve(`asset://localhost${path}`),
   openVideoFiles: vi.fn(() => Promise.resolve([])),
 }));

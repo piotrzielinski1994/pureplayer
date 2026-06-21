@@ -20,11 +20,16 @@ const prepareMediaUrl = vi.fn((path: string) =>
 );
 
 const toggleFullscreen = vi.fn(() => Promise.resolve());
+const logPlayback = vi.fn((message: string) => {
+  void message;
+  return Promise.resolve();
+});
 
 vi.mock("@/lib/tauri", () => ({
   prepareMediaUrl: (path: string) => prepareMediaUrl(path),
   openVideoFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: () => toggleFullscreen(),
+  logPlayback: (message: string) => logPlayback(message),
 }));
 
 function SelectButton({ id }: { id: string }) {
@@ -149,6 +154,40 @@ describe("Viewport", () => {
 
     await waitFor(() =>
       expect(within(region()).getByText(/could not play/i)).toBeInTheDocument(),
+    );
+  });
+
+  // behavior: one playback-timeline line is logged on first frame, and only once
+  // even if canplay re-fires (AC-010/AC-012)
+  it("should log a single playback timeline on the first canplay if the video becomes ready", async () => {
+    render(
+      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    const video = await findVideo();
+    fireEvent(video, new Event("canplay"));
+    fireEvent(video, new Event("canplay"));
+
+    await waitFor(() => expect(logPlayback).toHaveBeenCalledTimes(1));
+    expect(logPlayback.mock.calls[0][0]).toContain('playback "3 - Intro"');
+    expect(logPlayback.mock.calls[0][0]).toContain("total");
+  });
+
+  // behavior: a prepare failure logs a failure marker, not a timeline (AC-012)
+  it("should log a prepare-failure marker if preparing the file fails", async () => {
+    prepareMediaUrl.mockRejectedValueOnce(new Error("ffmpeg transcode failed"));
+    render(
+      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(logPlayback).toHaveBeenCalledWith(
+        'playback "3 - Intro": prepare FAILED',
+      ),
     );
   });
 

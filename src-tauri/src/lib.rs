@@ -1,5 +1,6 @@
 mod focus;
 mod import;
+mod logging;
 mod media;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -15,9 +16,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .setup(|app| {
+            logging::init(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             media::prepare_media,
+            media::log_playback,
             focus::focus_webview,
             import::expand_dropped_paths
         ])

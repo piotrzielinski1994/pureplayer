@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Film, Loader2 } from "lucide-react";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { prepareMediaUrl, toggleFullscreen } from "@/lib/tauri";
+import { prepareMediaUrl, toggleFullscreen, logPlayback } from "@/lib/tauri";
+import { formatTimeline } from "@/lib/playback-timing";
 
 function logPlayError(error: unknown) {
   console.error("video play() rejected", error);
 }
+
+type TimelineMarks = {
+  forId: string;
+  name: string;
+  activatedAtMs: number;
+  prepareResolvedAtMs: number | null;
+  firstFrameAtMs: number | null;
+};
 
 type SourceState =
   | { status: "ready"; forId: string; url: string }
@@ -28,6 +37,27 @@ export function Viewport() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [source, setSource] = useState<SourceState | null>(null);
   const [titleHiddenForId, setTitleHiddenForId] = useState<string | null>(null);
+  // Drop->first-frame timeline marks for the active video. Best-effort timing for
+  // the log file; never gates render. Emitted once all three marks land.
+  const timelineRef = useRef<TimelineMarks | null>(null);
+
+  const emitTimelineOnFirstFrame = () => {
+    const marks = timelineRef.current;
+    if (!marks || marks.prepareResolvedAtMs === null) {
+      return;
+    }
+    if (marks.firstFrameAtMs !== null) {
+      return;
+    }
+    marks.firstFrameAtMs = performance.now();
+    void logPlayback(
+      formatTimeline(marks.name, {
+        activatedAtMs: marks.activatedAtMs,
+        prepareResolvedAtMs: marks.prepareResolvedAtMs,
+        firstFrameAtMs: marks.firstFrameAtMs,
+      }),
+    );
+  };
 
   // The title is a brief intro card, not a permanent watermark: visible for 5s
   // whenever the active video changes, then the timer marks THIS id as hidden.
@@ -63,14 +93,26 @@ export function Viewport() {
     }
     let cancelled = false;
     const forId = activeVideo.id;
+    timelineRef.current = {
+      forId,
+      name: activeVideo.name,
+      activatedAtMs: performance.now(),
+      prepareResolvedAtMs: null,
+      firstFrameAtMs: null,
+    };
     prepareMediaUrl(activeVideo.path)
       .then((url) => {
+        const marks = timelineRef.current;
+        if (marks && marks.forId === forId) {
+          marks.prepareResolvedAtMs = performance.now();
+        }
         if (!cancelled) {
           setSource({ status: "ready", forId, url });
         }
       })
       .catch((error) => {
         console.error("prepare_media failed", error);
+        void logPlayback(`playback "${activeVideo.name}": prepare FAILED`);
         if (!cancelled) {
           setSource({ status: "error", forId, message: String(error) });
         }
@@ -157,6 +199,7 @@ export function Viewport() {
               transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
               transformOrigin: "center",
             }}
+            onCanPlay={emitTimelineOnFirstFrame}
             onLoadedData={(event) => {
               if (isPlaying) {
                 void event.currentTarget.play().catch(logPlayError);

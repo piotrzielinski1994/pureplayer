@@ -97,6 +97,10 @@ off-default. They are session-sticky (persist across video switches, reset on ap
 > shows a hidden transport bar as a bottom-edge overlay while the mouse moves over the video; it
 > auto-hides after ~3s of no movement (but stays put while the cursor is on the bar) and reappears
 > on the next move. The playlist and queue modes still reset on reload.
+> **Logging:** each launch writes a fresh `vidui-<YYYYMMDDHHMMSS>.log` to the OS app-log dir
+> (macOS `~/Library/Logs/com.pzielinski.vidui/`); `prepare_media` records each file's container,
+> codecs, chosen plan, cache HIT/MISS and elapsed ms there (see
+> [docs/features/20260621115143-file-logging](docs/features/20260621115143-file-logging/)).
 > Not yet: subtitles, playlist persistence.
 
 ## Repo layout
@@ -115,7 +119,7 @@ src/
   lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn), shortcuts/ (action registry + resolve overrides + global hotkeys), settings/ (Settings ADT + merge, tauri-plugin-store persistence, SettingsProvider)
   index.css             Tailwind v4 + theme tokens
   test/setup.ts         Vitest + Testing Library setup
-src-tauri/              Rust desktop shell: greet, media.rs (ffprobe/ffmpeg prepare_media via bundled sidecars), import.rs (expand_dropped_paths - folder-walk + ext filter for drag-drop), focus.rs (WKWebView first-responder fix), binaries/ (gitignored ffmpeg sidecars), tauri.conf.json
+src-tauri/              Rust desktop shell: greet, media.rs (ffprobe/ffmpeg prepare_media via bundled sidecars, logs plan/cache/elapsed), import.rs (expand_dropped_paths - folder-walk + ext filter for drag-drop), focus.rs (WKWebView first-responder fix), logging.rs (per-launch log filename), binaries/ (gitignored ffmpeg sidecars), tauri.conf.json
 scripts/                fetch-ffmpeg.sh (download bundled ffmpeg/ffprobe sidecars)
 tests/e2e/              Behavior smoke tests
 docs/                   spec/plan per feature, ADR, learnings

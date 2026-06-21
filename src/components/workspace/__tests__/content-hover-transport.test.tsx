@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
 import { fixtureVideos } from "./fixtures";
 
 vi.mock("@/lib/tauri", () => ({
+  logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) => Promise.resolve(`asset://localhost${path}`),
   openVideoFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
