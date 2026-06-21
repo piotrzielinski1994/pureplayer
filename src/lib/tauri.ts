@@ -31,6 +31,17 @@ export async function prepareMediaUrl(path: string): Promise<string> {
   return convertFileSrc(prepared.path);
 }
 
+// Send a preformatted playback-timeline line to the Rust log file (same file as
+// the backend prepare_media diagnostics). Best-effort: a no-op outside a Tauri
+// host and never throws, so instrumentation can't break playback.
+export async function logPlayback(message: string): Promise<void> {
+  try {
+    await invoke("log_playback", { message });
+  } catch {
+    // no-op outside a Tauri host
+  }
+}
+
 // Make the WKWebView the window's first responder again. macOS drops this after
 // a fullscreen transition, killing keyboard input until a click - see the Rust
 // focus_webview command (tao#208). No-op outside a Tauri host.

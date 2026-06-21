@@ -28,6 +28,7 @@ const watchFileDrop = vi.fn((handler: (event: FileDropEvent) => void) => {
 });
 
 vi.mock("@/lib/tauri", () => ({
+  logPlayback: vi.fn(() => Promise.resolve()),
   openVideoFiles: vi.fn(() => Promise.resolve([])),
   prepareMediaUrl: (path: string) => Promise.resolve(`asset://localhost${path}`),
   toggleFullscreen: vi.fn(() => Promise.resolve()),

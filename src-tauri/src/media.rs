@@ -123,23 +123,39 @@ fn audio_convert_args(action: AudioAction) -> Vec<&'static str> {
     }
 }
 
+// Frontend -> same log file channel. The FE measures sub-second playback phases
+// with performance.now() (the log timestamps are only second-granular) and sends
+// the formatted one-liner here to land beside the backend prepare_media lines.
+#[tauri::command]
+pub fn log_playback(message: String) {
+    log::info!("{message}");
+}
+
 #[tauri::command]
 pub async fn prepare_media(
     app: tauri::AppHandle,
     path: String,
 ) -> Result<PreparedMedia, String> {
+    let started = std::time::Instant::now();
     let vcodec = probe_stream(&app, &path, "v:0").await;
     if vcodec.is_empty() {
+        log::error!("prepare_media failed: no video stream (or bundled ffmpeg failed) path={path}");
         return Err(format!(
             "ffprobe found no video stream (or bundled ffmpeg failed) for: {path}"
         ));
     }
     let acodec = probe_stream(&app, &path, "a:0").await;
     let container = probe_container(&app, &path).await;
+    log::info!("prepare_media path={path} container={container} v={vcodec} a={acodec}");
 
     let plan = plan_media(&container, &vcodec, &acodec);
+    log::info!("prepare_media plan={plan:?}");
     let (video, audio) = match plan {
         MediaPlan::Passthrough => {
+            log::info!(
+                "prepare_media passthrough in {}ms path={path}",
+                started.elapsed().as_millis()
+            );
             return Ok(PreparedMedia { path, transcoded: false });
         }
         MediaPlan::Convert { video, audio } => (video, audio),
@@ -149,11 +165,16 @@ pub async fn prepare_media(
     // Only a COMPLETE encode is ever renamed to the final path, so existence
     // alone means a finished, reusable file.
     if target.exists() {
+        log::info!(
+            "prepare_media cache HIT in {}ms path={path} target={target:?}",
+            started.elapsed().as_millis()
+        );
         return Ok(PreparedMedia {
             path: target.to_string_lossy().into_owned(),
             transcoded: true,
         });
     }
+    log::info!("prepare_media cache MISS, transcoding path={path}");
     let part = target.with_extension("mp4.part");
     let _ = std::fs::remove_file(&part);
 
@@ -188,11 +209,18 @@ pub async fn prepare_media(
 
     if code != Some(0) {
         let _ = std::fs::remove_file(&part);
+        log::error!("prepare_media failed: ffmpeg exited {code:?} path={path}");
         return Err(format!("ffmpeg transcode failed for: {path}"));
     }
-    std::fs::rename(&part, &target)
-        .map_err(|e| format!("failed to finalize transcode for {path}: {e}"))?;
+    std::fs::rename(&part, &target).map_err(|e| {
+        log::error!("prepare_media failed: finalize rename path={path}: {e}");
+        format!("failed to finalize transcode for {path}: {e}")
+    })?;
 
+    log::info!(
+        "prepare_media transcoded in {}ms path={path} target={target:?}",
+        started.elapsed().as_millis()
+    );
     Ok(PreparedMedia {
         path: target.to_string_lossy().into_owned(),
         transcoded: true,
