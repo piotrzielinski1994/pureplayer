@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -47,6 +47,9 @@ function Probe() {
       <output aria-label="duration">{String(ws.playbackDurationSec)}</output>
       <output aria-label="direction">{ws.sortDirection}</output>
       <output aria-label="keys">{ws.sortKeys.join(",") || "none"}</output>
+      <output aria-label="volume">{String(ws.volume)}</output>
+      <output aria-label="muted">{String(ws.isMuted)}</output>
+      <output aria-label="rate">{String(ws.playbackRate)}</output>
       <output aria-label="sidebar-visible">
         {String(ws.isSidebarVisible)}
       </output>
@@ -68,6 +71,10 @@ function Probe() {
       </button>
       <button onClick={() => ws.toggleSidebar()}>do-toggle-sidebar</button>
       <button onClick={() => ws.toggleTransport()}>do-toggle-transport</button>
+      <button onClick={() => ws.changeVolume(-0.05)}>do-volume-down</button>
+      <button onClick={() => ws.toggleMute()}>do-toggle-mute</button>
+      <button onClick={() => ws.changeRate(0.1)}>do-rate-up</button>
+      <button onClick={() => ws.setFullscreen(true)}>do-enter-fullscreen</button>
       <button onClick={() => ws.toggleSortKey("title")}>key-title</button>
       <button onClick={() => ws.toggleSortKey("type")}>key-type</button>
       <button onClick={() => ws.toggleSortDirection()}>flip-dir</button>
@@ -684,5 +691,160 @@ describe("workspace context", () => {
 
     expect(screen.getByLabelText("current")).toHaveTextContent("0");
     expect(screen.getByLabelText("duration")).toHaveTextContent("0");
+  });
+
+  // behavior: playback prefs default to full volume, unmuted, 1x rate if no init props (spec §5 defaults)
+  it("should default volume to 1, isMuted to false and playbackRate to 1 if just mounted", () => {
+    renderProbe({ videos: fixtureVideos });
+
+    expect(screen.getByLabelText("volume")).toHaveTextContent("1");
+    expect(screen.getByLabelText("muted")).toHaveTextContent("false");
+    expect(screen.getByLabelText("rate")).toHaveTextContent("1");
+  });
+
+  // behavior: seeded playback init props seed context state at launch (TC-008 / AC-008)
+  it("should seed volume, isMuted and playbackRate from the initial* props", () => {
+    renderProbe({
+      videos: fixtureVideos,
+      initialVolume: 0.5,
+      initialMuted: true,
+      initialPlaybackRate: 1.5,
+    });
+
+    expect(screen.getByLabelText("volume")).toHaveTextContent("0.5");
+    expect(screen.getByLabelText("muted")).toHaveTextContent("true");
+    expect(screen.getByLabelText("rate")).toHaveTextContent("1.5");
+  });
+
+  // behavior: seeded UI init props hide sidebar + transport and set sort desc at launch (TC-010 / AC-009)
+  it("should seed sidebar/transport hidden and desc sort from the initial* props", () => {
+    renderProbe({
+      videos: fixtureVideos,
+      initialSidebarHidden: true,
+      initialTransportHidden: true,
+      initialSortDirection: "desc",
+    });
+
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "false",
+    );
+    expect(screen.getByLabelText("direction")).toHaveTextContent("desc");
+  });
+
+  // side-effect-contract: changeVolume fires onVolumeChange with the new clamped volume (TC-009 / AC-008)
+  it("should fire onVolumeChange with the new clamped volume if volume is changed", async () => {
+    const user = userEvent.setup();
+    const onVolumeChange = vi.fn();
+    renderProbe({
+      videos: fixtureVideos,
+      initialActiveVideoId: "v-1",
+      onVolumeChange,
+    });
+
+    await user.click(screen.getByRole("button", { name: "do-volume-down" }));
+
+    expect(onVolumeChange).toHaveBeenCalledWith(0.95);
+  });
+
+  // side-effect-contract: toggleMute fires onMutedChange(true) when unmuted (TC-009 / AC-008)
+  it("should fire onMutedChange(true) if mute is toggled on", async () => {
+    const user = userEvent.setup();
+    const onMutedChange = vi.fn();
+    renderProbe({
+      videos: fixtureVideos,
+      initialActiveVideoId: "v-1",
+      onMutedChange,
+    });
+
+    await user.click(screen.getByRole("button", { name: "do-toggle-mute" }));
+
+    expect(onMutedChange).toHaveBeenCalledWith(true);
+  });
+
+  // side-effect-contract: changeRate fires onPlaybackRateChange with the new rate (TC-009 / AC-008)
+  it("should fire onPlaybackRateChange with the new rate if rate is changed", async () => {
+    const user = userEvent.setup();
+    const onPlaybackRateChange = vi.fn();
+    renderProbe({
+      videos: fixtureVideos,
+      initialActiveVideoId: "v-1",
+      onPlaybackRateChange,
+    });
+
+    await user.click(screen.getByRole("button", { name: "do-rate-up" }));
+
+    expect(onPlaybackRateChange).toHaveBeenCalledWith(1.1);
+  });
+
+  // side-effect-contract: toggleSidebar fires onSidebarHiddenChange(true) when it was visible (TC-011 / AC-009)
+  it("should fire onSidebarHiddenChange(true) if the sidebar is toggled from visible", async () => {
+    const user = userEvent.setup();
+    const onSidebarHiddenChange = vi.fn();
+    renderProbe({
+      videos: fixtureVideos,
+      initialActiveVideoId: "v-1",
+      onSidebarHiddenChange,
+    });
+
+    await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
+
+    expect(onSidebarHiddenChange).toHaveBeenCalledWith(true);
+  });
+
+  // side-effect-contract: toggleTransport fires onTransportHiddenChange(true) when it was visible (TC-011 / AC-009)
+  it("should fire onTransportHiddenChange(true) if the transport is toggled from visible", async () => {
+    const user = userEvent.setup();
+    const onTransportHiddenChange = vi.fn();
+    renderProbe({
+      videos: fixtureVideos,
+      initialActiveVideoId: "v-1",
+      onTransportHiddenChange,
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-transport" }),
+    );
+
+    expect(onTransportHiddenChange).toHaveBeenCalledWith(true);
+  });
+
+  // side-effect-contract: toggleSortDirection fires onSortDirectionChange with the new direction (TC-011 / AC-009)
+  it("should fire onSortDirectionChange('desc') if the direction is flipped from asc", async () => {
+    const user = userEvent.setup();
+    const onSortDirectionChange = vi.fn();
+    renderProbe({
+      videos: fixtureVideos,
+      initialActiveVideoId: "v-1",
+      onSortDirectionChange,
+    });
+
+    await user.click(screen.getByRole("button", { name: "flip-dir" }));
+
+    expect(onSortDirectionChange).toHaveBeenCalledWith("desc");
+  });
+
+  // behavior + side-effect-contract: entering fullscreen hides chrome transiently but does NOT persist it (E-9 / AC-009)
+  it("should hide chrome without firing the sidebar/transport savers if fullscreen is entered", async () => {
+    const user = userEvent.setup();
+    const onSidebarHiddenChange = vi.fn();
+    const onTransportHiddenChange = vi.fn();
+    renderProbe({
+      videos: fixtureVideos,
+      initialActiveVideoId: "v-1",
+      onSidebarHiddenChange,
+      onTransportHiddenChange,
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "do-enter-fullscreen" }),
+    );
+
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "false",
+    );
+    expect(onSidebarHiddenChange).not.toHaveBeenCalled();
+    expect(onTransportHiddenChange).not.toHaveBeenCalled();
   });
 });

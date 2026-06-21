@@ -5,6 +5,10 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { Workspace } from "@/components/workspace/workspace";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
+import { toggleFullscreen } from "@/lib/tauri";
 import { fixtureVideos } from "./fixtures";
 
 // The workspace renders the Viewport, which reaches the Tauri IPC boundary;
@@ -28,9 +32,11 @@ type RenderProps = Omit<
 const renderWorkspace = (props: RenderProps = { videos: fixtureVideos }) =>
   render(
     <HotkeysProvider>
-      <WorkspaceProvider {...props}>
-        <Workspace />
-      </WorkspaceProvider>
+      <SettingsProvider store={createInMemorySettingsStore()}>
+        <WorkspaceProvider {...props}>
+          <Workspace />
+        </WorkspaceProvider>
+      </SettingsProvider>
     </HotkeysProvider>,
   );
 
@@ -86,7 +92,7 @@ describe("Workspace command palette integration", () => {
     const user = userEvent.setup();
     renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
 
-    expect(screen.getByRole("button", { name: /play/i })).toBeInTheDocument();
+    await screen.findByRole("button", { name: /play/i });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
@@ -102,7 +108,7 @@ describe("Workspace command palette integration", () => {
     const user = userEvent.setup();
     renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
 
-    expect(screen.getByRole("button", { name: /play/i })).toBeInTheDocument();
+    await screen.findByRole("button", { name: /play/i });
 
     await user.keyboard("[Space]");
 
@@ -137,9 +143,7 @@ describe("Workspace command palette integration", () => {
     const user = userEvent.setup();
     renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
 
-    expect(
-      screen.getByRole("list", { name: /playlist/i }),
-    ).toBeInTheDocument();
+    await screen.findByRole("list", { name: /playlist/i });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
@@ -160,9 +164,7 @@ describe("Workspace command palette integration", () => {
     const user = userEvent.setup();
     renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
 
-    expect(
-      screen.getByRole("list", { name: /playlist/i }),
-    ).toBeInTheDocument();
+    await screen.findByRole("list", { name: /playlist/i });
 
     await user.keyboard("{Control>}b{/Control}");
 
@@ -179,9 +181,7 @@ describe("Workspace command palette integration", () => {
     const user = userEvent.setup();
     renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
 
-    expect(
-      screen.getByRole("button", { name: /previous/i }),
-    ).toBeInTheDocument();
+    await screen.findByRole("button", { name: /previous/i });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
@@ -204,9 +204,7 @@ describe("Workspace command palette integration", () => {
     const user = userEvent.setup();
     renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
 
-    expect(
-      screen.getByRole("button", { name: /previous/i }),
-    ).toBeInTheDocument();
+    await screen.findByRole("button", { name: /previous/i });
 
     await user.keyboard("{Control>}j{/Control}");
 
@@ -229,5 +227,57 @@ describe("Workspace command palette integration", () => {
     await user.click(screen.getByRole("option", { name: /next video/i }));
 
     await waitFor(() => expect(searchInput()).not.toBeInTheDocument());
+  });
+
+  // behavior: EVERY registered action (except the palette opener) is runnable from the palette (no drift)
+  it("should list a row for every registered action except the palette opener", async () => {
+    const user = userEvent.setup();
+    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+
+    await user.keyboard("{Control>}k{/Control}");
+    await waitFor(() => expect(searchInput()).toBeInTheDocument());
+
+    for (const action of SHORTCUT_ACTIONS) {
+      if (
+        action.id === "open-command-palette" ||
+        action.id === "close-settings"
+      ) {
+        continue;
+      }
+      expect(
+        screen.getByRole("option", { name: new RegExp(action.name, "i") }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  // side-effect-contract: the toggle-fullscreen action runs the fullscreen IPC (AC-015)
+  it("should toggle fullscreen and close the palette if 'Toggle fullscreen' is selected", async () => {
+    const user = userEvent.setup();
+    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+
+    await user.keyboard("{Control>}k{/Control}");
+    await waitFor(() => expect(searchInput()).toBeInTheDocument());
+
+    await user.click(
+      screen.getByRole("option", { name: /toggle fullscreen/i }),
+    );
+
+    await waitFor(() => expect(searchInput()).not.toBeInTheDocument());
+    expect(toggleFullscreen).toHaveBeenCalled();
+  });
+
+  // behavior: a keyword ('bottom bar') matches the transport action even though its NAME differs (AC-015)
+  it("should match the transport action by its 'bottom bar' keyword", async () => {
+    const user = userEvent.setup();
+    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+
+    await user.keyboard("{Control>}k{/Control}");
+    await waitFor(() => expect(searchInput()).toBeInTheDocument());
+
+    await user.type(searchInput()!, "bottom bar");
+
+    expect(
+      screen.getByRole("option", { name: /toggle transport bar/i }),
+    ).toBeInTheDocument();
   });
 });

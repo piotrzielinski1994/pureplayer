@@ -6,9 +6,11 @@ import {
 import { Sidebar } from "@/components/workspace/sidebar";
 import { Content } from "@/components/workspace/content";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useSettings } from "@/lib/settings/settings-context";
 
 export function WorkspaceLayout() {
   const { isSidebarVisible } = useWorkspace();
+  const { settings, saveLayout } = useSettings();
   const isSidebarShown = isSidebarVisible;
 
   // Sidebar obeys ONLY its own visibility flag. Entering fullscreen auto-hides
@@ -16,7 +18,12 @@ export function WorkspaceLayout() {
   // fullscreen - never gated, so it can't lock out. The content panel keeps its
   // key so React never remounts <Content/> (and the <video> inside).
   return (
-    <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
+    <ResizablePanelGroup
+      orientation="horizontal"
+      className="h-full w-full"
+      defaultLayout={settings.layout}
+      onLayoutChanged={saveLayout}
+    >
       {isSidebarShown && (
         <ResizablePanel
           key="sidebar"

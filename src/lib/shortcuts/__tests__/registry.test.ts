@@ -37,6 +37,41 @@ describe("shortcut registry", () => {
     expect(transport?.defaultHotkey).toBe("Mod+J");
   });
 
+  // behavior: settings navigation actions are registered (FR-7 AC-010)
+  it("should include 'open-settings' bound to Mod+, and 'close-settings' bound to Escape if read", () => {
+    const openSettings = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "open-settings",
+    );
+    const closeSettings = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "close-settings",
+    );
+
+    expect(openSettings?.defaultHotkey).toBe("Mod+,");
+    expect(closeSettings?.defaultHotkey).toBe("Escape");
+  });
+
+  // behavior: fullscreen + reveal-transport actions are registered (FR-7 AC-015)
+  it("should include 'toggle-fullscreen' and 'toggle-reveal-transport' actions if read", () => {
+    const fullscreen = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "toggle-fullscreen",
+    );
+    const reveal = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "toggle-reveal-transport",
+    );
+
+    expect(fullscreen?.defaultHotkey).toBe("Mod+Shift+F");
+    expect(reveal?.defaultHotkey).toBe("Mod+Shift+H");
+  });
+
+  // behavior: the transport action carries 'bottom bar' as a search keyword (AC-015)
+  it("should give the transport action a 'bottom bar' keyword if read", () => {
+    const transport = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "toggle-transport",
+    );
+
+    expect(transport?.keywords).toContain("bottom bar");
+  });
+
   // behavior: action ids must be unique so each maps to exactly one handler/binding (AC-003)
   it("should expose a unique id for every registered action if enumerated", () => {
     const ids = SHORTCUT_ACTIONS.map((action) => action.id);

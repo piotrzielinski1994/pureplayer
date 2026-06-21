@@ -5,6 +5,8 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { Workspace } from "@/components/workspace/workspace";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import type { VideoNode } from "@/components/workspace/mock-data";
 
 // The Tauri IPC boundary is the single mockable seam. We mock only this module;
@@ -44,9 +46,11 @@ const startVideos: VideoNode[] = [
 const renderWorkspace = (videos: VideoNode[] = []) =>
   render(
     <HotkeysProvider>
-      <WorkspaceProvider videos={videos} initialActiveVideoId={videos[0]?.id}>
-        <Workspace />
-      </WorkspaceProvider>
+      <SettingsProvider store={createInMemorySettingsStore()}>
+        <WorkspaceProvider videos={videos} initialActiveVideoId={videos[0]?.id}>
+          <Workspace />
+        </WorkspaceProvider>
+      </SettingsProvider>
     </HotkeysProvider>,
   );
 
@@ -103,6 +107,7 @@ describe("Workspace drag-drop import", () => {
 
     // Start playback (the provider boots paused) so "still playing" is a real
     // precondition the drop must not disturb.
+    await screen.findByRole("list", { name: /playlist/i });
     await user.click(
       within(playlist()).getByRole("listitem", { name: /x\.mp4/i }),
     );

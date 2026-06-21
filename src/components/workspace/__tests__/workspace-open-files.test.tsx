@@ -5,6 +5,8 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { Workspace } from "@/components/workspace/workspace";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 
 // The Tauri IPC boundary is the single mockable seam. We mock only this module;
 // the Workspace, context, viewport and transport are the real SUT.
@@ -24,9 +26,11 @@ vi.mock("@/lib/tauri", () => ({
 const renderWorkspace = () =>
   render(
     <HotkeysProvider>
-      <WorkspaceProvider videos={[]}>
-        <Workspace />
-      </WorkspaceProvider>
+      <SettingsProvider store={createInMemorySettingsStore()}>
+        <WorkspaceProvider videos={[]}>
+          <Workspace />
+        </WorkspaceProvider>
+      </SettingsProvider>
     </HotkeysProvider>,
   );
 

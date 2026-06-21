@@ -71,20 +71,27 @@ Rust backend tests: `cd src-tauri && cargo test`.
 > The sort control toggles ascending/descending with natural numeric ordering (a
 > numeric filename prefix sorts by value, so `3` precedes `21`). All UI + playback state (selection,
 > active video, play/pause, live current/duration, sort direction, fullscreen) is shared via a
-> `WorkspaceProvider` context (no prop drilling). The `/settings` route still exists (no in-UI link
-> yet); the `greet` Tauri command stays wired as the IPC proof for later use. A `Mod+K` command
+> `WorkspaceProvider` context (no prop drilling). The `greet` Tauri command stays wired as the IPC proof for later use. A `Mod+K` command
 > palette (cmdk) lists the workspace actions (open files, play/pause, next, prev, relative seek,
 > volume up/down, mute, speed up/down, toggle shuffle, cycle repeat, toggle sort, toggle sidebar,
-> toggle transport bar); each
-> action also has its own global hotkey. **Extended transport:** arrows seek the active video
+> toggle transport bar, toggle fullscreen, toggle reveal-on-hover, open settings) - every runnable
+> action is in the palette, and entries carry search keywords (e.g. "bottom bar" finds the transport
+> toggle); each action also has its own global hotkey (fullscreen `Mod+Shift+F`, reveal toggle `Mod+Shift+H`). **Extended transport:** arrows seek the active video
 > (Left/Right ±5s, Shift+Left/Right ±1s), Up/Down adjust volume (±5%) and `M` mutes (mute button +
 > volume slider in the transport bar), `[`/`]` step playback speed by 0.1x within 0.5x-2x (a rate
 > readout shows in the bar only when off 1x). **Queue playback:** when a video ends it auto-advances
 > to the next; a repeat control (`R`, off -> all -> one) loops the list or replays one, and a shuffle
 > toggle (`S`) plays a stable shuffled order that drives both auto-advance and next/prev. With repeat
 > off, the last video's end stops playback (no wrap); repeat-all wraps. Both are buttons in the
-> transport bar. Bindings are fixed defaults - no user remapping or
-> persistence yet (playlist, panel visibility, and queue modes reset on reload).
+> transport bar. **User settings:** a `/settings` screen (`Mod+,`, or the palette; `Escape`/Back
+> returns) lists every action with its binding and lets you **rebind any hotkey** by recording a
+> new combination (conflicts are rejected and named, Reset reverts to default). Settings persist to
+> disk via `tauri-plugin-store` and restore on next launch: the remapped hotkeys plus playback
+> defaults (volume, mute, speed), UI defaults (sidebar/transport visibility, sort direction), and
+> the resizable sidebar/content split sizes. A **reveal-transport-on-hover** toggle (on by default)
+> shows a hidden transport bar as a bottom-edge overlay while the mouse moves over the video; it
+> auto-hides after ~3s of no movement (but stays put while the cursor is on the bar) and reappears
+> on the next move. The playlist and queue modes still reset on reload.
 > Not yet: subtitles, playlist persistence.
 
 ## Repo layout
@@ -95,11 +102,12 @@ src/
   main.tsx              React entry: providers + RouterProvider
   router.tsx            Code-based TanStack Router assembly
   app/providers.tsx     QueryClientProvider + HotkeysProvider
-  routes/               __root (layout + 404), index (player workspace), settings
+  routes/               __root (layout + 404), index (player workspace + settings-persistence bridge), settings (remappable-hotkeys screen)
   components/
     workspace/          player shell: context, flat video-list, sort-natural, viewport (real video), transport bar, videos-from-paths, command palette, drop-overlay (drag-drop import)
-    ui/                 shadcn primitives (button, badge, scroll-area, resizable, command, dialog)
-  lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn), shortcuts/ (action registry + global hotkeys)
+    settings/           settings screen: shortcuts-section + shortcut-row (capture-keystroke rebind), playback-section (reveal-transport-on-hover toggle)
+    ui/                 shadcn primitives (button, badge, scroll-area, resizable, command, dialog, switch)
+  lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn), shortcuts/ (action registry + resolve overrides + global hotkeys), settings/ (Settings ADT + merge, tauri-plugin-store persistence, SettingsProvider)
   index.css             Tailwind v4 + theme tokens
   test/setup.ts         Vitest + Testing Library setup
 src-tauri/              Rust desktop shell: greet, media.rs (ffprobe/ffmpeg prepare_media via bundled sidecars), import.rs (expand_dropped_paths - folder-walk + ext filter for drag-drop), focus.rs (WKWebView first-responder fix), binaries/ (gitignored ffmpeg sidecars), tauri.conf.json

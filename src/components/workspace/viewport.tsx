@@ -26,6 +26,20 @@ export function Viewport() {
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [source, setSource] = useState<SourceState | null>(null);
+  const [titleHiddenForId, setTitleHiddenForId] = useState<string | null>(null);
+
+  // The title is a brief intro card, not a permanent watermark: visible for 5s
+  // whenever the active video changes, then the timer marks THIS id as hidden.
+  // Switching files changes the id, so the title re-shows for the new one.
+  const TITLE_VISIBLE_MS = 5000;
+  useEffect(() => {
+    const id = activeVideo?.id;
+    if (id === undefined) {
+      return;
+    }
+    const timer = setTimeout(() => setTitleHiddenForId(id), TITLE_VISIBLE_MS);
+    return () => clearTimeout(timer);
+  }, [activeVideo?.id]);
 
   // A single click toggles play/pause instantly (no debounce, so it feels as
   // snappy as the transport button). A double click goes fullscreen: the DOM
@@ -156,7 +170,7 @@ export function Viewport() {
             }
             onEnded={() => reportEnded()}
           />
-          {!isFullscreen && (
+          {!isFullscreen && titleHiddenForId !== activeVideo.id && (
             <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-sm text-white">
               {activeVideo.name}
             </p>

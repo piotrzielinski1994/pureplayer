@@ -29,6 +29,7 @@ const buildCommand = (
 ): PaletteCommand => ({
   action,
   binding: action.defaultHotkey,
+  keywords: action.keywords ?? [],
   run,
 });
 

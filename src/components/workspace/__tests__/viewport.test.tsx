@@ -213,6 +213,51 @@ describe("Viewport", () => {
     );
   });
 
+  // behavior: the title overlay auto-hides after 5s of playback (AC-018)
+  it("should hide the active video's name after 5 seconds", async () => {
+    render(
+      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(within(region()).getByText(/3 - Intro/i)).toBeInTheDocument(),
+    );
+
+    await waitFor(
+      () =>
+        expect(within(region()).queryByText(/3 - Intro/i)).not.toBeInTheDocument(),
+      { timeout: 6000 },
+    );
+  }, 8000);
+
+  // behavior: switching the active video re-shows the title for the new file (AC-018)
+  it("should re-show the title if the active video switches after the timeout", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+        <Viewport />
+        <SelectButton id="v-9" />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(within(region()).getByText(/3 - Intro/i)).toBeInTheDocument(),
+    );
+    await waitFor(
+      () =>
+        expect(within(region()).queryByText(/3 - Intro/i)).not.toBeInTheDocument(),
+      { timeout: 6000 },
+    );
+
+    await user.click(screen.getByRole("button", { name: "select-v-9" }));
+
+    await waitFor(() =>
+      expect(within(region()).getByText(/9 - Interlude/i)).toBeInTheDocument(),
+    );
+  }, 8000);
+
   // side-effect-contract: double-clicking the viewport toggles native fullscreen (AC-006)
   it("should call toggleFullscreen once if the viewport is double-clicked", async () => {
     const user = userEvent.setup();

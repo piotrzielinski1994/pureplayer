@@ -74,6 +74,17 @@ type WorkspaceProviderProps = {
   initialActiveVideoId?: string;
   initialSortKeys?: SortField[];
   initialSortDirection?: SortDirection;
+  initialVolume?: number;
+  initialMuted?: boolean;
+  initialPlaybackRate?: number;
+  initialSidebarHidden?: boolean;
+  initialTransportHidden?: boolean;
+  onVolumeChange?: (volume: number) => void;
+  onMutedChange?: (isMuted: boolean) => void;
+  onPlaybackRateChange?: (rate: number) => void;
+  onSidebarHiddenChange?: (hidden: boolean) => void;
+  onTransportHiddenChange?: (hidden: boolean) => void;
+  onSortDirectionChange?: (direction: SortDirection) => void;
   rng?: () => number;
 };
 
@@ -83,6 +94,17 @@ export function WorkspaceProvider({
   initialActiveVideoId,
   initialSortKeys = [],
   initialSortDirection = "asc",
+  initialVolume = 1,
+  initialMuted = false,
+  initialPlaybackRate = 1,
+  initialSidebarHidden = false,
+  initialTransportHidden = false,
+  onVolumeChange,
+  onMutedChange,
+  onPlaybackRateChange,
+  onSidebarHiddenChange,
+  onTransportHiddenChange,
+  onSortDirectionChange,
   rng = Math.random,
 }: WorkspaceProviderProps) {
   const [sourceVideos, setSourceVideos] = useState<VideoNode[]>(videos);
@@ -96,9 +118,9 @@ export function WorkspaceProvider({
   const [playbackCurrentSec, setPlaybackCurrentSec] = useState(0);
   const [playbackDurationSec, setPlaybackDurationSec] = useState(0);
   const [seekToSec, setSeekToSec] = useState<number | null>(null);
-  const [volume, setVolumeState] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
+  const [volume, setVolumeState] = useState(initialVolume);
+  const [isMuted, setIsMuted] = useState(initialMuted);
+  const [playbackRate, setPlaybackRate] = useState(initialPlaybackRate);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [isShuffling, setIsShuffling] = useState(false);
@@ -106,11 +128,17 @@ export function WorkspaceProvider({
   const [sortKeys, setSortKeys] = useState<SortField[]>(initialSortKeys);
   const [sortDirection, setSortDirection] =
     useState<SortDirection>(initialSortDirection);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
-  const [isTransportVisible, setIsTransportVisible] = useState(true);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(!initialSidebarHidden);
+  const [isTransportVisible, setIsTransportVisible] = useState(
+    !initialTransportHidden,
+  );
   const wasFullscreen = useRef(false);
-  const chromeRef = useRef({ sidebar: true, transport: true });
-  const preFullscreenChrome = useRef({ sidebar: true, transport: true });
+  const initialChrome = {
+    sidebar: !initialSidebarHidden,
+    transport: !initialTransportHidden,
+  };
+  const chromeRef = useRef(initialChrome);
+  const preFullscreenChrome = useRef(initialChrome);
   const sourceVideosRef = useRef(sourceVideos);
   const activeVideoIdRef = useRef(activeVideoId);
 
@@ -273,25 +301,33 @@ export function WorkspaceProvider({
         if (activeVideoId === null) {
           return;
         }
-        setVolumeState(clampVolume(next));
+        const clamped = clampVolume(next);
+        setVolumeState(clamped);
+        onVolumeChange?.(clamped);
       },
       changeVolume: (delta) => {
         if (activeVideoId === null) {
           return;
         }
-        setVolumeState((current) => clampVolume(current + delta));
+        const clamped = clampVolume(volume + delta);
+        setVolumeState(clamped);
+        onVolumeChange?.(clamped);
       },
       toggleMute: () => {
         if (activeVideoId === null) {
           return;
         }
-        setIsMuted((muted) => !muted);
+        const next = !isMuted;
+        setIsMuted(next);
+        onMutedChange?.(next);
       },
       changeRate: (delta) => {
         if (activeVideoId === null) {
           return;
         }
-        setPlaybackRate((current) => clampRate(current + delta));
+        const clamped = clampRate(playbackRate + delta);
+        setPlaybackRate(clamped);
+        onPlaybackRateChange?.(clamped);
       },
       reportProgress: (currentSec, durationSec) => {
         setPlaybackCurrentSec(currentSec);
@@ -343,10 +379,21 @@ export function WorkspaceProvider({
             ? current.filter((key) => key !== field)
             : [...current, field],
         ),
-      toggleSortDirection: () =>
-        setSortDirection((current) => (current === "asc" ? "desc" : "asc")),
-      toggleSidebar: () => setIsSidebarVisible((visible) => !visible),
-      toggleTransport: () => setIsTransportVisible((visible) => !visible),
+      toggleSortDirection: () => {
+        const next = sortDirection === "asc" ? "desc" : "asc";
+        setSortDirection(next);
+        onSortDirectionChange?.(next);
+      },
+      toggleSidebar: () => {
+        const next = !isSidebarVisible;
+        setIsSidebarVisible(next);
+        onSidebarHiddenChange?.(!next);
+      },
+      toggleTransport: () => {
+        const next = !isTransportVisible;
+        setIsTransportVisible(next);
+        onTransportHiddenChange?.(!next);
+      },
     };
   }, [
     playlist,
@@ -371,6 +418,12 @@ export function WorkspaceProvider({
     sortDirection,
     isSidebarVisible,
     isTransportVisible,
+    onVolumeChange,
+    onMutedChange,
+    onPlaybackRateChange,
+    onSidebarHiddenChange,
+    onTransportHiddenChange,
+    onSortDirectionChange,
   ]);
 
   return (

@@ -1,5 +1,7 @@
 export type ShortcutActionId =
   | "open-command-palette"
+  | "open-settings"
+  | "close-settings"
   | "open-files"
   | "toggle-play"
   | "next-video"
@@ -17,14 +19,19 @@ export type ShortcutActionId =
   | "cycle-repeat"
   | "toggle-sort-direction"
   | "toggle-sidebar"
-  | "toggle-transport";
+  | "toggle-transport"
+  | "toggle-fullscreen"
+  | "toggle-reveal-transport";
 
 export type ShortcutAction = {
   id: ShortcutActionId;
   name: string;
   description: string;
   defaultHotkey: string;
+  keywords?: string[];
 };
+
+export type ShortcutOverrides = Partial<Record<ShortcutActionId, string>>;
 
 export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
   {
@@ -32,6 +39,18 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     name: "Open command palette",
     description: "Search and run any action from a command list.",
     defaultHotkey: "Mod+K",
+  },
+  {
+    id: "open-settings",
+    name: "Open settings",
+    description: "Go to the settings page.",
+    defaultHotkey: "Mod+,",
+  },
+  {
+    id: "close-settings",
+    name: "Back to workspace",
+    description: "Leave settings and return to the workspace.",
+    defaultHotkey: "Escape",
   },
   {
     id: "open-files",
@@ -134,11 +153,28 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     name: "Toggle sidebar",
     description: "Show or hide the playlist sidebar.",
     defaultHotkey: "Mod+B",
+    keywords: ["playlist", "panel"],
   },
   {
     id: "toggle-transport",
     name: "Toggle transport bar",
     description: "Show or hide the transport bar.",
     defaultHotkey: "Mod+J",
+    keywords: ["bottom bar", "controls", "playback bar"],
+  },
+  {
+    id: "toggle-fullscreen",
+    name: "Toggle fullscreen",
+    description: "Enter or leave fullscreen playback.",
+    defaultHotkey: "Mod+Shift+F",
+    keywords: ["full screen", "immersive"],
+  },
+  {
+    id: "toggle-reveal-transport",
+    name: "Toggle reveal transport on hover",
+    description:
+      "When the transport bar is hidden, show it while the mouse is over the video.",
+    defaultHotkey: "Mod+Shift+H",
+    keywords: ["bottom bar", "hover", "auto show", "auto hide"],
   },
 ];
