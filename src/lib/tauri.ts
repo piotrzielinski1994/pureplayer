@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -25,14 +26,23 @@ export type PreparedMedia = {
   path: string;
   transcoded: boolean;
   durationSec: number | null;
+  // Present on the two-phase path: the silent video plays now and a later
+  // `media://audio-ready` event with this id delivers the full-audio file.
+  swapId: number | null;
 };
 
-export type PreparedSource = { url: string; durationSec: number | null };
+export type PreparedSource = {
+  url: string;
+  durationSec: number | null;
+  swapId: number | null;
+};
 
-// Probe the file. If the webview can't decode it (e.g. AV1/VP9/Opus), the Rust
-// side streams it as HLS and returns an http://localhost playlist URL, which the
-// webview's native HLS player loads directly. A playable file instead comes back
-// as a path, fed through the asset protocol. We branch on the URL scheme.
+// Probe the file. Most files come back as a complete file path (a passthrough
+// original, or a freshly remuxed MP4) fed through the asset protocol, so the
+// `<video>` gets a finite duration and native instant seeking. Files whose video
+// can't be copied (AV1/VP9) stream as HLS and return an http://localhost playlist
+// URL the native player loads directly - we branch on the URL scheme. A `swapId`
+// marks the two-phase path (silent video now, audio swapped in later).
 // `durationSec` is the real source length: an HLS stream's own duration reads
 // Infinity until it ends, so the FE falls back to this for the transport readout.
 export async function prepareMediaUrl(path: string): Promise<PreparedSource> {
@@ -42,7 +52,27 @@ export async function prepareMediaUrl(path: string): Promise<PreparedSource> {
   return {
     url: isUrl ? prepared.path : convertFileSrc(prepared.path),
     durationSec: prepared.durationSec,
+    swapId: prepared.swapId ?? null,
   };
+}
+
+export type AudioReady = { swapId: number; url: string };
+
+// Subscribe to the backend's `media://audio-ready` event: the two-phase path's
+// silent video has a full-audio file ready to swap to. The raw payload carries a
+// file path; we route it through the asset protocol like any other complete file.
+// No-op (NO_UNLISTEN) outside a Tauri host, mirroring the other watch* helpers.
+export function watchAudioReady(
+  handler: (ready: AudioReady) => void,
+): Promise<() => void> {
+  // listen() rejects asynchronously outside a Tauri host (no IPC bridge), so we
+  // swallow the rejection here too, not just a synchronous throw.
+  return listen<{ swapId: number; path: string }>(
+    "media://audio-ready",
+    ({ payload }) => {
+      handler({ swapId: payload.swapId, url: convertFileSrc(payload.path) });
+    },
+  ).catch(() => NO_UNLISTEN);
 }
 
 // Send a preformatted playback-timeline line to the Rust log file (same file as

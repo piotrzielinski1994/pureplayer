@@ -18,6 +18,7 @@ import { fixtureVideos } from "./fixtures";
 // The viewport reaches the Tauri IPC boundary; mock that seam (not the
 // components) so the real <video> can mount and reflect the transforms under jsdom.
 vi.mock("@/lib/tauri", () => ({
+  watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),

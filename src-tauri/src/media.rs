@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use tauri::{async_runtime, Manager};
+use tauri::{async_runtime, Emitter, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
@@ -16,6 +16,21 @@ pub struct PreparedMedia {
     // own duration is still Infinity. None when ffprobe didn't report one.
     #[serde(rename = "durationSec")]
     pub duration_sec: Option<f64>,
+    // Set on the two-phase (video-then-audio) path: the FE plays the silent video
+    // immediately and, when the background AAC re-encode finishes, an
+    // `media://audio-ready` event carrying this id delivers the full-audio file to
+    // swap in. None for every other path (the file is already complete).
+    #[serde(rename = "swapId")]
+    pub swap_id: Option<u64>,
+}
+
+// Payload of the `media://audio-ready` event: which prepared source it belongs to
+// (swap_id) and the complete file (with audio) to swap the <video> src to.
+#[derive(Clone, Serialize)]
+struct AudioReadyPayload {
+    #[serde(rename = "swapId")]
+    swap_id: u64,
+    path: String,
 }
 
 // A running HLS encode: the ffmpeg child (kept alive past prepare_media so it
@@ -26,12 +41,25 @@ pub struct HlsJob {
     pub child: CommandChild,
 }
 
-// App-lifetime state for HLS streaming: the temp root the loopback server serves,
-// its port, and the single in-flight job (only one video plays at a time).
-pub struct HlsState {
-    pub root: PathBuf,
+// A background audio re-encode for the two-phase (video-then-audio) path: the
+// ffmpeg child writing the full file, the output path (to remove on cancel), and
+// the original source path so a stale completion can be matched/ignored.
+pub struct BgJob {
+    pub source: String,
+    pub child: CommandChild,
+    pub out: PathBuf,
+}
+
+// App-lifetime media state: the HLS temp root the loopback server serves (rare
+// re-encode path) plus its port, the remux root where complete MP4s are written
+// (the common copy path), and the single in-flight job of each kind - only one
+// video plays at a time.
+pub struct MediaState {
+    pub hls_root: PathBuf,
+    pub remux_root: PathBuf,
     pub port: u16,
-    pub current: Mutex<Option<HlsJob>>,
+    pub current_hls: Mutex<Option<HlsJob>>,
+    pub current_bg: Mutex<Option<BgJob>>,
 }
 
 // How long to wait for ffmpeg's first HLS segment before giving up. The encoder
@@ -64,6 +92,42 @@ pub enum MediaPlan {
         video: VideoAction,
         audio: AudioAction,
     },
+}
+
+// How prepare_media will actually produce a webview source. Derived from the plan:
+// when the video stream can be copied (h264), we always build a COMPLETE file on
+// disk so `<video>` gets a finite duration and native random-access seeking - the
+// HLS progressive stream (seekable.end == Infinity mid-encode) was the seek bug.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum MediaStrategy {
+    // Video copies and audio is already fine (or absent): one fast remux to a
+    // complete MP4. Both tracks land at once, seek is native-instant.
+    CompleteRemux { audio: AudioAction },
+    // Video copies but audio needs re-encoding (Opus/AC3/...): emit a video-only
+    // MP4 instantly (perfect seek, no sound), then re-encode audio in the
+    // background and swap to the full file when it's ready.
+    VideoThenAudio,
+    // Video itself must be re-encoded (VP9/AV1/...): no instant copy is possible,
+    // so keep the HLS decode-ahead stream that starts in ~0.2s.
+    HlsStream { video: VideoAction, audio: AudioAction },
+}
+
+// Pure mapping plan -> strategy. Passthrough (already a complete playable file)
+// has no strategy. The branch order matters: a copyable video always beats HLS,
+// and only a copyable video with bad audio takes the two-phase path.
+fn strategy_for(plan: MediaPlan) -> Option<MediaStrategy> {
+    match plan {
+        MediaPlan::Passthrough => None,
+        MediaPlan::Convert {
+            video: VideoAction::Copy,
+            audio: AudioAction::Reencode,
+        } => Some(MediaStrategy::VideoThenAudio),
+        MediaPlan::Convert {
+            video: VideoAction::Copy,
+            audio,
+        } => Some(MediaStrategy::CompleteRemux { audio }),
+        MediaPlan::Convert { video, audio } => Some(MediaStrategy::HlsStream { video, audio }),
+    }
 }
 
 // Pure decision: given the container (ffprobe format_name), video codec and audio
@@ -189,11 +253,29 @@ fn video_convert_args(action: VideoAction) -> Vec<&'static str> {
 fn audio_convert_args(action: AudioAction) -> Vec<&'static str> {
     match action {
         AudioAction::Copy => vec!["-c:a", "copy"],
-        // `-aac_coder fast` skips the default two-loop bit allocator: ~4x faster
-        // (44s -> 11s on a 32-min file) at transparent quality for playback.
+        // macOS: AudioToolbox (`aac_at`) encodes ~3x faster than even the fast
+        // software coder (32-min file: 46s -> 13s) - it's the dominant cost of a
+        // cache-miss transcode, so on the platform that has it we always use it.
+        AudioAction::Reencode if cfg!(target_os = "macos") => vec!["-c:a", "aac_at"],
+        // Elsewhere `-aac_coder fast` skips the default two-loop bit allocator:
+        // ~4x faster than the default coder at transparent playback quality.
         AudioAction::Reencode => vec!["-c:a", "aac", "-aac_coder", "fast"],
         AudioAction::Drop => vec!["-an"],
     }
+}
+
+// Audio codec for the two-phase background re-encode (the full-audio file the FE
+// swaps in). On macOS this is ALAC (Apple Lossless): being lossless it carries NO
+// encoder priming, so it muxes with the copied video at a perfect 0ms A/V offset
+// (lossy AAC adds a ~20ms priming frame that desyncs), and it encodes ~3x faster
+// than aac_at (5s vs 14s on a 32-min file). AVFoundation plays ALAC natively.
+// Chromium (WebView2) and WebKitGTK don't reliably decode ALAC, so off macOS we
+// keep the fast AAC coder.
+fn bg_audio_args() -> Vec<&'static str> {
+    if cfg!(target_os = "macos") {
+        return vec!["-c:a", "alac"];
+    }
+    vec!["-c:a", "aac", "-aac_coder", "fast"]
 }
 
 // Frontend -> same log file channel. The FE measures sub-second playback phases
@@ -204,11 +286,11 @@ pub fn log_playback(message: String) {
     log::info!("{message}");
 }
 
-// Kill + remove the previously streaming job, if any. Called before starting a
-// new one (only one video plays at a time) so old ffmpeg processes and segment
+// Kill + remove the previously streaming HLS job, if any. Called before starting
+// a new one (only one video plays at a time) so old ffmpeg processes and segment
 // dirs don't pile up in temp.
-fn stop_current_job(state: &HlsState) {
-    let Some(job) = state.current.lock().ok().and_then(|mut g| g.take()) else {
+fn stop_current_hls(state: &MediaState) {
+    let Some(job) = state.current_hls.lock().ok().and_then(|mut g| g.take()) else {
         return;
     };
     let pid = job.child.pid();
@@ -217,6 +299,22 @@ fn stop_current_job(state: &HlsState) {
     log::info!(
         "prepare_media stopped previous HLS job pid={pid} dir={:?}",
         job.dir
+    );
+}
+
+// Kill + remove the previous background audio re-encode, if any. A new file
+// activation means the old swap is no longer wanted, so the half-written output
+// is deleted to keep the remux temp dir from growing.
+fn stop_current_bg(state: &MediaState) {
+    let Some(job) = state.current_bg.lock().ok().and_then(|mut g| g.take()) else {
+        return;
+    };
+    let pid = job.child.pid();
+    let _ = job.child.kill();
+    let _ = std::fs::remove_file(&job.out);
+    log::info!(
+        "prepare_media stopped previous bg audio job pid={pid} out={:?}",
+        job.out
     );
 }
 
@@ -240,10 +338,17 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
 
     let plan = plan_media(&container, &vcodec, &acodec);
     log::info!("prepare_media plan={plan:?}");
-    let (video, audio) = match plan {
+
+    // A new activation supersedes any in-flight work of either kind.
+    if let Some(state) = app.try_state::<MediaState>() {
+        stop_current_hls(&state);
+        stop_current_bg(&state);
+    }
+
+    let strategy = match strategy_for(plan) {
         // Already webview-playable: serve the file untouched via the asset
-        // protocol. No HLS, no server, no encode.
-        MediaPlan::Passthrough => {
+        // protocol. No remux, no HLS, no encode.
+        None => {
             log::info!(
                 "prepare_media passthrough in {}ms path={path}",
                 started.elapsed().as_millis()
@@ -252,12 +357,210 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
                 path,
                 transcoded: false,
                 duration_sec,
+                swap_id: None,
             });
         }
-        MediaPlan::Convert { video, audio } => (video, audio),
+        Some(strategy) => strategy,
     };
 
-    stream_hls(&app, &path, video, audio, duration_sec, started).await
+    match strategy {
+        MediaStrategy::CompleteRemux { audio } => {
+            complete_remux(&app, &path, audio, duration_sec, started).await
+        }
+        MediaStrategy::VideoThenAudio => {
+            video_then_audio(&app, &path, duration_sec, started).await
+        }
+        MediaStrategy::HlsStream { video, audio } => {
+            stream_hls(&app, &path, video, audio, duration_sec, started).await
+        }
+    }
+}
+
+// One synchronous remux to a COMPLETE MP4 on disk (video copied, audio copied or
+// dropped). Because the file is whole when `<video>` loads it, the element gets a
+// finite duration and native random-access seeking - the HLS progressive stream
+// (seekable.end == Infinity mid-encode) was what broke seeking. For h264+aac this
+// is a container copy of both streams (~0.3s on a 32-min file).
+async fn complete_remux(
+    app: &tauri::AppHandle,
+    path: &str,
+    audio: AudioAction,
+    duration_sec: Option<f64>,
+    started: Instant,
+) -> Result<PreparedMedia, String> {
+    let state = app
+        .try_state::<MediaState>()
+        .ok_or_else(|| "media state not initialised".to_string())?;
+
+    let out = state.remux_root.join(format!("{}.mp4", next_job_id()));
+    let status = app
+        .shell()
+        .sidecar("ffmpeg")
+        .map_err(|e| format!("failed to resolve bundled ffmpeg: {e}"))?
+        .args(["-y", "-v", "error", "-i", path])
+        .args(video_convert_args(VideoAction::Copy))
+        .args(audio_convert_args(audio))
+        .args(["-movflags", "+faststart"])
+        .arg(out.to_string_lossy().into_owned())
+        .status()
+        .await
+        .map_err(|e| format!("failed to run ffmpeg: {e}"))?;
+
+    if !status.success() {
+        let _ = std::fs::remove_file(&out);
+        log::error!("prepare_media remux failed code={:?} path={path}", status.code());
+        return Err(format!("ffmpeg remux failed for: {path}"));
+    }
+
+    log::info!(
+        "prepare_media complete remux in {}ms path={path} out={:?}",
+        started.elapsed().as_millis(),
+        out
+    );
+    Ok(PreparedMedia {
+        path: out.to_string_lossy().into_owned(),
+        transcoded: true,
+        duration_sec,
+        swap_id: None,
+    })
+}
+
+// Two-phase path for a copyable video with bad audio (e.g. h264 + Opus). Phase A:
+// remux a video-only MP4 (copy, no audio) - complete and instant, so seeking is
+// native, just silent. Phase B (background): re-encode the full file with audio
+// and emit `media://audio-ready` so the FE swaps src, preserving time + play
+// state. This makes the picture feel as instant as VLC; sound arrives a moment
+// later instead of blocking the whole open.
+async fn video_then_audio(
+    app: &tauri::AppHandle,
+    path: &str,
+    duration_sec: Option<f64>,
+    started: Instant,
+) -> Result<PreparedMedia, String> {
+    let state = app
+        .try_state::<MediaState>()
+        .ok_or_else(|| "media state not initialised".to_string())?;
+
+    let swap_id = next_job_id();
+    let video_out = state.remux_root.join(format!("{swap_id}-v.mp4"));
+    let status = app
+        .shell()
+        .sidecar("ffmpeg")
+        .map_err(|e| format!("failed to resolve bundled ffmpeg: {e}"))?
+        .args(["-y", "-v", "error", "-i", path])
+        .args(video_convert_args(VideoAction::Copy))
+        .args(audio_convert_args(AudioAction::Drop))
+        .args(["-movflags", "+faststart"])
+        .arg(video_out.to_string_lossy().into_owned())
+        .status()
+        .await
+        .map_err(|e| format!("failed to run ffmpeg: {e}"))?;
+
+    if !status.success() {
+        let _ = std::fs::remove_file(&video_out);
+        log::error!(
+            "prepare_media video-only remux failed code={:?} path={path}",
+            status.code()
+        );
+        return Err(format!("ffmpeg video remux failed for: {path}"));
+    }
+
+    log::info!(
+        "prepare_media video-only (silent) in {}ms swap_id={swap_id} path={path}",
+        started.elapsed().as_millis()
+    );
+
+    spawn_bg_audio(app, path, swap_id, started);
+
+    Ok(PreparedMedia {
+        path: video_out.to_string_lossy().into_owned(),
+        transcoded: true,
+        duration_sec,
+        swap_id: Some(swap_id),
+    })
+}
+
+// Phase B of the two-phase path: re-encode the full file (video copied, audio to
+// ALAC on macOS - see bg_audio_args) in the background and, on success, emit
+// `media://audio-ready` carrying the swap_id + complete path. Registered as the
+// current bg job so a newer activation can cancel it. A failed/killed encode just
+// leaves the silent video playing.
+fn spawn_bg_audio(app: &tauri::AppHandle, path: &str, swap_id: u64, started: Instant) {
+    let Some(state) = app.try_state::<MediaState>() else {
+        return;
+    };
+    let full_out = state.remux_root.join(format!("{swap_id}-full.mp4"));
+
+    let command = match app.shell().sidecar("ffmpeg") {
+        Ok(command) => command
+            .args(["-y", "-v", "error", "-i", path])
+            .args(video_convert_args(VideoAction::Copy))
+            .args(bg_audio_args())
+            .args(["-movflags", "+faststart"])
+            .arg(full_out.to_string_lossy().into_owned()),
+        Err(e) => {
+            log::error!("bg audio: failed to resolve ffmpeg: {e}");
+            return;
+        }
+    };
+
+    let (mut rx, child) = match command.spawn() {
+        Ok(pair) => pair,
+        Err(e) => {
+            log::error!("bg audio: failed to spawn ffmpeg: {e}");
+            return;
+        }
+    };
+
+    *state.current_bg.lock().unwrap() = Some(BgJob {
+        source: path.to_string(),
+        child,
+        out: full_out.clone(),
+    });
+
+    let app = app.clone();
+    let source = path.to_string();
+    async_runtime::spawn(async move {
+        let mut succeeded = false;
+        while let Some(event) = rx.recv().await {
+            if let CommandEvent::Terminated(payload) = event {
+                succeeded = payload.code == Some(0);
+            }
+        }
+
+        // Only honour this completion if it's still the current job for this
+        // source - a newer activation may have superseded (and killed) it.
+        let Some(state) = app.try_state::<MediaState>() else {
+            return;
+        };
+        let is_current = state
+            .current_bg
+            .lock()
+            .ok()
+            .and_then(|g| g.as_ref().map(|j| j.source == source))
+            .unwrap_or(false);
+        if !is_current {
+            let _ = std::fs::remove_file(&full_out);
+            return;
+        }
+        if !succeeded {
+            log::error!("bg audio re-encode failed swap_id={swap_id} source={source}");
+            return;
+        }
+
+        let _ = state.current_bg.lock().map(|mut g| g.take());
+        log::info!(
+            "prepare_media full-audio ready in {}ms swap_id={swap_id} source={source}",
+            started.elapsed().as_millis()
+        );
+        let _ = app.emit(
+            "media://audio-ready",
+            AudioReadyPayload {
+                swap_id,
+                path: full_out.to_string_lossy().into_owned(),
+            },
+        );
+    });
 }
 
 // Stream the file as HLS: ffmpeg writes an EVENT playlist + TS segments into a
@@ -274,12 +577,11 @@ async fn stream_hls(
     started: Instant,
 ) -> Result<PreparedMedia, String> {
     let state = app
-        .try_state::<HlsState>()
+        .try_state::<MediaState>()
         .ok_or_else(|| "HLS server not initialised".to_string())?;
-    stop_current_job(&state);
 
     let job_id = next_job_id();
-    let dir = state.root.join(job_id.to_string());
+    let dir = state.hls_root.join(job_id.to_string());
     std::fs::create_dir_all(&dir).map_err(|e| format!("failed to create HLS dir: {e}"))?;
     let playlist = dir.join("index.m3u8");
     let segment_pattern = dir.join("seg%05d.ts");
@@ -331,7 +633,7 @@ async fn stream_hls(
         Ok(()) => {
             let url = format!("http://localhost:{}/{job_id}/index.m3u8", state.port);
             *state
-                .current
+                .current_hls
                 .lock()
                 .map_err(|_| "HLS state poisoned".to_string())? = Some(HlsJob { dir, child });
             log::info!(
@@ -342,6 +644,7 @@ async fn stream_hls(
                 path: url,
                 transcoded: true,
                 duration_sec,
+                swap_id: None,
             })
         }
         Err(reason) => {
@@ -389,8 +692,8 @@ fn poll_first_segment(
 #[cfg(test)]
 mod tests {
     use super::{
-        audio_convert_args, parse_probe_json, plan_media, AudioAction, MediaPlan, ProbeResult,
-        VideoAction,
+        audio_convert_args, bg_audio_args, parse_probe_json, plan_media, strategy_for, AudioAction,
+        MediaPlan, MediaStrategy, ProbeResult, VideoAction,
     };
 
     const MP4: &str = "mov,mp4,m4a,3gp,3g2,mj2";
@@ -591,12 +894,91 @@ mod tests {
         );
     }
 
-    // an aac re-encode must use the fast coder (the default two-loop coder is ~4x
-    // slower on long files, the dominant cost of a cache-miss transcode)
+    // an aac re-encode must use the fast path. On macOS that's AudioToolbox
+    // (`aac_at`); elsewhere the software fast coder (the default two-loop coder is
+    // ~4x slower on long files, the dominant cost of a cache-miss transcode).
     #[test]
-    fn should_use_fast_aac_coder_when_reencoding_audio() {
+    fn should_use_fast_aac_encoder_when_reencoding_audio() {
         let args = audio_convert_args(AudioAction::Reencode);
+        if cfg!(target_os = "macos") {
+            assert!(args.contains(&"aac_at"));
+            return;
+        }
         let coder = args.iter().position(|&a| a == "-aac_coder");
         assert_eq!(coder.and_then(|i| args.get(i + 1)), Some(&"fast"));
+    }
+
+    // the two-phase background re-encode uses a lossless codec on macOS (ALAC, no
+    // priming -> perfect A/V sync); elsewhere the fast AAC coder
+    #[test]
+    fn should_use_lossless_audio_for_background_reencode_on_macos() {
+        let args = bg_audio_args();
+        if cfg!(target_os = "macos") {
+            assert!(args.contains(&"alac"));
+            return;
+        }
+        assert!(args.contains(&"aac"));
+    }
+
+    // passthrough has no work to do -> no strategy
+    #[test]
+    fn should_have_no_strategy_when_passthrough() {
+        assert_eq!(strategy_for(MediaPlan::Passthrough), None);
+    }
+
+    // h264 + aac in mkv: video copies, audio already fine -> one complete remux
+    #[test]
+    fn should_complete_remux_when_video_copy_audio_copy() {
+        assert_eq!(
+            strategy_for(MediaPlan::Convert {
+                video: VideoAction::Copy,
+                audio: AudioAction::Copy,
+            }),
+            Some(MediaStrategy::CompleteRemux {
+                audio: AudioAction::Copy
+            })
+        );
+    }
+
+    // h264, no audio: video copies, audio dropped -> still one complete remux
+    #[test]
+    fn should_complete_remux_when_video_copy_audio_drop() {
+        assert_eq!(
+            strategy_for(MediaPlan::Convert {
+                video: VideoAction::Copy,
+                audio: AudioAction::Drop,
+            }),
+            Some(MediaStrategy::CompleteRemux {
+                audio: AudioAction::Drop
+            })
+        );
+    }
+
+    // h264 + opus: video copies but audio needs re-encoding -> two-phase
+    // (instant video, audio dubbed in the background)
+    #[test]
+    fn should_video_then_audio_when_video_copy_audio_reencode() {
+        assert_eq!(
+            strategy_for(MediaPlan::Convert {
+                video: VideoAction::Copy,
+                audio: AudioAction::Reencode,
+            }),
+            Some(MediaStrategy::VideoThenAudio)
+        );
+    }
+
+    // vp9 + opus: the video itself must be re-encoded -> no instant copy, keep HLS
+    #[test]
+    fn should_hls_stream_when_video_reencode() {
+        assert_eq!(
+            strategy_for(MediaPlan::Convert {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            }),
+            Some(MediaStrategy::HlsStream {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            })
+        );
     }
 }

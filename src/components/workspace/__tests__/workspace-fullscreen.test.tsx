@@ -12,6 +12,7 @@ import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { fixtureVideos } from "./fixtures";
 
 vi.mock("@/lib/tauri", () => ({
+  watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),

@@ -72,6 +72,7 @@ describe("prepareMediaUrl", () => {
     await expect(prepareMediaUrl("/v/clip.mkv")).resolves.toEqual({
       url: "http://localhost:51234/0/index.m3u8",
       durationSec: 1922.581,
+      swapId: null,
     });
     expect(convertFileSrc).not.toHaveBeenCalled();
   });
@@ -87,7 +88,24 @@ describe("prepareMediaUrl", () => {
     await expect(prepareMediaUrl("/v/clip.mp4")).resolves.toEqual({
       url: "asset://localhost//v/clip.mp4",
       durationSec: null,
+      swapId: null,
     });
     expect(convertFileSrc).toHaveBeenCalledWith("/v/clip.mp4");
+  });
+
+  // behavior: the two-phase path returns a swapId so the FE can match the later audio-ready event
+  it("should carry the swapId through if the backend returns one", async () => {
+    invoke.mockResolvedValue({
+      path: "/tmp/remux/7-v.mp4",
+      transcoded: true,
+      durationSec: 1922.581,
+      swapId: 7,
+    });
+
+    await expect(prepareMediaUrl("/v/clip.mkv")).resolves.toEqual({
+      url: "asset://localhost//tmp/remux/7-v.mp4",
+      durationSec: 1922.581,
+      swapId: 7,
+    });
   });
 });

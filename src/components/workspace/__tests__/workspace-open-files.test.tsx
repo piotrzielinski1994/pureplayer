@@ -13,6 +13,7 @@ import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 const openVideoFiles = vi.fn();
 
 vi.mock("@/lib/tauri", () => ({
+  watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   openVideoFiles: () => openVideoFiles(),
   prepareMediaUrl: (path: string) =>
