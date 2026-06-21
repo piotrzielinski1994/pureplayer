@@ -14,6 +14,10 @@ import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { formatTime } from "@/components/workspace/format-time";
 import {
+  formatTransform,
+  isDefaultTransform,
+} from "@/components/workspace/viewport-transform";
+import {
   fractionFromPointer,
   seekSecondsFromPointer,
 } from "@/components/workspace/seek-position";
@@ -33,6 +37,7 @@ export function TransportBar() {
     volume,
     isMuted,
     playbackRate,
+    viewportTransform,
     repeatMode,
     isShuffling,
     togglePlay,
@@ -229,8 +234,13 @@ export function TransportBar() {
           <SkipForward className="size-4" />
         </Button>
       </div>
-      {/* right zone (1fr) - rate readout (only off 1x) + time readout */}
+      {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout */}
       <div className="flex items-center justify-end gap-3 pr-4">
+        {activeVideo && !isDefaultTransform(viewportTransform) && (
+          <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+            {formatTransform(viewportTransform)}
+          </span>
+        )}
         {playbackRate !== 1 && (
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {playbackRate}x

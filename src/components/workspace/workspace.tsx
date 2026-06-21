@@ -41,6 +41,10 @@ export function Workspace() {
     toggleSidebar,
     toggleTransport,
     setFullscreen,
+    rotateClockwise,
+    cycleFitMode,
+    zoomBy,
+    resetViewportTransform,
   } = useWorkspace();
   const { settings, saveRevealTransportOnHover } = useSettings();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -113,6 +117,11 @@ export function Workspace() {
     "toggle-reveal-transport": () =>
       saveRevealTransportOnHover(!settings.revealTransportOnHover),
     "open-settings": () => void navigate({ to: "/settings" }),
+    "rotate-cw": rotateClockwise,
+    "cycle-fit-mode": cycleFitMode,
+    "zoom-in": () => zoomBy(0.1),
+    "zoom-out": () => zoomBy(-0.1),
+    "reset-viewport": resetViewportTransform,
   };
 
   useActionHotkeys({

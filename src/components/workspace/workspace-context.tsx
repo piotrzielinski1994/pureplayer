@@ -22,6 +22,13 @@ import {
   shuffleIds,
   type RepeatMode,
 } from "@/components/workspace/queue";
+import {
+  clampZoom,
+  DEFAULT_TRANSFORM,
+  nextFitMode,
+  nextRotation,
+  type ViewportTransform,
+} from "@/components/workspace/viewport-transform";
 
 type SortDirection = "asc" | "desc";
 
@@ -41,6 +48,7 @@ type WorkspaceContextValue = {
   isMuted: boolean;
   playbackRate: number;
   isFullscreen: boolean;
+  viewportTransform: ViewportTransform;
   repeatMode: RepeatMode;
   isShuffling: boolean;
   sortKeys: SortField[];
@@ -65,6 +73,10 @@ type WorkspaceContextValue = {
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   setFullscreen: (value: boolean) => void;
+  rotateClockwise: () => void;
+  cycleFitMode: () => void;
+  zoomBy: (delta: number) => void;
+  resetViewportTransform: () => void;
   toggleSortKey: (field: SortField) => void;
   toggleSortDirection: () => void;
   toggleSidebar: () => void;
@@ -127,6 +139,8 @@ export function WorkspaceProvider({
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [playbackRate, setPlaybackRate] = useState(initialPlaybackRate);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewportTransform, setViewportTransform] =
+    useState<ViewportTransform>(DEFAULT_TRANSFORM);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [isShuffling, setIsShuffling] = useState(false);
   const [shuffleOrder, setShuffleOrder] = useState<string[]>([]);
@@ -262,6 +276,7 @@ export function WorkspaceProvider({
       isMuted,
       playbackRate,
       isFullscreen,
+      viewportTransform,
       repeatMode,
       isShuffling,
       sortKeys,
@@ -390,6 +405,39 @@ export function WorkspaceProvider({
         });
       },
       setFullscreen,
+      rotateClockwise: () => {
+        if (activeVideoId === null) {
+          return;
+        }
+        setViewportTransform((transform) => ({
+          ...transform,
+          rotationDeg: nextRotation(transform.rotationDeg),
+        }));
+      },
+      cycleFitMode: () => {
+        if (activeVideoId === null) {
+          return;
+        }
+        setViewportTransform((transform) => ({
+          ...transform,
+          fitMode: nextFitMode(transform.fitMode),
+        }));
+      },
+      zoomBy: (delta) => {
+        if (activeVideoId === null) {
+          return;
+        }
+        setViewportTransform((transform) => ({
+          ...transform,
+          zoom: clampZoom(transform.zoom + delta),
+        }));
+      },
+      resetViewportTransform: () => {
+        if (activeVideoId === null) {
+          return;
+        }
+        setViewportTransform(DEFAULT_TRANSFORM);
+      },
       toggleSortKey: (field) =>
         setSortKeys((current) =>
           current.includes(field)
@@ -425,6 +473,7 @@ export function WorkspaceProvider({
     isMuted,
     playbackRate,
     isFullscreen,
+    viewportTransform,
     repeatMode,
     isShuffling,
     rng,

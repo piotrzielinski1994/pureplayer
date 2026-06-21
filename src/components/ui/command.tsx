@@ -18,6 +18,14 @@ function Command({
   return (
     <CommandPrimitive
       data-slot="command"
+      // Keyboard-first: a scroll on ArrowDown slides a new row under the
+      // stationary cursor, whose pointermove would otherwise hijack the
+      // selection to the hovered row. Disable pointer-driven selection so
+      // arrow keys stay authoritative (clicks still run a row).
+      disablePointerSelection
+      // Wrap navigation: ArrowUp on the first row jumps to the last, and
+      // ArrowDown on the last wraps to the first.
+      loop
       className={cn(
         "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
         className,
