@@ -69,13 +69,18 @@ download links 404 immediately. Anyone who already downloaded keeps their local 
 > first imported video (drop never disturbs an already-playing video). The viewport renders a real `<video>`; play/pause, prev/next, and clicking a row all
 > drive playback. Spacebar toggles play/pause. **Universal playback:** every opened file is probed
 > by a Rust `prepare_media` command (ffprobe reads container + codecs); H.264/AAC already in an
-> MP4/MOV plays directly via the asset protocol. Anything else **streams as HLS** so playback
-> starts almost immediately (like VLC) instead of waiting for a full transcode: ffmpeg writes an
-> HLS playlist + segments progressively into a temp dir, a tiny loopback HTTP server (127.0.0.1)
-> serves them, and the webview's native HLS player starts on the first segment (~0.1s) while the
-> encoder races ahead - copying streams that are already fine (`-c:v copy`) and re-encoding only
-> what the webview can't decode (VP9/AV1/HEVC/Opus). There is no persistent cache: each playback
-> streams fresh and is cleaned up when the file changes or the app exits. Single-clicking the viewport toggles
+> MP4/MOV plays directly via the asset protocol. For anything else the strategy is chosen so the
+> picture is instant **and** seeking is native (the `<video>` gets a complete file on disk, not a
+> growing stream): when the video is H.264 it's stream-copied (`-c:v copy`) into a finished MP4 in
+> ~0.3s. If the audio is also fine (or absent) that single remux is the whole job. If only the
+> audio is unplayable (e.g. Opus), the silent video shows instantly while the audio re-encodes in
+> the background (ALAC on macOS - lossless, so it muxes back at a perfect 0ms A/V offset) and swaps
+> in via a `media://audio-ready` event, preserving position + play state. Only a file whose **video**
+> itself can't be decoded (VP9/AV1/HEVC) falls back to play-while-encode HLS: ffmpeg writes a
+> progressive playlist + segments into a temp dir, a tiny loopback HTTP server (127.0.0.1) serves
+> them, and the webview's native HLS player starts on the first segment (~0.1s) while the encoder
+> races ahead. There is no persistent cache: temp files are cleaned up when the file changes or the
+> app exits. Single-clicking the viewport toggles
 > play/pause; double-clicking it (or the green button /
 > F11) enters fullscreen, which hides the chrome (sidebar, transport, overlay) and restores the
 > pre-fullscreen visibility on exit. **ffmpeg/ffprobe are bundled** as Tauri sidecars

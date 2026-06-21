@@ -16,8 +16,18 @@ import { Viewport } from "@/components/workspace/viewport";
 import { fixtureVideos } from "./fixtures";
 
 const prepareMediaUrl = vi.fn(
-  (path: string): Promise<{ url: string; durationSec: number | null }> =>
-    Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
+  (
+    path: string,
+  ): Promise<{
+    url: string;
+    durationSec: number | null;
+    swapId: number | null;
+  }> =>
+    Promise.resolve({
+      url: `asset://localhost${path}`,
+      durationSec: null,
+      swapId: null,
+    }),
 );
 
 const toggleFullscreen = vi.fn(() => Promise.resolve());
@@ -25,12 +35,14 @@ const logPlayback = vi.fn((message: string) => {
   void message;
   return Promise.resolve();
 });
+const watchAudioReady = vi.fn(() => Promise.resolve(() => {}));
 
 vi.mock("@/lib/tauri", () => ({
   prepareMediaUrl: (path: string) => prepareMediaUrl(path),
   openVideoFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: () => toggleFullscreen(),
   logPlayback: (message: string) => logPlayback(message),
+  watchAudioReady: () => watchAudioReady(),
 }));
 
 function SelectButton({ id }: { id: string }) {

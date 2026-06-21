@@ -26,6 +26,7 @@ vi.mock("@tanstack/react-router", async (orig) => ({
 // The workspace renders the Viewport, which reaches the Tauri IPC boundary;
 // mock the seam (not the components) so the real <video> can mount under jsdom.
 vi.mock("@/lib/tauri", () => ({
+  watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),

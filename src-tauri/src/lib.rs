@@ -21,17 +21,23 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             logging::init(app.handle());
-            // Fresh HLS root each launch (wipe any leftovers), then start the
-            // loopback server that feeds the webview's native HLS player.
-            let root = std::env::temp_dir().join("vidui-hls");
-            let _ = std::fs::remove_dir_all(&root);
-            std::fs::create_dir_all(&root)?;
-            let (port, _server) = hls_server::start(root.clone())?;
-            log::info!("HLS server listening on 127.0.0.1:{port} root={root:?}");
-            app.manage(media::HlsState {
-                root,
+            // Fresh temp roots each launch (wipe any leftovers): one for the rare
+            // HLS re-encode stream, one for the complete-MP4 remuxes that back the
+            // common copy path. Then start the loopback server for the HLS player.
+            let hls_root = std::env::temp_dir().join("vidui-hls");
+            let remux_root = std::env::temp_dir().join("vidui-remux");
+            for root in [&hls_root, &remux_root] {
+                let _ = std::fs::remove_dir_all(root);
+                std::fs::create_dir_all(root)?;
+            }
+            let (port, _server) = hls_server::start(hls_root.clone())?;
+            log::info!("HLS server listening on 127.0.0.1:{port} root={hls_root:?}");
+            app.manage(media::MediaState {
+                hls_root,
+                remux_root,
                 port,
-                current: std::sync::Mutex::new(None),
+                current_hls: std::sync::Mutex::new(None),
+                current_bg: std::sync::Mutex::new(None),
             });
             // Warm the ffmpeg/ffprobe sidecars now (behind the empty UI) so the
             // first dropped file doesn't pay their cold first-spawn cost.

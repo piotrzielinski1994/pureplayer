@@ -33,6 +33,7 @@ vi.mock("@/components/ui/resizable", () => ({
 
 // The viewport inside Content reaches the Tauri IPC boundary; mock the seam.
 vi.mock("@/lib/tauri", () => ({
+  watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),

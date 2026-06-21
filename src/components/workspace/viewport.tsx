@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Film, Loader2 } from "lucide-react";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { prepareMediaUrl, toggleFullscreen, logPlayback } from "@/lib/tauri";
+import {
+  prepareMediaUrl,
+  toggleFullscreen,
+  logPlayback,
+  watchAudioReady,
+} from "@/lib/tauri";
 import { formatTimeline } from "@/lib/playback-timing";
 
 function logPlayError(error: unknown) {
@@ -17,7 +22,15 @@ type TimelineMarks = {
 };
 
 type SourceState =
-  | { status: "ready"; forId: string; url: string; durationSec: number | null }
+  | {
+      status: "ready";
+      forId: string;
+      url: string;
+      durationSec: number | null;
+      // Set while a silent (video-only) source is playing and its full-audio
+      // file is still encoding; the matching audio-ready event swaps src in.
+      swapId: number | null;
+    }
   | { status: "error"; forId: string; message: string };
 
 // HLS streams report `<video>.duration` as Infinity (and NaN before metadata),
@@ -111,13 +124,13 @@ export function Viewport() {
       firstFrameAtMs: null,
     };
     prepareMediaUrl(activeVideo.path)
-      .then(({ url, durationSec }) => {
+      .then(({ url, durationSec, swapId }) => {
         const marks = timelineRef.current;
         if (marks && marks.forId === forId) {
           marks.prepareResolvedAtMs = performance.now();
         }
         if (!cancelled) {
-          setSource({ status: "ready", forId, url, durationSec });
+          setSource({ status: "ready", forId, url, durationSec, swapId });
         }
       })
       .catch((error) => {
@@ -131,6 +144,28 @@ export function Viewport() {
       cancelled = true;
     };
   }, [activeVideo?.id]);
+
+  // Two-phase swap: when the background audio re-encode finishes, the backend
+  // emits audio-ready with the matching swapId. We point the <video> at the
+  // full-audio file by updating state (React sets the src prop); the new file
+  // reloads from 0, so we stash the play position in resumeAfterSwapRef and the
+  // loadedmetadata handler restores it - the only user-visible change is sound.
+  const resumeAfterSwapRef = useRef<number | null>(null);
+  useEffect(() => {
+    let unlisten = () => {};
+    void watchAudioReady(({ swapId, url }) => {
+      setSource((current) => {
+        if (current?.status !== "ready" || current.swapId !== swapId) {
+          return current;
+        }
+        resumeAfterSwapRef.current = videoRef.current?.currentTime ?? 0;
+        return { ...current, url, swapId: null };
+      });
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten();
+  }, []);
 
   const sourceForActive =
     activeVideo && source?.forId === activeVideo.id ? source : null;
@@ -224,15 +259,19 @@ export function Viewport() {
                 ),
               )
             }
-            onLoadedMetadata={(event) =>
+            onLoadedMetadata={(event) => {
+              if (resumeAfterSwapRef.current !== null) {
+                event.currentTarget.currentTime = resumeAfterSwapRef.current;
+                resumeAfterSwapRef.current = null;
+              }
               reportProgress(
                 event.currentTarget.currentTime,
                 resolveDuration(
                   event.currentTarget.duration,
                   sourceForActive.durationSec,
                 ),
-              )
-            }
+              );
+            }}
             onEnded={() => reportEnded()}
           />
           {!isFullscreen && titleHiddenForId !== activeVideo.id && (
