@@ -3,7 +3,7 @@
 ## Task breakdown
 
 1. **AC-003 - version the cache namespace** (`cache_path`): push a `v2` segment into the
-   transcode dir (`vidui-transcode/v2/<hash>.mp4`). Stale fragmented files live under the old
+   transcode dir (`pureplayer-transcode/v2/<hash>.mp4`). Stale fragmented files live under the old
    unversioned dir and are never matched again. Test first.
 
 2. **AC-002 / AC-005 - single probe + pure parser** (`parse_probe_json`, `probe_media`):
@@ -36,7 +36,7 @@ RED -> GREEN per unit, refactor last:
 ## Acceptance verification
 
 - `cargo test` green (new parser + cache tests + untouched plan tests).
-- Manual: launch app, drop the same MKV, read the fresh `vidui-*.log`. Expect prepare <200ms on
+- Manual: launch app, drop the same MKV, read the fresh `pureplayer-*.log`. Expect prepare <200ms on
   HIT, element-load far lower (fresh faststart file). User does this manually.
 
 ## Risks

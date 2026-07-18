@@ -24,8 +24,8 @@ pub fn run() {
             // Fresh temp roots each launch (wipe any leftovers): one for the rare
             // HLS re-encode stream, one for the complete-MP4 remuxes that back the
             // common copy path. Then start the loopback server for the HLS player.
-            let hls_root = std::env::temp_dir().join("vidui-hls");
-            let remux_root = std::env::temp_dir().join("vidui-remux");
+            let hls_root = std::env::temp_dir().join("pureplayer-hls");
+            let remux_root = std::env::temp_dir().join("pureplayer-remux");
             for root in [&hls_root, &remux_root] {
                 let _ = std::fs::remove_dir_all(root);
                 std::fs::create_dir_all(root)?;

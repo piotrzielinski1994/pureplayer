@@ -33,7 +33,7 @@ What this does **not** deliver (out of scope):
 
 ### User Story
 
-As a user I want to drag video files or a folder of videos from my file manager onto the VidUI
+As a user I want to drag video files or a folder of videos from my file manager onto the pureplayer
 window and have them added to whatever I'm already playing, so I can build up a playlist without
 opening the picker or losing my current queue.
 

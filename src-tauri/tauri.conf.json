@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "VidUI",
+  "productName": "pureplayer",
   "version": "0.1.0",
-  "identifier": "com.pzielinski.vidui",
+  "identifier": "com.pzielinski.pureplayer",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1432",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "VidUI",
+        "title": "pureplayer",
         "width": 1000,
         "height": 700
       }

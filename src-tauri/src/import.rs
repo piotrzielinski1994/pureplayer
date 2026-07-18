@@ -62,7 +62,7 @@ mod tests {
     // media.rs's reliance on std::env::temp_dir). Cleaned up before and after.
     fn fresh_dir(label: &str) -> PathBuf {
         let mut dir = std::env::temp_dir();
-        dir.push(format!("vidui-import-test-{label}"));
+        dir.push(format!("pureplayer-import-test-{label}"));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("create temp dir");
         dir

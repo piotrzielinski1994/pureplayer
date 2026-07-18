@@ -7,7 +7,7 @@
 
 ## 1. Overview / why
 
-A real run (`vidui-20260621130312.log`) showed drop->playback of an MKV taking **7084ms**:
+A real run (`pureplayer-20260621130312.log`) showed drop->playback of an MKV taking **7084ms**:
 `prepare 1605ms | element-load 5479ms | total 7084ms`. Both phases are fixable waste, not
 inherent cost.
 

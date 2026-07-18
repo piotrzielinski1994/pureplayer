@@ -78,7 +78,7 @@ that claims to be one second long.
 `plan_media("mov,mp4,m4a,3gp,3g2,mj2", "h264", "mp3")` -> `Passthrough`. Maps to: AC-005.
 
 ### TC-008: Cache path deterministic
-`cache_path(src)` stable for the same source, under `vidui-transcode`, `.mp4` suffix. Maps to: AC-006 (regression guard).
+`cache_path(src)` stable for the same source, under `pureplayer-transcode`, `.mp4` suffix. Maps to: AC-006 (regression guard).
 
 ## 4. UI States
 

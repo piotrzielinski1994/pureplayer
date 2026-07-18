@@ -26,19 +26,19 @@ whatever the installed crate exposes.
 - New module `src-tauri/src/logging.rs` (declared `mod logging;` in `lib.rs`).
 - Fn signature (deterministic, no clock/FS): takes the launch time as input and returns the
   file stem. Use `time` (already transitively present via tauri) or format from components.
-  Candidate: `launch_log_name(now: time::OffsetDateTime) -> String` -> `"vidui-YYYYMMDDHHMMSS"`.
+  Candidate: `launch_log_name(now: time::OffsetDateTime) -> String` -> `"pureplayer-YYYYMMDDHHMMSS"`.
   (If pulling `time` directly is awkward, accept the 6 numeric components as args - still pure.)
 - Tests (cargo, in `logging.rs`):
-  - `should_format_launch_name_as_vidui_plus_14_digits` - a fixed datetime ->
-    exact `"vidui-20260621115143"`.
+  - `should_format_launch_name_as_pureplayer_plus_14_digits` - a fixed datetime ->
+    exact `"pureplayer-20260621115143"`.
   - `should_zero_pad_single_digit_fields` - e.g. 2026-01-02 03:04:05 ->
-    `"vidui-20260102030405"` (14 digits, padded).
-  - `should_match_feature_folder_timestamp_shape` - output minus the `vidui-` prefix is 14
+    `"pureplayer-20260102030405"` (14 digits, padded).
+  - `should_match_feature_folder_timestamp_shape` - output minus the `pureplayer-` prefix is 14
     ASCII digits.
 - Run `cargo test` -> RED (fn unimplemented / module missing).
 
 ### T3 - GREEN: implement `launch_log_name`
-- Format the passed datetime as `%Y%m%d%H%M%S`, prefix `vidui-`. Smallest code to pass T2.
+- Format the passed datetime as `%Y%m%d%H%M%S`, prefix `pureplayer-`. Smallest code to pass T2.
 
 ### T4 - GREEN: register the log plugin in `lib.rs`
 - Compute `let log_name = logging::launch_log_name(<now>);` at startup (local time).
@@ -47,7 +47,7 @@ whatever the installed crate exposes.
   (adjust to the v2 builder; keep Stdout too so `tauri dev` still shows lines).
 - Non-fatal: if the plugin builder/registration can fail, guard so a logging failure does not
   abort `run()` (AC-007). Prefer registering a target that the plugin creates lazily.
-- Emit `log::info!("vidui starting (log {})", log_name);` once after registration (AC-006).
+- Emit `log::info!("pureplayer starting (log {})", log_name);` once after registration (AC-006).
 
 ### T5 - GREEN: instrument `prepare_media` (media.rs)
 - At entry: `let started = std::time::Instant::now();`
@@ -67,7 +67,7 @@ whatever the installed crate exposes.
 ### T7 - capability + docs
 - `src-tauri/capabilities/default.json`: add the log plugin permission if v2 requires one
   (the plugin's default permission set; check build error to confirm necessity).
-- `README.md`: one line - logs at `~/Library/Logs/com.pzielinski.vidui/vidui-<ts>.log`, new
+- `README.md`: one line - logs at `~/Library/Logs/com.pzielinski.pureplayer/pureplayer-<ts>.log`, new
   file each launch.
 - `docs/learnings.md`: note "app had no logging until FR-12; per-launch file via plugin
   `file_name`".
@@ -94,7 +94,7 @@ T1 -> T2 (RED) -> T3 (GREEN) -> T4 -> T5 -> T6 (REFACTOR) -> T7 -> gates -> veri
 
 | AC | Proof |
 |----|-------|
-| AC-001 | user `npm start` + `ls ~/Library/Logs/com.pzielinski.vidui/` shows `vidui-<14d>.log` |
+| AC-001 | user `npm start` + `ls ~/Library/Logs/com.pzielinski.pureplayer/` shows `pureplayer-<14d>.log` |
 | AC-002 | launch/quit/launch -> two files, distinct stamps |
 | AC-003 | `logging::tests` (3 pure tests) |
 | AC-004 | read the log after dropping the MKV: path+container+codecs+plan+HIT/MISS+ms present |
@@ -106,7 +106,7 @@ T1 -> T2 (RED) -> T3 (GREEN) -> T4 -> T5 -> T6 (REFACTOR) -> T7 -> gates -> veri
 ## Tests to write (TDD RED)
 
 Rust (`cargo test`, in `logging.rs`):
-- `should_format_launch_name_as_vidui_plus_14_digits`
+- `should_format_launch_name_as_pureplayer_plus_14_digits`
 - `should_zero_pad_single_digit_fields`
 - `should_match_feature_folder_timestamp_shape`
 
@@ -122,7 +122,7 @@ can prove a file lands in the OS log dir from a spawned process).
 | AC-003 | `logging::tests` 3 pure tests (exact string, zero-pad, 14-digit shape) - PASS |
 | AC-004 | `media.rs` INFO: path/container/codecs, `plan={:?}`, cache HIT/MISS, elapsed ms on each branch. Content = on-device |
 | AC-005 | `media.rs` ERROR on no-video-stream + ffmpeg-nonzero + finalize-rename fail; same `Err` returned |
-| AC-006 | startup `log::info!("vidui starting ...")` after successful register |
+| AC-006 | startup `log::info!("pureplayer starting ...")` after successful register |
 | AC-007 | FIXED: plugin registered at RUNTIME in `.setup` via `app.plugin(..)`, Err swallowed (`is_err()` -> eprintln + return); app launches even if log dir unwritable. No unwrap/expect on hot path |
 | AC-008 | cargo test 25, clippy 0, FE 453, lint 0 err, typecheck - all 0 |
 

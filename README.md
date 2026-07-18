@@ -1,4 +1,4 @@
-# VidUI
+# pureplayer
 
 A minimal, keyboard-driven desktop video player.
 
@@ -115,8 +115,8 @@ off-default. They are session-sticky (persist across video switches, reset on ap
 > shows a hidden transport bar as a bottom-edge overlay while the mouse moves over the video; it
 > auto-hides after ~3s of no movement (but stays put while the cursor is on the bar) and reappears
 > on the next move. The playlist and queue modes still reset on reload.
-> **Logging:** each launch writes a fresh `vidui-<YYYYMMDDHHMMSS>.log` to the OS app-log dir
-> (macOS `~/Library/Logs/com.pzielinski.vidui/`); `prepare_media` records each file's container,
+> **Logging:** each launch writes a fresh `pureplayer-<YYYYMMDDHHMMSS>.log` to the OS app-log dir
+> (macOS `~/Library/Logs/com.pzielinski.pureplayer/`); `prepare_media` records each file's container,
 > codecs, chosen plan, cache HIT/MISS and elapsed ms there (see
 > [docs/features/20260621115143-file-logging](docs/features/20260621115143-file-logging/)).
 > Not yet: subtitles, playlist persistence.

@@ -91,7 +91,7 @@ describe("ShortcutsSection", () => {
     });
     await user.click(editButton);
 
-    // Control+Y -> "Mod+Y", which is free in the vidui registry.
+    // Control+Y -> "Mod+Y", which is free in the pureplayer registry.
     await user.keyboard("{Control>}y{/Control}");
 
     await waitFor(() => {

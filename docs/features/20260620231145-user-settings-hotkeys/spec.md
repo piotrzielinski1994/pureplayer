@@ -13,7 +13,7 @@ The `/settings` route is a dead stub ("No settings yet."). FR-7 gives the app a 
 **persisted user-preferences store** and the first surface that uses it: a settings screen
 with **user-remappable keyboard shortcuts** plus persisted playback and UI defaults.
 
-The sibling `requi` repo already ships this exact subsystem; vidui mirrors it (settings
+The sibling `requi` repo already ships this exact subsystem; pureplayer mirrors it (settings
 ADT + `LazyStore` persistence + `SettingsProvider` + `resolveShortcuts`/`findConflict` +
 capture-keystroke `ShortcutRow`). See `docs/adr.md` for the reuse decision.
 
@@ -271,7 +271,7 @@ import/export, profiles, cloud sync.
 |---------|------|--------|
 | 0.1.0 | 2026-06-20 | Initial - persisted settings store (`tauri-plugin-store`) mirrored from `requi`; remappable hotkeys (resolve/conflict/reset, capture-keystroke); persisted playback (volume/mute/rate) + UI (sidebar/transport/sort) defaults; `/settings` screen + `Mod+,` + palette. |
 | 0.2.0 | 2026-06-21 | Added panel-layout persistence (AC-013): `settings.layout` ({panelId->size}) seeds the resizable group's `defaultLayout` and `onLayoutChanged` -> `saveLayout`, mirroring `requi`. Moved from out-of-scope after user feedback. |
-| 0.3.0 | 2026-06-21 | Added `revealTransportOnHover` (AC-014, default `true`): a hidden transport bar reveals as a bottom-edge overlay while the video is hovered; toggled in a new settings Playback section. vidui-specific (no `requi` precedent). New `ui/switch.tsx` primitive (sharp-cornered per design.md). |
+| 0.3.0 | 2026-06-21 | Added `revealTransportOnHover` (AC-014, default `true`): a hidden transport bar reveals as a bottom-edge overlay while the video is hovered; toggled in a new settings Playback section. pureplayer-specific (no `requi` precedent). New `ui/switch.tsx` primitive (sharp-cornered per design.md). |
 | 0.4.0 | 2026-06-21 | AC-015: palette now lists every runnable action - added `toggle-fullscreen` (`Mod+Shift+F`, was double-click only) + `toggle-reveal-transport` (`Mod+Shift+H`) actions, and optional per-action search `keywords` (so "bottom bar" finds the transport toggle). AC-016: the reveal overlay auto-hides after 500ms idle, re-reveals on mouse move (timer reset), hides on leave. |
 | 0.5.0 | 2026-06-21 | AC-017: the reveal overlay no longer auto-hides while the cursor rests on the bar - bar-enter freezes the idle timer (and a bubbling move from the bar doesn't re-arm it via an `isOverBar` ref), bar-leave restarts the 500ms countdown. |
 | 0.6.0 | 2026-06-21 | AC-018: the video title overlay now auto-hides 5s after the active video changes (was shown permanently while windowed); switching files re-shows it. Implemented in `viewport.tsx` via a `titleHiddenForId` state set by a per-id 5s timer (no synchronous setState-in-effect, lint-clean). |

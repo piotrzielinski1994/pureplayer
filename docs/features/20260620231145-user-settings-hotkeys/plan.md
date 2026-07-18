@@ -16,7 +16,7 @@ Three layers, all pure-core + thin-shell, copied/adapted from `requi`:
      (out of scope); adds the playback + UI prefs.
    - `tauri-store.ts` - `createTauriSettingsStore()`: `LazyStore("settings.json")`, get+merge on
      load, set+save on save, `.catch` -> defaults (host-less / corrupt fail-safe). One file (no
-     separate keymap file like `requi` - vidui has no reason to split).
+     separate keymap file like `requi` - pureplayer has no reason to split).
    - `in-memory-store.ts` - `createInMemorySettingsStore(initial?)` for tests.
    - `settings-context.tsx` - `SettingsProvider({store})`: load-once effect, `update(mutate)` saves
      on change, renders `null` until loaded. Exposes `settings` + granular savers: `saveShortcut`,
@@ -30,9 +30,9 @@ Three layers, all pure-core + thin-shell, copied/adapted from `requi`:
      keys), `resolveShortcuts(overrides)` (overlay on defaults), `findConflict(hotkey, forAction,
      effective)` (owner of a duplicate, own id excluded).
    - `use-action-hotkeys.ts` - read `useSettings()`, bind `resolveShortcuts(settings.shortcuts)`
-     instead of `action.defaultHotkey`. Drop the global `ignoreInputs: true`? No - vidui's bare
+     instead of `action.defaultHotkey`. Drop the global `ignoreInputs: true`? No - pureplayer's bare
      keys (Space/M/S/R/arrows/brackets) must stay suppressed while typing in the (future) inputs;
-     keep `ignoreInputs: true` (vidui has no text-entry surface that needs Mod combos to fire over
+     keep `ignoreInputs: true` (pureplayer has no text-entry surface that needs Mod combos to fire over
      it, unlike `requi`'s editors). Settings rebind UI doesn't use these hotkeys (it uses the
      recorder), so `ignoreInputs` is safe.
 
@@ -172,13 +172,13 @@ AC-012. On-device `npm start` confirms AC-001 disk persistence end-to-end (the o
 |------|----------|-----------|
 | 2026-06-20 | Mirror `requi` settings/shortcuts subsystem; `tauri-plugin-store` persistence | User rule: check `requi` first + reuse. Logged in adr.md. |
 | 2026-06-20 | `WorkspaceProvider` stays DI-pure; persistence via route-level bridge + `initial*`/`on*Change` | Protects the 13 existing provider tests; extends the existing seam pattern. Logged in adr.md. |
-| 2026-06-20 | Single `settings.json` (no split keymap file like `requi`) | vidui has no reason to separate the keymap; one file is simpler. |
+| 2026-06-20 | Single `settings.json` (no split keymap file like `requi`) | pureplayer has no reason to separate the keymap; one file is simpler. |
 
 ## Status: DONE 2026-06-21
 
 ACs verified by fresh-context verifiers. AC-013 (panel-layout persistence) added after user
 feedback that requi persists split sizes; AC-014 (reveal-transport-on-hover) added on user request
-(vidui-specific, no requi precedent); AC-015 (palette completeness: fullscreen + reveal-transport
+(pureplayer-specific, no requi precedent); AC-015 (palette completeness: fullscreen + reveal-transport
 actions + search keywords) and AC-016 (idle auto-hide of the reveal overlay) added on follow-up;
 AC-017 (don't auto-hide while the cursor is on the bar) and AC-018 (title overlay auto-hides after
 5s) added on follow-up.

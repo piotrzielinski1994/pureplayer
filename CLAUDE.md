@@ -1,4 +1,4 @@
-# VidUI
+# pureplayer
 
 Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, repo layout. This file lists conventions and the non-obvious bits not visible from reading individual files.
 
@@ -10,7 +10,7 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 ## UI / design
 
 - Read [docs/design.md](docs/design.md) before any UI change - it's the visual contract, shared verbatim with the `requi` and `dbui` repos to keep all three consistent. Key rule: **no rounded corners anywhere** (`--radius` and every `--radius-*` pinned to `0rem` in `index.css`); don't raise them or add `rounded-full` / `rounded-xs` / `rounded-[..]` (token-based `rounded-{sm,md,lg}` resolve to 0 so are tolerated, but prefer stripping). Buttons in a thin bar (the transport bar) fill the bar's full height, square, divided by a 1px border - not floating chips with their own height/padding (see `transport-bar.tsx` `BAR_BUTTON`).
-- Keep design.md in sync with `requi`/`dbui` when the shared contract changes; vidui-only rules can be added but mark them as such.
+- Keep design.md in sync with `requi`/`dbui` when the shared contract changes; pureplayer-only rules can be added but mark them as such.
 
 ## Learning from conversation
 

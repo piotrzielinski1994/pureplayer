@@ -1,6 +1,6 @@
 // Pure helper for the per-launch log file stem. Takes already-decomposed
 // local-time date/time components so the test is fully deterministic - no clock,
-// no filesystem, no time crate. Returns "vidui-<YYYYMMDDHHMMSS>" (14 digits,
+// no filesystem, no time crate. Returns "pureplayer-<YYYYMMDDHHMMSS>" (14 digits,
 // zero-padded), matching the docs/features/* folder timestamp convention.
 pub fn launch_log_name(
     year: i32,
@@ -10,7 +10,7 @@ pub fn launch_log_name(
     minute: u32,
     second: u32,
 ) -> String {
-    format!("vidui-{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}")
+    format!("pureplayer-{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}")
 }
 
 // Per-launch log file stem from the current local wall-clock. Local time (not
@@ -29,8 +29,8 @@ pub fn current_launch_log_name() -> String {
     )
 }
 
-// Register file logging, best-effort. A fresh vidui-<YYYYMMDDHHMMSS>.log per launch
-// in the OS app-log dir (macOS ~/Library/Logs/com.pzielinski.vidui/). KeepAll + a
+// Register file logging, best-effort. A fresh pureplayer-<YYYYMMDDHHMMSS>.log per launch
+// in the OS app-log dir (macOS ~/Library/Logs/com.pzielinski.pureplayer/). KeepAll + a
 // large size cap so a whole session lands in one file, never rotated away mid-run.
 // Logging is a side channel: if the log dir is unwritable we skip it and the app
 // still launches (the LogDir target would otherwise error out of app setup).
@@ -39,7 +39,7 @@ pub fn init<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
     let log_name = current_launch_log_name();
     // `targets` REPLACES the builder's seeded defaults ([Stdout, LogDir{None}]);
-    // `target` would push, leaving a stray app-name `VidUI.log` + a duplicate
+    // `target` would push, leaving a stray app-name `pureplayer.log` + a duplicate
     // Stdout. We want exactly Stdout + our single per-launch file.
     let plugin = tauri_plugin_log::Builder::new()
         .targets([
@@ -54,10 +54,10 @@ pub fn init<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         .build();
 
     if app.plugin(plugin).is_err() {
-        eprintln!("vidui: file logging disabled (log dir unwritable)");
+        eprintln!("pureplayer: file logging disabled (log dir unwritable)");
         return;
     }
-    log::info!("vidui starting (log file {log_name}.log)");
+    log::info!("pureplayer starting (log file {log_name}.log)");
 }
 
 #[cfg(test)]
@@ -66,10 +66,10 @@ mod tests {
 
     // behavior
     #[test]
-    fn should_format_launch_name_as_vidui_plus_14_digits() {
+    fn should_format_launch_name_as_pureplayer_plus_14_digits() {
         assert_eq!(
             launch_log_name(2026, 6, 21, 11, 51, 43),
-            "vidui-20260621115143"
+            "pureplayer-20260621115143"
         );
     }
 
@@ -78,7 +78,7 @@ mod tests {
     fn should_zero_pad_single_digit_fields() {
         assert_eq!(
             launch_log_name(2026, 1, 2, 3, 4, 5),
-            "vidui-20260102030405"
+            "pureplayer-20260102030405"
         );
     }
 
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn should_match_feature_folder_timestamp_shape() {
         let name = launch_log_name(2026, 6, 21, 11, 51, 43);
-        let stamp = name.strip_prefix("vidui-").expect("name must start with vidui-");
+        let stamp = name.strip_prefix("pureplayer-").expect("name must start with pureplayer-");
         assert_eq!(stamp.len(), 14);
         assert!(stamp.chars().all(|c| c.is_ascii_digit()));
     }

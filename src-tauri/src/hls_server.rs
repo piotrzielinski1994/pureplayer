@@ -74,7 +74,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     // A unique tempdir that removes itself on drop, so tests don't leave a trail of
-    // `vidui-hls-test-*` dirs in the OS temp dir. Derefs to Path, so call sites use
+    // `pureplayer-hls-test-*` dirs in the OS temp dir. Derefs to Path, so call sites use
     // it like a path. Created on disk so canonicalize-based checks have a real root.
     struct TempRoot(PathBuf);
 
@@ -102,7 +102,7 @@ mod tests {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
         let mut dir = std::env::temp_dir();
-        dir.push(format!("vidui-hls-test-{}-{n}", std::process::id()));
+        dir.push(format!("pureplayer-hls-test-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("create test root");
         TempRoot(dir)
     }

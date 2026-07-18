@@ -24,12 +24,12 @@ untouched (`asset://`). No persistent cache.
    with `Content-Type` from `hls_mime`. Loopback-only, serves only `root`.
 
 4. **State + setup (`lib.rs` / `media.rs`):** at `setup`, create the HLS root under temp
-   (`vidui-hls/`, wiped first), start the server, `app.manage(HlsState { root, port, current: Mutex::new(None) })`.
+   (`pureplayer-hls/`, wiped first), start the server, `app.manage(HlsState { root, port, current: Mutex::new(None) })`.
 
 5. **`prepare_media` rewrite (`media.rs`):**
    - Probe once (`probe_media`, kept). No-video -> error.
    - `plan_media`. Passthrough -> return source path, `transcoded:false` (unchanged, no server).
-   - Convert -> kill+clean any `current` job; make a fresh `vidui-hls/<job-id>/` dir; spawn ffmpeg:
+   - Convert -> kill+clean any `current` job; make a fresh `pureplayer-hls/<job-id>/` dir; spawn ffmpeg:
      `-i <src> -c:v copy_or_reencode -c:a aac -aac_coder fast -f hls -hls_time 4
      -hls_playlist_type event -hls_flags append_list -hls_segment_filename <dir>/seg%05d.ts
      <dir>/index.m3u8`. Video uses the existing `video_convert_args` (copy when h264).
@@ -44,7 +44,7 @@ untouched (`asset://`). No persistent cache.
    `http://` / `https://`; otherwise `convertFileSrc` (asset). Add a vitest. `viewport.tsx` needs no
    change (it just sets `<video src>`); the FR-12 timeline still works (onCanPlay fires on HLS too).
 
-7. **Cleanup:** kill+remove on new activation (step 5). Best-effort wipe `vidui-hls/` at startup.
+7. **Cleanup:** kill+remove on new activation (step 5). Best-effort wipe `pureplayer-hls/` at startup.
    Remove the old `cache_path`/v2 logic + `.part` rename + complete-MP4 transcode block (superseded).
 
 ## Execution order

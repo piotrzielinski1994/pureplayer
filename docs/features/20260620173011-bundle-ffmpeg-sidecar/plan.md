@@ -74,7 +74,7 @@ Replace the `std::process::Command` spawn + `try_wait` loop with:
 Rust (`cargo test` in `src-tauri`), the layer that owns this behaviour:
 - `is_directly_playable` returns true for `("h264","aac")`, `("h264","mp3")`, `("h264","")`;
   false for `("vp9","opus")`, `("av1","aac")`, `("h264","ac3")`, `("","")`. (AC-005)
-- `cache_path` is deterministic for the same source and lands under a `vidui-transcode` temp dir
+- `cache_path` is deterministic for the same source and lands under a `pureplayer-transcode` temp dir
   with an `.mp4` suffix. (regression guard for the preserved helper)
 
 Frontend: no behavioural change -> existing `npm test` must stay green (the `prepareMediaUrl`

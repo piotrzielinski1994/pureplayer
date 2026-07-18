@@ -15,16 +15,16 @@ decided. This feature adds **file logging** so playback behaviour is observable 
 Two parts:
 
 1. **Logging infrastructure** - register `tauri-plugin-log` writing to the OS app-log dir. Each
-   app launch creates a **fresh** log file named `vidui-<timestamp>.log`, where `<timestamp>`
+   app launch creates a **fresh** log file named `pureplayer-<timestamp>.log`, where `<timestamp>`
    is the same `YYYYMMDDHHMMSS` form used for `docs/features/*` folders (e.g.
-   `vidui-20260621115143.log`). Computed once at startup.
+   `pureplayer-20260621115143.log`). Computed once at startup.
 2. **Playback diagnostics** - instrument `prepare_media` so each prepare emits: source path,
    probed container + video/audio codecs, the chosen `MediaPlan` (Passthrough / Convert{..}),
    cache HIT vs MISS, and the wall-clock duration of the prepare call. Errors are logged too.
    This directly answers "why did that file take 8s".
 
 Log location (decided): OS app-log dir via the plugin's `LogDir` target -
-macOS `~/Library/Logs/com.pzielinski.vidui/`. Not the repo, not temp.
+macOS `~/Library/Logs/com.pzielinski.pureplayer/`. Not the repo, not temp.
 
 ## 2. Scope
 
@@ -39,9 +39,9 @@ retention/cleanup policy; instrumenting `import.rs`/`focus.rs`; changing any pla
 
 | ID | Criterion | Priority | How verified |
 |----|-----------|----------|--------------|
-| AC-001 | On app launch a new log file `vidui-<YYYYMMDDHHMMSS>.log` is created in the OS app-log dir (macOS `~/Library/Logs/com.pzielinski.vidui/`). The timestamp matches the `docs/features/*` format (14 digits, local time at launch). | Must | User `npm start`; `ls` the dir |
+| AC-001 | On app launch a new log file `pureplayer-<YYYYMMDDHHMMSS>.log` is created in the OS app-log dir (macOS `~/Library/Logs/com.pzielinski.pureplayer/`). The timestamp matches the `docs/features/*` format (14 digits, local time at launch). | Must | User `npm start`; `ls` the dir |
 | AC-002 | Two launches produce two distinct files (the timestamp differs); an earlier launch's file is never overwritten or appended to by a later launch. | Must | User: launch, quit, launch; `ls` shows 2 files |
-| AC-003 | The timestamp-formatting logic is a PURE function `launch_log_name(secs, nsecs?)`-style (input = a time value, output = `vidui-<14digits>`), unit-tested without touching the clock or filesystem. | Must | `cargo test` |
+| AC-003 | The timestamp-formatting logic is a PURE function `launch_log_name(secs, nsecs?)`-style (input = a time value, output = `pureplayer-<14digits>`), unit-tested without touching the clock or filesystem. | Must | `cargo test` |
 | AC-004 | A successful `prepare_media` logs at INFO: the source path, container, vcodec, acodec, the decided plan (Passthrough / Convert{video,audio}), whether it was a cache HIT or a fresh transcode, and the elapsed milliseconds. | Must | User run + read the log file |
 | AC-005 | A failed `prepare_media` (no video stream, or ffmpeg non-zero) logs at ERROR with the path and reason. | Must | Code review + user run with a bad file |
 | AC-006 | A one-line INFO is logged at startup recording app start (so an empty session still yields a non-empty, identifiable file). | Must | User run; file non-empty |
@@ -81,7 +81,7 @@ No UI. Logging is a side channel; the window is unchanged.
 ## 6. Data model / key decisions
 
 - **Per-launch filename via static `file_name`:** the plugin writes to one `<file_name>.log`
-  per process; computing `vidui-<ts>` once at startup and passing it as `file_name` yields a
+  per process; computing `pureplayer-<ts>` once at startup and passing it as `file_name` yields a
   fresh file per launch (new process -> new timestamp). No rotation needed for the "new file
   per open" requirement; `RotationStrategy` left default.
 - **Timestamp source:** the launch wall-clock formatted `%Y%m%d%H%M%S` in **local** time
@@ -111,8 +111,8 @@ commands, signing/notarization, any playback behaviour change.
 
 `cargo test` pins `launch_log_name`. `cargo build`/`clippy` prove the plugin wiring compiles.
 The file-creation + diagnostics ACs (AC-001/002/004/006) are **user-verified on device** via
-`npm start` - open the app, drop the slow MKV, read `~/Library/Logs/com.pzielinski.vidui/
-vidui-<ts>.log`, confirm it names the plan + cache HIT/MISS + elapsed ms.
+`npm start` - open the app, drop the slow MKV, read `~/Library/Logs/com.pzielinski.pureplayer/
+pureplayer-<ts>.log`, confirm it names the plan + cache HIT/MISS + elapsed ms.
 
 ## 10. Revision History
 

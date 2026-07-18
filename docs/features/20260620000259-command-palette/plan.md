@@ -15,7 +15,7 @@ Port requi's palette structure, stripped of its persistence/override layer (fixe
 - The palette is mounted in a small `Workspace` shell wrapper that owns `isPaletteOpen` and
   builds the `PaletteCommand[]` from the registry + `useWorkspace()` verbs. This keeps
   `WorkspaceLayout` purely presentational and gives the hooks a home inside `WorkspaceProvider`.
-- UI primitives (`command.tsx`, `dialog.tsx`) ported from requi but switched to vidui's
+- UI primitives (`command.tsx`, `dialog.tsx`) ported from requi but switched to pureplayer's
   `radix-ui` umbrella import convention (`import { Dialog as DialogPrimitive } from "radix-ui"`).
 
 ### Key decisions
@@ -27,8 +27,8 @@ Port requi's palette structure, stripped of its persistence/override layer (fixe
 - **New `Workspace` wrapper** (`workspace.tsx`) owns palette state + hotkeys and renders
   `WorkspaceLayout` + `CommandPalette`. `routes/index.tsx` renders `<Workspace />` inside the
   existing `WorkspaceProvider`.
-- **`radix-ui` umbrella import** for Dialog, matching vidui's existing `dropdown-menu.tsx`
-  (requi uses `@radix-ui/react-dialog` directly; vidui standardizes on the umbrella).
+- **`radix-ui` umbrella import** for Dialog, matching pureplayer's existing `dropdown-menu.tsx`
+  (requi uses `@radix-ui/react-dialog` directly; pureplayer standardizes on the umbrella).
 
 ## Files
 

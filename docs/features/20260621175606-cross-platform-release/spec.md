@@ -2,7 +2,7 @@
 
 ## Overview
 
-**What:** A manually-triggered GitHub Actions workflow that builds VidUI installers for
+**What:** A manually-triggered GitHub Actions workflow that builds pureplayer installers for
 macOS, Windows, and Linux and publishes them as downloadable assets on a GitHub Release.
 
 **Why:** Users currently have no way to get the app without cloning the repo, installing the

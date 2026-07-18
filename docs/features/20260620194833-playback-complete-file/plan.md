@@ -52,7 +52,7 @@ keep ffmpeg failure detection via the `Terminated` code.
 Rust (`cargo test` in `src-tauri`), the layer that owns this:
 - `plan_media` for every TC-001..TC-007 combination (passthrough / remux / full transcode /
   mp4+bad-video / no-audio / bad-audio-only / h264+mp3). (AC-002..AC-005, AC-007)
-- `cache_path` determinism + vidui-transcode + .mp4 (regression guard, TC-008). (AC-006)
+- `cache_path` determinism + pureplayer-transcode + .mp4 (regression guard, TC-008). (AC-006)
 
 Not unit-testable (needs a Tauri host + real binaries + real media): the actual ffmpeg spawn,
 correct duration in `<video>`, remux speed. Covered by `cargo build` + **user `npm start`** with

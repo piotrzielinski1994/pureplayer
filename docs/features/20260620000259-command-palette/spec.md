@@ -10,13 +10,13 @@ Add a command palette to the workspace, modeled on `requi`'s palette: a `cmdk`-b
 that lists runnable actions, opens on `Mod+K`, filters by typed text, and runs the selected
 action on Enter/click. Each action is also bound as a global keyboard shortcut. Bindings are
 **fixed defaults** - no user-editable keymap, no persistence, no settings editor (those exist
-in `requi` on top of a settings/Tauri-store layer that vidui does not have yet).
+in `requi` on top of a settings/Tauri-store layer that pureplayer does not have yet).
 
 The layout feature explicitly removed the bootstrap command palette; this re-introduces it as a
-real, registry-driven feature wired to vidui's workspace verbs.
+real, registry-driven feature wired to pureplayer's workspace verbs.
 
 What this delivers:
-- A `cmdk` palette (search input + filtered list + empty state) styled with vidui's shadcn
+- A `cmdk` palette (search input + filtered list + empty state) styled with pureplayer's shadcn
   tokens, light/dark aware, matching requi's palette look.
 - An action registry (`id`, `name`, `description`, `defaultHotkey`) - the single source of truth.
 - Global hotkeys: `Mod+K` opens the palette; each registered action has its own global binding.
@@ -71,7 +71,7 @@ row = action name (left) + formatted shortcut (right):
 | AC-004 | Typing in the palette filters the list by action name; when nothing matches, a "No matching commands" empty state is shown | Must |
 | AC-005 | Selecting a command (Enter or click) runs its action exactly once and closes the palette | Must |
 | AC-006 | Each registered action is also bound as a global hotkey; pressing it outside an input runs the same handler (palette need not be open) | Must |
-| AC-007 | The palette uses vidui's shadcn tokens (popover/accent/muted), is light/dark aware, and matches requi's palette structure | Must |
+| AC-007 | The palette uses pureplayer's shadcn tokens (popover/accent/muted), is light/dark aware, and matches requi's palette structure | Must |
 | AC-008 | Running a transport command with no active video / empty playlist is a safe no-op (no throw, no state corruption) | Must |
 | AC-009 | `npm run lint`, `npm run typecheck`, and `npm test` exit 0 | Must |
 | AC-010 | "Toggle sidebar" (`Mod+B`) shows/hides the playlist sidebar; the viewport keeps rendering when it is hidden | Must |
@@ -179,7 +179,7 @@ sidebar panel + handle when hidden (content fills); `Content` omits `<TransportB
 
 New dependency: `cmdk@^1.1.1` (matches requi). Already present and reused: `@tanstack/hotkeys` +
 `@tanstack/react-hotkeys` (with `HotkeysProvider` already mounted in `app/providers.tsx`),
-`radix-ui` (Dialog via the umbrella import - vidui convention, not requi's `@radix-ui/*`),
+`radix-ui` (Dialog via the umbrella import - pureplayer convention, not requi's `@radix-ui/*`),
 `lucide-react` (search/close icons), `class-variance-authority`, `clsx`, `tailwind-merge`.
 
 ## 8. Out of Scope
