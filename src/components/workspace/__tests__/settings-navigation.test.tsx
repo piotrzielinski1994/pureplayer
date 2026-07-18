@@ -9,7 +9,7 @@ import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { settingsRoute } from "@/routes/settings";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 // Assert navigation without standing up a full router: stub useNavigate to a spy
 // and Link to a plain anchor (the real Link reads a router context that is null
@@ -30,7 +30,7 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
   watchFullscreen: vi.fn(() => Promise.resolve(() => {})),
   watchWindowFocus: vi.fn(() => Promise.resolve(() => {})),
@@ -51,8 +51,8 @@ describe("settings navigation", () => {
       <HotkeysProvider>
         <SettingsProvider store={createInMemorySettingsStore()}>
           <WorkspaceProvider
-            videos={fixtureVideos}
-            initialActiveVideoId="v-1"
+            media={fixtureMedia}
+            initialActiveMediaId="v-1"
           >
             <Workspace />
           </WorkspaceProvider>

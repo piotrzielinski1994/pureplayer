@@ -13,7 +13,7 @@ import { Workspace } from "@/components/workspace/workspace";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 // The viewport reaches the Tauri IPC boundary; mock that seam (not the
 // components) so the real <video> can mount and be driven under jsdom.
@@ -22,7 +22,7 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
   watchFullscreen: vi.fn(() => Promise.resolve(() => {})),
   watchWindowFocus: vi.fn(() => Promise.resolve(() => {})),
@@ -47,7 +47,7 @@ function Probe({
     seekToSec,
     playbackCurrentSec,
     isPlaying,
-    activeVideoId,
+    activeMediaId,
     stepFrame,
   } = useWorkspace();
   return (
@@ -59,7 +59,7 @@ function Probe({
       <output aria-label="seek-target">{String(seekToSec)}</output>
       <output aria-label="current-sec">{String(playbackCurrentSec)}</output>
       <output aria-label="playing">{String(isPlaying)}</output>
-      <output aria-label="active-id">{String(activeVideoId)}</output>
+      <output aria-label="active-id">{String(activeMediaId)}</output>
       <output aria-label="step-frame-type">{typeof stepFrame}</output>
       <button onClick={() => stepFrame(1)}>step-forward</button>
       <button onClick={() => stepFrame(-1)}>step-back</button>
@@ -73,13 +73,13 @@ const findVideo = async () => {
 };
 
 const renderProbe = (
-  initialActiveVideoId?: string,
+  initialActiveMediaId?: string,
   progress?: { current?: number; duration?: number },
 ) =>
   render(
     <WorkspaceProvider
-      videos={fixtureVideos}
-      initialActiveVideoId={initialActiveVideoId}
+      media={fixtureMedia}
+      initialActiveMediaId={initialActiveMediaId}
     >
       <TransportBar />
       <Viewport />
@@ -91,7 +91,7 @@ const renderWorkspace = (
   props: Omit<
     React.ComponentProps<typeof WorkspaceProvider>,
     "children"
-  > = { videos: fixtureVideos },
+  > = { media: fixtureMedia },
 ) =>
   render(
     <HotkeysProvider>
@@ -284,7 +284,7 @@ describe("frame-step: palette parity (AC-006)", () => {
   // behavior: both frame-step actions appear as palette command rows (AC-006 / TC-010)
   it("should list a palette command for both frame-step actions if the palette is open", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() =>
@@ -311,7 +311,7 @@ describe("frame-step: hotkeys drive the element (AC-007)", () => {
   // side-effect-contract: '.' steps the active element forward one frame via the global hotkey (AC-007 / TC-011)
   it("should step the element currentTime forward by 1/30 if '.' is pressed in the workspace", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     const video = await findVideo();
     video.dispatchEvent(new Event("loadedmetadata"));
@@ -330,7 +330,7 @@ describe("frame-step: hotkeys drive the element (AC-007)", () => {
   // side-effect-contract: ',' steps the active element back one frame via the global hotkey (AC-007 / TC-012)
   it("should step the element currentTime back by 1/30 if ',' is pressed in the workspace", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     const video = await findVideo();
     video.dispatchEvent(new Event("loadedmetadata"));

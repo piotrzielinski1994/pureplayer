@@ -60,16 +60,22 @@ download links 404 immediately. Anyone who already downloaded keeps their local 
 > playlist sidebar (the open video files, one row each, with a sort toggle in the header),
 > a video viewport, and a transport bar (prev / play-pause / next + a live time readout, with
 > a seekable progress bar across the bar's top edge - click or drag to scrub). It boots with an empty playlist:
-> `Open files` (`Mod+O`, or the command palette) opens the native picker (filtered to
-> `mp4/mkv/mov/webm/avi`) and **replaces** the playlist with the chosen files, auto-playing the
-> first. **Drag & drop:** dropping video files (or folders, recursed) from Finder/Explorer onto
+> `Open files` (`Mod+O`, or the command palette) opens the native picker (filtered to video
+> `mp4/mkv/mov/webm/avi` and audio `mp3/m4a/aac/flac/wav/ogg/opus/wma`) and **replaces** the
+> playlist with the chosen files, auto-playing the
+> first. **Drag & drop:** dropping media files (or folders, recursed) from Finder/Explorer onto
 > the window **appends** them to the playlist - a Rust `expand_dropped_paths` command walks the
 > dropped paths, recurses folders, keeps only known video extensions, dedupes and sorts; a
 > full-window overlay shows while a drag hovers. Dropping onto an empty list activates+plays the
 > first imported video (drop never disturbs an already-playing video). The viewport renders a real `<video>`; play/pause, prev/next, and clicking a row all
-> drive playback. Spacebar toggles play/pause. **Universal playback:** every opened file is probed
+> drive playback. Spacebar toggles play/pause. **Audio files** are first-class playlist items:
+> they queue, seek, shuffle, and drive the transport exactly like a video, just with a black
+> viewport (no picture, since there is no video track) - no audio-specific UI. **Universal playback:**
+> every opened file is probed
 > by a Rust `prepare_media` command (ffprobe reads container + codecs); H.264/AAC already in an
-> MP4/MOV plays directly via the asset protocol. For anything else the strategy is chosen so the
+> MP4/MOV plays directly via the asset protocol. An audio-only file plays untouched when its codec is
+> webview-native (mp3/aac/flac/wav) or is remuxed to a complete AAC-in-MP4 otherwise (opus/vorbis/wma);
+> embedded cover-art streams are ignored so they aren't mistaken for video. For anything else the strategy is chosen so the
 > picture is instant **and** seeking is native (the `<video>` gets a complete file on disk, not a
 > growing stream): when the video is H.264 it's stream-copied (`-c:v copy`) into a finished MP4 in
 > ~0.3s. If the audio is also fine (or absent) that single remux is the whole job. If only the
@@ -131,13 +137,13 @@ src/
   app/providers.tsx     QueryClientProvider + HotkeysProvider
   routes/               __root (layout + 404), index (player workspace + settings-persistence bridge), settings (remappable-hotkeys screen)
   components/
-    workspace/          player shell: context, flat video-list, sort-natural, viewport (real video), transport bar, videos-from-paths, command palette, drop-overlay (drag-drop import)
+    workspace/          player shell: context, flat media-list, sort-natural, viewport (real video, black for audio), transport bar, media-from-paths, command palette, drop-overlay (drag-drop import)
     settings/           settings screen: shortcuts-section + shortcut-row (capture-keystroke rebind), playback-section (reveal-transport-on-hover toggle)
     ui/                 shadcn primitives (button, badge, scroll-area, resizable, command, dialog, switch)
   lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn), shortcuts/ (action registry + resolve overrides + global hotkeys), settings/ (Settings ADT + merge, tauri-plugin-store persistence, SettingsProvider)
   index.css             Tailwind v4 + theme tokens
   test/setup.ts         Vitest + Testing Library setup
-src-tauri/              Rust desktop shell: greet, media.rs (ffprobe/ffmpeg prepare_media via bundled sidecars - HLS-streams unplayable files, logs plan/timing), hls_server.rs (loopback HTTP server serving the HLS temp dir to the webview's native player), import.rs (expand_dropped_paths - folder-walk + ext filter for drag-drop), focus.rs (WKWebView first-responder fix), logging.rs (per-launch log filename), binaries/ (gitignored ffmpeg sidecars), tauri.conf.json
+src-tauri/              Rust desktop shell: greet, media.rs (ffprobe/ffmpeg prepare_media via bundled sidecars - plays audio-only files, HLS-streams unplayable video, ignores cover-art streams, logs plan/timing), hls_server.rs (loopback HTTP server serving the HLS temp dir to the webview's native player), import.rs (expand_dropped_paths - folder-walk + video/audio ext filter for drag-drop), focus.rs (WKWebView first-responder fix), logging.rs (per-launch log filename), binaries/ (gitignored ffmpeg sidecars), tauri.conf.json
 scripts/                fetch-ffmpeg.sh (download bundled ffmpeg/ffprobe sidecars)
 tests/e2e/              Behavior smoke tests
 docs/                   spec/plan per feature, ADR, learnings

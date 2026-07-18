@@ -7,21 +7,21 @@ import {
   useWorkspace,
 } from "@/components/workspace/workspace-context";
 import {
-  fixtureVideos,
-  singleVideoList,
+  fixtureMedia,
+  singleMediaList,
   compositeFixture,
   compositeTypeTitleAscNames,
 } from "./fixtures";
-import type { VideoNode } from "@/components/workspace/mock-data";
+import type { MediaNode } from "@/components/workspace/mock-data";
 
-const loadFixture: VideoNode[] = [
+const loadFixture: MediaNode[] = [
   { id: "l-1", name: "L1", format: "MP4", path: "/load/l1.mp4" },
   { id: "l-2", name: "L2", format: "MKV", path: "/load/l2.mkv" },
 ];
 
 // 3-video list for the queue/repeat/shuffle behaviour. Open order is [A,B,C]
-// with stable ids qa,qb,qc so initialActiveVideoId is deterministic.
-const queueFixture: VideoNode[] = [
+// with stable ids qa,qb,qc so initialActiveMediaId is deterministic.
+const queueFixture: MediaNode[] = [
   { id: "qa", name: "A", format: "MP4", path: "/q/a.mp4" },
   { id: "qb", name: "B", format: "MP4", path: "/q/b.mp4" },
   { id: "qc", name: "C", format: "MP4", path: "/q/c.mp4" },
@@ -39,8 +39,8 @@ function Probe() {
           <li key={v.id}>{v.name}</li>
         ))}
       </ol>
-      <output aria-label="active">{ws.activeVideo?.name ?? "none"}</output>
-      <output aria-label="active-id">{ws.activeVideoId ?? "none"}</output>
+      <output aria-label="active">{ws.activeMedia?.name ?? "none"}</output>
+      <output aria-label="active-id">{ws.activeMediaId ?? "none"}</output>
       <output aria-label="selected-id">{ws.selectedNodeId ?? "none"}</output>
       <output aria-label="playing">{String(ws.isPlaying)}</output>
       <output aria-label="current">{String(ws.playbackCurrentSec)}</output>
@@ -62,7 +62,7 @@ function Probe() {
       <button onClick={() => ws.toggleShuffle()}>do-toggle-shuffle</button>
       <button
         onClick={() =>
-          ws.addVideos([
+          ws.addMedia([
             { id: "qd", name: "D", format: "MP4", path: "/q/d.mp4" },
           ])
         }
@@ -78,11 +78,11 @@ function Probe() {
       <button onClick={() => ws.toggleSortKey("title")}>key-title</button>
       <button onClick={() => ws.toggleSortKey("type")}>key-type</button>
       <button onClick={() => ws.toggleSortDirection()}>flip-dir</button>
-      <button onClick={() => ws.nextVideo()}>do-next</button>
-      <button onClick={() => ws.prevVideo()}>do-prev</button>
+      <button onClick={() => ws.nextMedia()}>do-next</button>
+      <button onClick={() => ws.prevMedia()}>do-prev</button>
       <button onClick={() => ws.togglePlay()}>do-play</button>
       <button onClick={() => ws.selectNode("v-9")}>select-9</button>
-      <button onClick={() => ws.loadVideos(loadFixture)}>do-load</button>
+      <button onClick={() => ws.loadMedia(loadFixture)}>do-load</button>
       <button onClick={() => ws.reportProgress(30, 60)}>do-progress</button>
       <button onClick={() => ws.reportEnded()}>do-ended</button>
     </div>
@@ -106,7 +106,7 @@ const renderProbe = (
 describe("workspace context", () => {
   // behavior: initial playlist is open order with empty sortKeys (spec §4 defaults)
   it("should expose the playlist in open order with empty sortKeys if just mounted", () => {
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     expect(playlistNames()).toEqual([
       "1 - Opening",
@@ -121,7 +121,7 @@ describe("workspace context", () => {
 
   // behavior: seeding initialSortKeys orders the playlist at launch (home route state)
   it("should expose the playlist already natural-sorted if initialSortKeys is [title]", () => {
-    renderProbe({ videos: fixtureVideos, initialSortKeys: ["title"] });
+    renderProbe({ media: fixtureMedia, initialSortKeys: ["title"] });
 
     expect(screen.getByLabelText("keys")).toHaveTextContent("title");
     expect(playlistNames()).toEqual([
@@ -136,7 +136,7 @@ describe("workspace context", () => {
   // side-effect-contract: toggleSortKey("title") adds the key and reorders to natural asc (AC-010)
   it("should add the title key and reorder to natural asc if toggleSortKey('title') is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     await user.click(screen.getByRole("button", { name: "key-title" }));
 
@@ -153,7 +153,7 @@ describe("workspace context", () => {
   // side-effect-contract: toggling the same key twice removes it -> back to open order
   it("should remove the title key and revert to open order if toggleSortKey('title') is called twice", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     const keyTitle = screen.getByRole("button", { name: "key-title" });
     await user.click(keyTitle);
@@ -172,7 +172,7 @@ describe("workspace context", () => {
   // side-effect-contract: selection order = priority; type then title => [type, title] chain (AC-010)
   it("should compose a [type, title] chain in selection order if type is toggled then title", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: compositeFixture });
+    renderProbe({ media: compositeFixture });
 
     await user.click(screen.getByRole("button", { name: "key-type" }));
     await user.click(screen.getByRole("button", { name: "key-title" }));
@@ -184,7 +184,7 @@ describe("workspace context", () => {
   // side-effect-contract: toggleSortDirection flips asc <-> desc and reverses the order (AC-010)
   it("should reverse the sorted playlist if toggleSortDirection flips asc to desc", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialSortKeys: ["title"] });
+    renderProbe({ media: fixtureMedia, initialSortKeys: ["title"] });
 
     expect(screen.getByLabelText("direction")).toHaveTextContent("asc");
 
@@ -203,7 +203,7 @@ describe("workspace context", () => {
   // behavior: selectNode highlights AND activates - selection and active coincide
   it("should set both selected and active to the same node if a node is selected", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     await user.click(screen.getByRole("button", { name: "select-9" }));
 
@@ -215,7 +215,7 @@ describe("workspace context", () => {
   // behavior: selectNode auto-plays the newly active video (AC-009 / spec §1)
   it("should set isPlaying true if a node is selected", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     expect(screen.getByLabelText("playing")).toHaveTextContent("false");
 
@@ -224,10 +224,10 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("playing")).toHaveTextContent("true");
   });
 
-  // behavior: nextVideo steps active forward through current order (open order here)
-  it("should advance the active video to the next entry in current order if nextVideo is called", async () => {
+  // behavior: nextMedia steps active forward through current order (open order here)
+  it("should advance the active video to the next entry in current order if nextMedia is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.click(screen.getByRole("button", { name: "do-next" }));
 
@@ -235,10 +235,10 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("active")).toHaveTextContent("21 - Finale");
   });
 
-  // behavior: nextVideo auto-plays the newly active video (AC-008 / spec §1)
-  it("should set isPlaying true if nextVideo is called", async () => {
+  // behavior: nextMedia auto-plays the newly active video (AC-008 / spec §1)
+  it("should set isPlaying true if nextMedia is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     expect(screen.getByLabelText("playing")).toHaveTextContent("false");
 
@@ -247,20 +247,20 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("playing")).toHaveTextContent("true");
   });
 
-  // behavior: prevVideo auto-plays the newly active video (AC-008 / spec §1)
-  it("should set isPlaying true if prevVideo is called", async () => {
+  // behavior: prevMedia auto-plays the newly active video (AC-008 / spec §1)
+  it("should set isPlaying true if prevMedia is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.click(screen.getByRole("button", { name: "do-prev" }));
 
     expect(screen.getByLabelText("playing")).toHaveTextContent("true");
   });
 
-  // behavior: nextVideo wraps last -> first in current order (E-3)
-  it("should wrap to the first entry if nextVideo is called on the last video", async () => {
+  // behavior: nextMedia wraps last -> first in current order (E-3)
+  it("should wrap to the first entry if nextMedia is called on the last video", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-12" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-12" });
 
     await user.click(screen.getByRole("button", { name: "do-next" }));
 
@@ -268,10 +268,10 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("active")).toHaveTextContent("1 - Opening");
   });
 
-  // behavior: prevVideo wraps first -> last in current order (E-3)
-  it("should wrap to the last entry if prevVideo is called on the first video", async () => {
+  // behavior: prevMedia wraps first -> last in current order (E-3)
+  it("should wrap to the last entry if prevMedia is called on the first video", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.click(screen.getByRole("button", { name: "do-prev" }));
 
@@ -282,7 +282,7 @@ describe("workspace context", () => {
   // behavior: prev/next follow the SORTED order after adding a sort key (AC-008 + AC-010)
   it("should step through natural-asc order if next is called after adding the title key", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.click(screen.getByRole("button", { name: "key-title" }));
     await user.click(screen.getByRole("button", { name: "do-next" }));
@@ -294,7 +294,7 @@ describe("workspace context", () => {
   // behavior: adding a sort key preserves the active video (E-6)
   it("should keep the same active video if a sort key is added while a video is active", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-9" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-9" });
 
     await user.click(screen.getByRole("button", { name: "key-title" }));
 
@@ -305,8 +305,8 @@ describe("workspace context", () => {
   it("should keep the same active video if the sort direction is flipped", async () => {
     const user = userEvent.setup();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-9",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-9",
       initialSortKeys: ["title"],
     });
 
@@ -318,7 +318,7 @@ describe("workspace context", () => {
   // behavior: togglePlay flips isPlaying (AC-007)
   it("should flip isPlaying from false to true and back if togglePlay is called twice", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     expect(screen.getByLabelText("playing")).toHaveTextContent("false");
 
@@ -331,7 +331,7 @@ describe("workspace context", () => {
 
   // behavior: panels default to visible (open shell) if just mounted
   it("should default both sidebar and transport to visible if just mounted", () => {
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
     expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
@@ -342,7 +342,7 @@ describe("workspace context", () => {
   // side-effect-contract: toggleSidebar flips sidebar visibility, leaving transport untouched
   it("should flip only sidebar visibility if toggleSidebar is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
 
@@ -355,7 +355,7 @@ describe("workspace context", () => {
   // side-effect-contract: toggleTransport flips transport visibility, leaving sidebar untouched
   it("should flip only transport visibility if toggleTransport is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     await user.click(
       screen.getByRole("button", { name: "do-toggle-transport" }),
@@ -370,7 +370,7 @@ describe("workspace context", () => {
   // side-effect-contract: toggling a panel twice restores it (hide then show)
   it("should restore the sidebar if toggleSidebar is called twice", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     const toggle = screen.getByRole("button", { name: "do-toggle-sidebar" });
     await user.click(toggle);
@@ -382,7 +382,7 @@ describe("workspace context", () => {
   // behavior: re-selecting the already-active video keeps it active + selected (E-2)
   it("should keep the same video active and selected if the active video is selected again", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-9" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-9" });
 
     expect(screen.getByLabelText("active-id")).toHaveTextContent("v-9");
 
@@ -395,7 +395,7 @@ describe("workspace context", () => {
   // behavior: single-video playlist wraps next/prev to itself (E-4)
   it("should keep the single video active if next then prev is called with one video", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: singleVideoList, initialActiveVideoId: "solo" });
+    renderProbe({ media: singleMediaList, initialActiveMediaId: "solo" });
 
     await user.click(screen.getByRole("button", { name: "do-next" }));
     expect(screen.getByLabelText("active-id")).toHaveTextContent("solo");
@@ -404,8 +404,8 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("active-id")).toHaveTextContent("solo");
   });
 
-  // behavior: provider defaults to an empty playlist if no videos prop is given (spec §1: boots empty)
-  it("should expose an empty playlist if no videos prop is supplied", () => {
+  // behavior: provider defaults to an empty playlist if no media prop is given (spec §1: boots empty)
+  it("should expose an empty playlist if no media prop is supplied", () => {
     renderProbe({});
 
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
@@ -414,7 +414,7 @@ describe("workspace context", () => {
 
   // behavior: playback figures start at 0 before any report (data model §5: 0 until first report)
   it("should expose playbackCurrentSec and playbackDurationSec of 0 if just mounted", () => {
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     expect(screen.getByLabelText("current")).toHaveTextContent("0");
     expect(screen.getByLabelText("duration")).toHaveTextContent("0");
@@ -423,7 +423,7 @@ describe("workspace context", () => {
   // side-effect-contract: reportProgress pushes the live current/duration into state (AC-006)
   it("should store the reported current and duration if reportProgress is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.click(screen.getByRole("button", { name: "do-progress" }));
 
@@ -434,7 +434,7 @@ describe("workspace context", () => {
   // side-effect-contract: last video + repeat=off -> reportEnded stops, active unchanged (TC-002 / AC-002)
   it("should set isPlaying false and keep the active video if reportEnded is called on the last video with repeat off", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qc" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qc" });
 
     await user.click(screen.getByRole("button", { name: "do-play" }));
     expect(screen.getByLabelText("playing")).toHaveTextContent("true");
@@ -448,7 +448,7 @@ describe("workspace context", () => {
   // behavior: mid-list + repeat=off -> reportEnded advances to next and keeps playing (TC-001 / AC-001)
   it("should advance to the next video and keep playing if reportEnded is called mid-list with repeat off", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qa" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qa" });
 
     await user.click(screen.getByRole("button", { name: "do-ended" }));
 
@@ -458,7 +458,7 @@ describe("workspace context", () => {
 
   // behavior: repeat defaults to off and shuffle to false (spec §5 defaults)
   it("should default repeatMode to off and isShuffling to false if just mounted", () => {
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qa" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qa" });
 
     expect(screen.getByLabelText("repeat")).toHaveTextContent("off");
     expect(screen.getByLabelText("shuffling")).toHaveTextContent("false");
@@ -467,7 +467,7 @@ describe("workspace context", () => {
   // side-effect-contract: cycleRepeat steps off -> all -> one -> off (TC-008 / AC-007)
   it("should cycle repeatMode off -> all -> one -> off if cycleRepeat is called three times", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qa" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qa" });
 
     const cycle = screen.getByRole("button", { name: "do-cycle-repeat" });
 
@@ -484,7 +484,7 @@ describe("workspace context", () => {
   // side-effect-contract: repeat=all wraps last -> first on ended, keeps playing (TC-003 / AC-003)
   it("should wrap to the first video and keep playing if the last video ends with repeat all", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qc" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qc" });
 
     await user.click(screen.getByRole("button", { name: "do-cycle-repeat" }));
     expect(screen.getByLabelText("repeat")).toHaveTextContent("all");
@@ -498,7 +498,7 @@ describe("workspace context", () => {
   // side-effect-contract: repeat=one replays same video from 0 and keeps playing (TC-004 / AC-004)
   it("should replay the same video from 0 and keep playing if a video ends with repeat one", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qb" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qb" });
 
     const cycle = screen.getByRole("button", { name: "do-cycle-repeat" });
     await user.click(cycle);
@@ -518,7 +518,7 @@ describe("workspace context", () => {
   // side-effect-contract: toggleShuffle flips isShuffling on (TC-005 setup / AC-007)
   it("should flip isShuffling to true if toggleShuffle is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qa" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qa" });
 
     await user.click(screen.getByRole("button", { name: "do-toggle-shuffle" }));
 
@@ -528,7 +528,7 @@ describe("workspace context", () => {
   // behavior: toggling shuffle does not interrupt the active video or playback (TC-007 / AC-006)
   it("should keep the active video and isPlaying unchanged if shuffle is toggled on", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qb" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qb" });
 
     await user.click(screen.getByRole("button", { name: "do-play" }));
     expect(screen.getByLabelText("playing")).toHaveTextContent("true");
@@ -545,8 +545,8 @@ describe("workspace context", () => {
     // assertion is a round-trip property that holds for ANY stable order.
     const user = userEvent.setup();
     renderProbe({
-      videos: queueFixture,
-      initialActiveVideoId: "qa",
+      media: queueFixture,
+      initialActiveMediaId: "qa",
       rng: () => 0,
     });
 
@@ -563,8 +563,8 @@ describe("workspace context", () => {
   it("should auto-advance to the same id as Next would if a video ends while shuffling with repeat all", async () => {
     const user = userEvent.setup();
     renderProbe({
-      videos: queueFixture,
-      initialActiveVideoId: "qa",
+      media: queueFixture,
+      initialActiveMediaId: "qa",
       rng: () => 0,
     });
 
@@ -590,8 +590,8 @@ describe("workspace context", () => {
   it("should append a dropped-in video to the shuffle order without reshuffling if added while shuffling", async () => {
     const user = userEvent.setup();
     renderProbe({
-      videos: queueFixture,
-      initialActiveVideoId: "qa",
+      media: queueFixture,
+      initialActiveMediaId: "qa",
       rng: () => 0,
     });
 
@@ -610,8 +610,8 @@ describe("workspace context", () => {
   it("should keep the frozen shuffle order if the sort direction is flipped while shuffling", async () => {
     const user = userEvent.setup();
     renderProbe({
-      videos: queueFixture,
-      initialActiveVideoId: "qa",
+      media: queueFixture,
+      initialActiveMediaId: "qa",
       initialSortKeys: ["title"],
       rng: () => 0,
     });
@@ -626,7 +626,7 @@ describe("workspace context", () => {
   // behavior: manual Next ignores repeat-one and advances (TC-009 / AC-007)
   it("should advance to the next video if Next is called with repeat one", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: queueFixture, initialActiveVideoId: "qa" });
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qa" });
 
     const cycle = screen.getByRole("button", { name: "do-cycle-repeat" });
     await user.click(cycle);
@@ -653,10 +653,10 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("repeat")).toHaveTextContent("off");
   });
 
-  // side-effect-contract: loadVideos replaces the playlist, activates + plays the first (AC-002)
-  it("should replace the playlist and activate-and-play the first if loadVideos is called", async () => {
+  // side-effect-contract: loadMedia replaces the playlist, activates + plays the first (AC-002)
+  it("should replace the playlist and activate-and-play the first if loadMedia is called", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     await user.click(screen.getByRole("button", { name: "do-load" }));
 
@@ -665,10 +665,10 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("playing")).toHaveTextContent("true");
   });
 
-  // behavior: switching the active video via loadVideos resets the live playback figures to 0 (data model §5)
-  it("should reset playback current and duration to 0 if loadVideos switches the active video", async () => {
+  // behavior: switching the active video via loadMedia resets the live playback figures to 0 (data model §5)
+  it("should reset playback current and duration to 0 if loadMedia switches the active video", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.click(screen.getByRole("button", { name: "do-progress" }));
     expect(screen.getByLabelText("current")).toHaveTextContent("30");
@@ -682,7 +682,7 @@ describe("workspace context", () => {
   // behavior: switching the active video via selectNode resets the live playback figures to 0 (data model §5)
   it("should reset playback figures to 0 if selectNode switches the active video", async () => {
     const user = userEvent.setup();
-    renderProbe({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderProbe({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.click(screen.getByRole("button", { name: "do-progress" }));
     expect(screen.getByLabelText("current")).toHaveTextContent("30");
@@ -695,7 +695,7 @@ describe("workspace context", () => {
 
   // behavior: playback prefs default to full volume, unmuted, 1x rate if no init props (spec §5 defaults)
   it("should default volume to 1, isMuted to false and playbackRate to 1 if just mounted", () => {
-    renderProbe({ videos: fixtureVideos });
+    renderProbe({ media: fixtureMedia });
 
     expect(screen.getByLabelText("volume")).toHaveTextContent("1");
     expect(screen.getByLabelText("muted")).toHaveTextContent("false");
@@ -705,7 +705,7 @@ describe("workspace context", () => {
   // behavior: seeded playback init props seed context state at launch (TC-008 / AC-008)
   it("should seed volume, isMuted and playbackRate from the initial* props", () => {
     renderProbe({
-      videos: fixtureVideos,
+      media: fixtureMedia,
       initialVolume: 0.5,
       initialMuted: true,
       initialPlaybackRate: 1.5,
@@ -719,7 +719,7 @@ describe("workspace context", () => {
   // behavior: seeded UI init props hide sidebar + transport and set sort desc at launch (TC-010 / AC-009)
   it("should seed sidebar/transport hidden and desc sort from the initial* props", () => {
     renderProbe({
-      videos: fixtureVideos,
+      media: fixtureMedia,
       initialSidebarHidden: true,
       initialTransportHidden: true,
       initialSortDirection: "desc",
@@ -737,8 +737,8 @@ describe("workspace context", () => {
     const user = userEvent.setup();
     const onVolumeChange = vi.fn();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       onVolumeChange,
     });
 
@@ -752,8 +752,8 @@ describe("workspace context", () => {
     const user = userEvent.setup();
     const onMutedChange = vi.fn();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       onMutedChange,
     });
 
@@ -767,8 +767,8 @@ describe("workspace context", () => {
     const user = userEvent.setup();
     const onPlaybackRateChange = vi.fn();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       onPlaybackRateChange,
     });
 
@@ -782,8 +782,8 @@ describe("workspace context", () => {
     const user = userEvent.setup();
     const onSidebarHiddenChange = vi.fn();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       onSidebarHiddenChange,
     });
 
@@ -797,8 +797,8 @@ describe("workspace context", () => {
     const user = userEvent.setup();
     const onTransportHiddenChange = vi.fn();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       onTransportHiddenChange,
     });
 
@@ -814,8 +814,8 @@ describe("workspace context", () => {
     const user = userEvent.setup();
     const onSortDirectionChange = vi.fn();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       onSortDirectionChange,
     });
 
@@ -830,8 +830,8 @@ describe("workspace context", () => {
     const onSidebarHiddenChange = vi.fn();
     const onTransportHiddenChange = vi.fn();
     renderProbe({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       onSidebarHiddenChange,
       onTransportHiddenChange,
     });

@@ -13,7 +13,7 @@ import { Workspace } from "@/components/workspace/workspace";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 // The viewport reaches the Tauri IPC boundary; mock that seam (not the
 // components) so the real <video> can mount and be driven under jsdom.
@@ -22,7 +22,7 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
   watchFullscreen: vi.fn(() => Promise.resolve(() => {})),
   watchWindowFocus: vi.fn(() => Promise.resolve(() => {})),
@@ -53,8 +53,8 @@ function Probe({
     toggleMute,
     playbackRate,
     changeRate,
-    nextVideo,
-    activeVideoId,
+    nextMedia,
+    activeMediaId,
   } = useWorkspace();
   return (
     <div>
@@ -63,11 +63,11 @@ function Probe({
       </button>
       <output aria-label="seek-target">{String(seekToSec)}</output>
       <output aria-label="current-sec">{String(playbackCurrentSec)}</output>
-      <output aria-label="active-id">{String(activeVideoId)}</output>
+      <output aria-label="active-id">{String(activeMediaId)}</output>
       <output aria-label="volume">{String(volume)}</output>
       <output aria-label="muted">{String(isMuted)}</output>
       <output aria-label="rate">{String(playbackRate)}</output>
-      <button onClick={() => nextVideo()}>do-next</button>
+      <button onClick={() => nextMedia()}>do-next</button>
       <button onClick={() => seekBy(5)}>seek-by-plus-5</button>
       <button onClick={() => seekBy(-5)}>seek-by-minus-5</button>
       <button onClick={() => seekBy(-1)}>seek-by-minus-1</button>
@@ -84,7 +84,7 @@ function Probe({
 }
 
 const viewportName = () =>
-  within(screen.getByRole("region", { name: /video viewport/i }));
+  within(screen.getByRole("region", { name: /media viewport/i }));
 
 const findVideo = async () => {
   await waitFor(() => expect(document.querySelector("video")).not.toBeNull());
@@ -92,13 +92,13 @@ const findVideo = async () => {
 };
 
 const renderProbe = (
-  initialActiveVideoId?: string,
+  initialActiveMediaId?: string,
   progress?: { current?: number; duration?: number },
 ) =>
   render(
     <WorkspaceProvider
-      videos={fixtureVideos}
-      initialActiveVideoId={initialActiveVideoId}
+      media={fixtureMedia}
+      initialActiveMediaId={initialActiveMediaId}
     >
       <TransportBar />
       <Viewport />
@@ -110,7 +110,7 @@ const renderWorkspace = (
   props: Omit<
     React.ComponentProps<typeof WorkspaceProvider>,
     "children"
-  > = { videos: fixtureVideos },
+  > = { media: fixtureMedia },
 ) =>
   render(
     <HotkeysProvider>
@@ -452,7 +452,7 @@ describe("extended transport: palette parity (AC-007)", () => {
   // behavior: opening the palette lists a command row for every one of the nine new actions (AC-007 / TC-009)
   it("should list a palette command for each new action if the palette is open", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() =>
@@ -489,7 +489,7 @@ describe("extended transport: hotkeys drive the element (AC-001..AC-006)", () =>
   // side-effect-contract: ArrowRight seeks the active element forward by 5s via the global hotkey (AC-001 / AC-002)
   it("should seek the element forward by 5s if ArrowRight is pressed in the workspace", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     const video = await findVideo();
     video.dispatchEvent(new Event("loadedmetadata"));
@@ -509,7 +509,7 @@ describe("extended transport: hotkeys drive the element (AC-001..AC-006)", () =>
   // side-effect-contract: M mutes the active element via the global hotkey (AC-005 / TC-006)
   it("should mute the element if M is pressed in the workspace", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     const video = await findVideo();
     await user.keyboard("m");
@@ -520,7 +520,7 @@ describe("extended transport: hotkeys drive the element (AC-001..AC-006)", () =>
   // side-effect-contract: ] speeds the active element up via the global hotkey (AC-006 / TC-007)
   it("should raise the element playbackRate if ] is pressed in the workspace", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     const video = await findVideo();
     await user.keyboard("]");
@@ -612,6 +612,6 @@ describe("extended transport: no active video (AC-008)", () => {
     });
 
     expect(screen.getByText("--:-- / --:--")).toBeInTheDocument();
-    expect(viewportName().getByText(/no video/i)).toBeInTheDocument();
+    expect(viewportName().getByText(/no media/i)).toBeInTheDocument();
   });
 });

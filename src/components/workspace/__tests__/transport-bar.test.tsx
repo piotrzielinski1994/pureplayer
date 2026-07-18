@@ -9,7 +9,7 @@ import {
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
 import { Sidebar } from "@/components/workspace/sidebar";
-import { fixtureVideos, singleVideoList } from "./fixtures";
+import { fixtureMedia, singleMediaList } from "./fixtures";
 
 // Viewport pulls in the Tauri IPC boundary; mock the seam, not the components.
 vi.mock("@/lib/tauri", () => ({
@@ -17,7 +17,7 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
 }));
 
 // A tiny probe button that pushes a live playback report into the context, the
@@ -34,11 +34,11 @@ function ProgressProbe({ current, duration }: { current: number; duration: numbe
   );
 }
 
-const renderTransport = (initialActiveVideoId?: string) =>
+const renderTransport = (initialActiveMediaId?: string) =>
   render(
     <WorkspaceProvider
-      videos={fixtureVideos}
-      initialActiveVideoId={initialActiveVideoId}
+      media={fixtureMedia}
+      initialActiveMediaId={initialActiveMediaId}
     >
       <TransportBar />
       <Viewport />
@@ -47,7 +47,7 @@ const renderTransport = (initialActiveVideoId?: string) =>
   );
 
 const viewportName = () =>
-  within(screen.getByRole("region", { name: /video viewport/i }));
+  within(screen.getByRole("region", { name: /media viewport/i }));
 
 const reportProgress = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole("button", { name: "report-progress" }));
@@ -87,7 +87,7 @@ describe("TransportBar", () => {
   });
 
   // behavior: empty readout when nothing is active (E-2 / AC-006)
-  it("should read --:-- / --:-- if no video is active", () => {
+  it("should read --:-- / --:-- if no media is active", () => {
     renderTransport();
 
     expect(screen.getByText("--:-- / --:--")).toBeInTheDocument();
@@ -164,7 +164,7 @@ describe("TransportBar", () => {
   it("should keep the only video active if next is clicked with a single-video playlist", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={singleVideoList} initialActiveVideoId="solo">
+      <WorkspaceProvider media={singleMediaList} initialActiveMediaId="solo">
         <TransportBar />
         <Viewport />
       </WorkspaceProvider>,
@@ -180,7 +180,7 @@ describe("TransportBar", () => {
   it("should request a seek to the clicked position if the progress bar is clicked", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-1">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-1">
         <TransportBar />
         <Viewport />
         <ProgressProbe current={0} duration={60} />
@@ -250,8 +250,8 @@ describe("TransportBar", () => {
     const user = userEvent.setup();
     render(
       <WorkspaceProvider
-        videos={fixtureVideos}
-        initialActiveVideoId="v-1"
+        media={fixtureMedia}
+        initialActiveMediaId="v-1"
         initialSortKeys={["title"]}
       >
         <Sidebar />

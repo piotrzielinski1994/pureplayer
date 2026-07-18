@@ -40,7 +40,7 @@ describe("app shell", () => {
       await screen.findByRole("list", { name: /playlist/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: /video viewport/i }),
+      screen.getByRole("region", { name: /media viewport/i }),
     ).toBeInTheDocument();
   });
 

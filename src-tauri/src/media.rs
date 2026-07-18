@@ -76,6 +76,7 @@ fn next_job_id() -> u64 {
 pub enum VideoAction {
     Copy,
     Reencode,
+    None,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -100,9 +101,14 @@ pub enum MediaPlan {
 // HLS progressive stream (seekable.end == Infinity mid-encode) was the seek bug.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum MediaStrategy {
-    // Video copies and audio is already fine (or absent): one fast remux to a
-    // complete MP4. Both tracks land at once, seek is native-instant.
-    CompleteRemux { audio: AudioAction },
+    // Video is copied or dropped and audio is already fine (or re-encoded to a
+    // supported codec): one fast remux to a complete MP4. For an audio-only file
+    // the video action is None (the absent/cover-art track is dropped with -vn),
+    // so a music file plays and seeks natively with no HLS.
+    CompleteRemux {
+        video: VideoAction,
+        audio: AudioAction,
+    },
     // Video copies but audio needs re-encoding (Opus/AC3/...): emit a video-only
     // MP4 instantly (perfect seek, no sound), then re-encode audio in the
     // background and swap to the full file when it's ready.
@@ -113,11 +119,20 @@ pub enum MediaStrategy {
 }
 
 // Pure mapping plan -> strategy. Passthrough (already a complete playable file)
-// has no strategy. The branch order matters: a copyable video always beats HLS,
-// and only a copyable video with bad audio takes the two-phase path.
+// has no strategy. The branch order matters: an audio-only file (no video track)
+// always goes to a single complete remux (no picture to decode-ahead, so HLS never
+// earns its keep); a copyable video beats HLS; only a copyable video with bad audio
+// takes the two-phase path.
 fn strategy_for(plan: MediaPlan) -> Option<MediaStrategy> {
     match plan {
         MediaPlan::Passthrough => None,
+        MediaPlan::Convert {
+            video: VideoAction::None,
+            audio,
+        } => Some(MediaStrategy::CompleteRemux {
+            video: VideoAction::None,
+            audio,
+        }),
         MediaPlan::Convert {
             video: VideoAction::Copy,
             audio: AudioAction::Reencode,
@@ -125,25 +140,56 @@ fn strategy_for(plan: MediaPlan) -> Option<MediaStrategy> {
         MediaPlan::Convert {
             video: VideoAction::Copy,
             audio,
-        } => Some(MediaStrategy::CompleteRemux { audio }),
+        } => Some(MediaStrategy::CompleteRemux {
+            video: VideoAction::Copy,
+            audio,
+        }),
         MediaPlan::Convert { video, audio } => Some(MediaStrategy::HlsStream { video, audio }),
     }
 }
 
+// A webview-playable audio-only file: a native codec in a native container, served
+// untouched. Non-native (opus/vorbis/wma, or a native codec in an odd container)
+// is remuxed/re-encoded to AAC-in-MP4 instead.
+fn is_native_audio(container: &str, acodec: &str) -> bool {
+    let is_native_codec = matches!(acodec, "aac" | "mp3" | "flac") || acodec.starts_with("pcm");
+    let is_native_container = ["mp4", "mov", "mp3", "flac", "wav"]
+        .iter()
+        .any(|c| container.contains(c));
+    is_native_codec && is_native_container
+}
+
+// Whether prepare_media can play the file at all: it needs at least one stream.
+// A file with neither an audio nor a video stream (corrupt/empty) is unplayable.
+fn has_playable_stream(vcodec: &str, acodec: &str) -> bool {
+    !(vcodec.is_empty() && acodec.is_empty())
+}
+
 // Pure decision: given the container (ffprobe format_name), video codec and audio
-// codec (a:"" = no audio), decide what the webview needs. MP4-family + h264 +
-// webview-playable audio is served untouched; anything else is converted, copying
-// the streams that are already fine and re-encoding only those that are not.
+// codec (a:"" = no audio, v:"" = no video / audio-only), decide what the webview
+// needs. An audio-only file is served untouched when native, else remuxed to a
+// complete AAC-in-MP4 with the video track dropped. Otherwise MP4-family + h264 +
+// webview-playable audio is served untouched; anything else copies the streams that
+// are already fine and re-encodes only those that are not.
 fn plan_media(container: &str, vcodec: &str, acodec: &str) -> MediaPlan {
-    let video = if vcodec == "h264" {
-        VideoAction::Copy
-    } else {
-        VideoAction::Reencode
-    };
     let audio = match acodec {
         "" => AudioAction::Drop,
         "aac" | "mp3" => AudioAction::Copy,
         _ => AudioAction::Reencode,
+    };
+    if vcodec.is_empty() {
+        if is_native_audio(container, acodec) {
+            return MediaPlan::Passthrough;
+        }
+        return MediaPlan::Convert {
+            video: VideoAction::None,
+            audio,
+        };
+    }
+    let video = if vcodec == "h264" {
+        VideoAction::Copy
+    } else {
+        VideoAction::Reencode
     };
     let is_mp4_container = container.contains("mp4");
     let is_webview_ready = video == VideoAction::Copy && audio != AudioAction::Reencode;
@@ -178,20 +224,29 @@ fn parse_probe_json(json: &str) -> ProbeResult {
     let duration_sec = root["format"]["duration"]
         .as_str()
         .and_then(|d| d.parse::<f64>().ok());
-    let codec_for = |kind: &str| {
+    // A cover-art picture (mp3/flac album art) is carried as a still-image "video"
+    // stream with disposition.attached_pic == 1. It is not a motion-video track, so
+    // skip it when reading the video codec - otherwise an audio file with art reads
+    // as a non-h264 video and gets HLS-transcoded as a nonexistent video.
+    let is_attached_pic = |stream: &serde_json::Value| {
+        stream["disposition"]["attached_pic"].as_i64() == Some(1)
+    };
+    let codec_for = |kind: &str, skip_attached_pic: bool| {
         root["streams"]
             .as_array()
             .into_iter()
             .flatten()
-            .find(|s| s["codec_type"].as_str() == Some(kind))
+            .find(|s| {
+                s["codec_type"].as_str() == Some(kind) && !(skip_attached_pic && is_attached_pic(s))
+            })
             .and_then(|s| s["codec_name"].as_str())
             .unwrap_or("")
             .to_string()
     };
     ProbeResult {
         container,
-        vcodec: codec_for("video"),
-        acodec: codec_for("audio"),
+        vcodec: codec_for("video", true),
+        acodec: codec_for("audio", false),
         duration_sec,
     }
 }
@@ -240,6 +295,7 @@ pub fn prewarm_sidecars(app: &tauri::AppHandle) {
 
 fn video_convert_args(action: VideoAction) -> Vec<&'static str> {
     match action {
+        VideoAction::None => vec!["-vn"],
         VideoAction::Copy => vec!["-c:v", "copy"],
         VideoAction::Reencode if cfg!(target_os = "macos") => {
             vec!["-c:v", "h264_videotoolbox", "-b:v", "6M"]
@@ -328,10 +384,10 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
         acodec,
         duration_sec,
     } = probe_media(&app, &path).await;
-    if vcodec.is_empty() {
-        log::error!("prepare_media failed: no video stream (or bundled ffmpeg failed) path={path}");
+    if !has_playable_stream(&vcodec, &acodec) {
+        log::error!("prepare_media failed: no audio or video stream (or bundled ffmpeg failed) path={path}");
         return Err(format!(
-            "ffprobe found no video stream (or bundled ffmpeg failed) for: {path}"
+            "ffprobe found no audio or video stream (or bundled ffmpeg failed) for: {path}"
         ));
     }
     log::info!("prepare_media path={path} container={container} v={vcodec} a={acodec}");
@@ -364,8 +420,8 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
     };
 
     match strategy {
-        MediaStrategy::CompleteRemux { audio } => {
-            complete_remux(&app, &path, audio, duration_sec, started).await
+        MediaStrategy::CompleteRemux { video, audio } => {
+            complete_remux(&app, &path, video, audio, duration_sec, started).await
         }
         MediaStrategy::VideoThenAudio => {
             video_then_audio(&app, &path, duration_sec, started).await
@@ -376,14 +432,16 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
     }
 }
 
-// One synchronous remux to a COMPLETE MP4 on disk (video copied, audio copied or
-// dropped). Because the file is whole when `<video>` loads it, the element gets a
+// One synchronous remux to a COMPLETE MP4 on disk. The video track is copied for a
+// real video file or dropped (`-vn`) for an audio-only file; audio is copied or
+// re-encoded. Because the file is whole when `<video>` loads it, the element gets a
 // finite duration and native random-access seeking - the HLS progressive stream
 // (seekable.end == Infinity mid-encode) was what broke seeking. For h264+aac this
 // is a container copy of both streams (~0.3s on a 32-min file).
 async fn complete_remux(
     app: &tauri::AppHandle,
     path: &str,
+    video: VideoAction,
     audio: AudioAction,
     duration_sec: Option<f64>,
     started: Instant,
@@ -398,7 +456,7 @@ async fn complete_remux(
         .sidecar("ffmpeg")
         .map_err(|e| format!("failed to resolve bundled ffmpeg: {e}"))?
         .args(["-y", "-v", "error", "-i", path])
-        .args(video_convert_args(VideoAction::Copy))
+        .args(video_convert_args(video))
         .args(audio_convert_args(audio))
         .args(["-movflags", "+faststart"])
         .arg(out.to_string_lossy().into_owned())
@@ -935,6 +993,7 @@ mod tests {
                 audio: AudioAction::Copy,
             }),
             Some(MediaStrategy::CompleteRemux {
+                video: VideoAction::Copy,
                 audio: AudioAction::Copy
             })
         );
@@ -949,6 +1008,7 @@ mod tests {
                 audio: AudioAction::Drop,
             }),
             Some(MediaStrategy::CompleteRemux {
+                video: VideoAction::Copy,
                 audio: AudioAction::Drop
             })
         );
@@ -979,6 +1039,178 @@ mod tests {
                 video: VideoAction::Reencode,
                 audio: AudioAction::Reencode,
             })
+        );
+    }
+}
+
+// Audio player support (spec docs/features/20260718222553-audio-player-support).
+// Isolated module so the new-name red state (VideoAction::None, has_playable_stream,
+// audio-only plan/strategy, cover-art skip) is legible and does not collide with the
+// existing `mod tests` imports.
+#[cfg(test)]
+mod audio_media_tests {
+    use super::{
+        has_playable_stream, parse_probe_json, plan_media, strategy_for, AudioAction, MediaPlan,
+        MediaStrategy, VideoAction,
+    };
+
+    const MP4: &str = "mov,mp4,m4a,3gp,3g2,mj2";
+    const MKV: &str = "matroska,webm";
+
+    // TC-001 (behavior): mp3 in an mp3 container is a webview-native audio-only file
+    // -> served untouched (AC-002).
+    #[test]
+    fn should_passthrough_when_mp3_container_mp3_audio_only() {
+        assert_eq!(plan_media("mp3", "", "mp3"), MediaPlan::Passthrough);
+    }
+
+    // TC-002 (behavior): aac in the mp4/m4a family with no video stream is native
+    // audio-only -> passthrough (AC-002).
+    #[test]
+    fn should_passthrough_when_m4a_aac_audio_only() {
+        assert_eq!(plan_media(MP4, "", "aac"), MediaPlan::Passthrough);
+    }
+
+    // TC-003 (behavior): flac in a flac container is native audio-only -> passthrough (AC-002).
+    #[test]
+    fn should_passthrough_when_flac_container_flac_audio_only() {
+        assert_eq!(plan_media("flac", "", "flac"), MediaPlan::Passthrough);
+    }
+
+    // TC-004 (behavior): pcm in a wav container is native audio-only -> passthrough (AC-002).
+    #[test]
+    fn should_passthrough_when_wav_pcm_audio_only() {
+        assert_eq!(plan_media("wav", "", "pcm_s16le"), MediaPlan::Passthrough);
+    }
+
+    // TC-005 (behavior): opus in ogg is non-native audio-only -> drop the (absent)
+    // video track and re-encode the audio to AAC (AC-003).
+    #[test]
+    fn should_convert_none_reencode_when_ogg_opus_audio_only() {
+        assert_eq!(
+            plan_media("ogg", "", "opus"),
+            MediaPlan::Convert {
+                video: VideoAction::None,
+                audio: AudioAction::Reencode,
+            }
+        );
+    }
+
+    // TC-006 (behavior): wmav2 in asf is non-native audio-only -> None + Reencode (AC-003).
+    #[test]
+    fn should_convert_none_reencode_when_asf_wmav2_audio_only() {
+        assert_eq!(
+            plan_media("asf", "", "wmav2"),
+            MediaPlan::Convert {
+                video: VideoAction::None,
+                audio: AudioAction::Reencode,
+            }
+        );
+    }
+
+    // E-3 (behavior): raw aac ADTS (native codec in the non-native `aac` container)
+    // is NOT passthrough - the audio is copied into a complete mp4, video dropped (AC-003).
+    #[test]
+    fn should_convert_none_copy_when_raw_aac_adts_audio_only() {
+        assert_eq!(
+            plan_media("aac", "", "aac"),
+            MediaPlan::Convert {
+                video: VideoAction::None,
+                audio: AudioAction::Copy,
+            }
+        );
+    }
+
+    // TC-007 (behavior): an audio-only Convert that re-encodes audio maps to a single
+    // complete remux with the video track dropped - never HLS (AC-003).
+    #[test]
+    fn should_complete_remux_none_reencode_when_audio_only_reencode() {
+        assert_eq!(
+            strategy_for(MediaPlan::Convert {
+                video: VideoAction::None,
+                audio: AudioAction::Reencode,
+            }),
+            Some(MediaStrategy::CompleteRemux {
+                video: VideoAction::None,
+                audio: AudioAction::Reencode,
+            })
+        );
+    }
+
+    // TC-008 (behavior): an audio-only Convert that can copy the audio (e.g. raw aac
+    // ADTS into mp4) still maps to a complete remux with the video dropped (AC-003, E-3).
+    #[test]
+    fn should_complete_remux_none_copy_when_audio_only_copy() {
+        assert_eq!(
+            strategy_for(MediaPlan::Convert {
+                video: VideoAction::None,
+                audio: AudioAction::Copy,
+            }),
+            Some(MediaStrategy::CompleteRemux {
+                video: VideoAction::None,
+                audio: AudioAction::Copy,
+            })
+        );
+    }
+
+    // TC-009 (behavior): a cover-art stream (mjpeg, disposition.attached_pic == 1) is
+    // NOT a real video track - the probe ignores it, so the file reads as audio-only
+    // (vcodec == "", acodec == "mp3") (AC-005).
+    #[test]
+    fn should_ignore_cover_art_stream_when_parsing_probe_json() {
+        let json = r#"{
+            "streams": [
+                { "codec_name": "mjpeg", "codec_type": "video", "disposition": { "attached_pic": 1 } },
+                { "codec_name": "mp3", "codec_type": "audio" }
+            ],
+            "format": { "format_name": "mp3" }
+        }"#;
+        let result = parse_probe_json(json);
+        assert_eq!(result.vcodec, "");
+        assert_eq!(result.acodec, "mp3");
+    }
+
+    // TC-010 (behavior): a genuine motion-video stream (attached_pic == 0) is still
+    // detected as video - the cover-art skip must not swallow real video (AC-005 negative).
+    #[test]
+    fn should_keep_real_video_when_attached_pic_is_zero() {
+        let json = r#"{
+            "streams": [
+                { "codec_name": "h264", "codec_type": "video", "disposition": { "attached_pic": 0 } },
+                { "codec_name": "aac", "codec_type": "audio" }
+            ],
+            "format": { "format_name": "mov,mp4,m4a,3gp,3g2,mj2" }
+        }"#;
+        assert_eq!(parse_probe_json(json).vcodec, "h264");
+    }
+
+    // TC-011 (behavior): the prepare_media guard - a file is playable when it has at
+    // least one stream; only neither-stream is unplayable (AC-004, E-2).
+    #[test]
+    fn should_report_unplayable_only_when_neither_stream_present() {
+        assert!(!has_playable_stream("", ""));
+        assert!(has_playable_stream("", "aac"));
+        assert!(has_playable_stream("h264", ""));
+    }
+
+    // TC-014 (behavior, regression): existing video plans are unchanged by the
+    // audio widening - passthrough, container-copy, and video-reencode all hold (AC-008).
+    #[test]
+    fn should_leave_video_plans_unchanged_when_widening_for_audio() {
+        assert_eq!(plan_media(MP4, "h264", "aac"), MediaPlan::Passthrough);
+        assert_eq!(
+            plan_media(MKV, "h264", "opus"),
+            MediaPlan::Convert {
+                video: VideoAction::Copy,
+                audio: AudioAction::Reencode,
+            }
+        );
+        assert_eq!(
+            plan_media(MKV, "av1", "aac"),
+            MediaPlan::Convert {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Copy,
+            }
         );
     }
 }

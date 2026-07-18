@@ -7,10 +7,10 @@ import {
   type PaletteCommand,
 } from "@/components/workspace/command-palette";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { videosFromPaths } from "@/components/workspace/videos-from-paths";
+import { mediaFromPaths } from "@/components/workspace/media-from-paths";
 import {
   expandDroppedPaths,
-  openVideoFiles,
+  openMediaFiles,
   toggleFullscreen,
   watchFileDrop,
   watchFullscreen,
@@ -25,11 +25,11 @@ import {
 
 export function Workspace() {
   const {
-    loadVideos,
-    addVideos,
+    loadMedia,
+    addMedia,
     togglePlay,
-    nextVideo,
-    prevVideo,
+    nextMedia,
+    prevMedia,
     seekBy,
     stepFrame,
     changeVolume,
@@ -77,26 +77,26 @@ export function Workspace() {
       }
       setIsDragging(false);
       const paths = await expandDroppedPaths(event.paths);
-      addVideos(videosFromPaths(paths));
+      addMedia(mediaFromPaths(paths));
     });
     return () => {
       void dropPromise.then((unlisten) => unlisten());
     };
-  }, [addVideos]);
+  }, [addMedia]);
 
   const openFiles = async () => {
-    const paths = await openVideoFiles();
+    const paths = await openMediaFiles();
     if (paths.length === 0) {
       return;
     }
-    loadVideos(videosFromPaths(paths));
+    loadMedia(mediaFromPaths(paths));
   };
 
   const handlers: Partial<Record<ShortcutActionId, () => void>> = {
     "open-files": () => void openFiles(),
     "toggle-play": togglePlay,
-    "next-video": nextVideo,
-    "prev-video": prevVideo,
+    "next-media": nextMedia,
+    "prev-media": prevMedia,
     "seek-forward": () => seekBy(5),
     "seek-back": () => seekBy(-5),
     "seek-forward-fine": () => seekBy(1),

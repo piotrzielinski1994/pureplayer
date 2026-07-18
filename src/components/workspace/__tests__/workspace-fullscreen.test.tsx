@@ -9,14 +9,14 @@ import {
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 vi.mock("@/lib/tauri", () => ({
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
 }));
 
 function Controls() {
@@ -34,7 +34,7 @@ function Controls() {
 const renderLayout = async () => {
   const result = render(
     <SettingsProvider store={createInMemorySettingsStore()}>
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <WorkspaceLayout />
         <Controls />
       </WorkspaceProvider>
@@ -92,13 +92,13 @@ describe("Chrome visibility is driven only by its own state (regression)", () =>
     await renderLayout();
 
     expect(
-      screen.getByRole("region", { name: /video viewport/i }),
+      screen.getByRole("region", { name: /media viewport/i }),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
 
     expect(
-      screen.getByRole("region", { name: /video viewport/i }),
+      screen.getByRole("region", { name: /media viewport/i }),
     ).toBeInTheDocument();
   });
 });
@@ -180,7 +180,7 @@ describe("Fullscreen hides chrome immersively (AC-006)", () => {
     await user.click(screen.getByRole("button", { name: "enter-fullscreen" }));
 
     expect(
-      screen.getByRole("region", { name: /video viewport/i }),
+      screen.getByRole("region", { name: /media viewport/i }),
     ).toBeInTheDocument();
   });
 });

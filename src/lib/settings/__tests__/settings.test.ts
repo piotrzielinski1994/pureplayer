@@ -251,6 +251,27 @@ describe("mergeSettings shortcuts", () => {
     expect(merged.shortcuts["toggle-play"]).toBe("Mod+P");
   });
 
+  // behavior: a persisted override under a legacy (renamed) action id migrates to
+  // the new id so a saved rebind survives the video->media rename
+  it("should migrate a legacy next-video override to next-media", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      shortcuts: { "next-video": "Mod+P" },
+    });
+
+    expect(merged.shortcuts).not.toHaveProperty("next-video");
+    expect(merged.shortcuts["next-media"]).toBe("Mod+P");
+  });
+
+  // behavior: the legacy prev-video id migrates to prev-media likewise
+  it("should migrate a legacy prev-video override to prev-media", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      shortcuts: { "prev-video": "Mod+Q" },
+    });
+
+    expect(merged.shortcuts).not.toHaveProperty("prev-video");
+    expect(merged.shortcuts["prev-media"]).toBe("Mod+Q");
+  });
+
   // behavior: a non-object shortcuts value yields an empty map (AC-002)
   it("should yield an empty shortcuts map if the persisted value is not an object", () => {
     expect(

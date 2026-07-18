@@ -9,7 +9,7 @@ import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
 import { toggleFullscreen } from "@/lib/tauri";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 // The workspace renders the Viewport, which reaches the Tauri IPC boundary;
 // mock the seam (not the components) so the real <video> can mount under jsdom.
@@ -18,7 +18,7 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
   watchFullscreen: vi.fn(() => Promise.resolve(() => {})),
   watchWindowFocus: vi.fn(() => Promise.resolve(() => {})),
@@ -32,7 +32,7 @@ type RenderProps = Omit<
   "children"
 >;
 
-const renderWorkspace = (props: RenderProps = { videos: fixtureVideos }) =>
+const renderWorkspace = (props: RenderProps = { media: fixtureMedia }) =>
   render(
     <HotkeysProvider>
       <SettingsProvider store={createInMemorySettingsStore()}>
@@ -46,13 +46,13 @@ const renderWorkspace = (props: RenderProps = { videos: fixtureVideos }) =>
 const searchInput = () => screen.queryByPlaceholderText(/type a command/i);
 
 const viewport = () =>
-  within(screen.getByRole("region", { name: /video viewport/i }));
+  within(screen.getByRole("region", { name: /media viewport/i }));
 
 describe("Workspace command palette integration", () => {
   // behavior: Mod+K opens the palette while focus is in the workspace (AC-001 / TC-001)
   it("should open the palette if Mod+K is pressed in the workspace", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     expect(searchInput()).not.toBeInTheDocument();
 
@@ -64,7 +64,7 @@ describe("Workspace command palette integration", () => {
   // behavior: Escape closes an open palette (AC-002 / TC-001)
   it("should close the palette if Escape is pressed while it is open", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
@@ -77,7 +77,7 @@ describe("Workspace command palette integration", () => {
   // behavior: the palette opener itself is not listed as a runnable row (AC-003 / TC-002)
   it("should not list the 'open command palette' action as a row if the palette is open", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
@@ -93,7 +93,7 @@ describe("Workspace command palette integration", () => {
   // side-effect-contract: selecting "Play / pause" toggles the playback affordance and closes (AC-005 / TC-004)
   it("should toggle playback and close the palette if 'Play / pause' is selected", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await screen.findByRole("button", { name: /play/i });
 
@@ -109,7 +109,7 @@ describe("Workspace command palette integration", () => {
   // side-effect-contract: spacebar toggles play/pause without opening the palette (bug 3)
   it("should toggle play to pause if the spacebar is pressed in the workspace", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await screen.findByRole("button", { name: /play/i });
 
@@ -123,12 +123,12 @@ describe("Workspace command palette integration", () => {
     );
   });
 
-  // side-effect-contract: the next-video global hotkey advances the active video without opening the palette (AC-006 / TC-005)
-  it("should advance the active video in sorted order if the next-video hotkey is pressed without the palette open", async () => {
+  // side-effect-contract: the next-media global hotkey advances the active video without opening the palette (AC-006 / TC-005)
+  it("should advance the active video in sorted order if the next-media hotkey is pressed without the palette open", async () => {
     const user = userEvent.setup();
     renderWorkspace({
-      videos: fixtureVideos,
-      initialActiveVideoId: "v-1",
+      media: fixtureMedia,
+      initialActiveMediaId: "v-1",
       initialSortKeys: ["title"],
     });
 
@@ -144,7 +144,7 @@ describe("Workspace command palette integration", () => {
   // side-effect-contract: selecting "Toggle sidebar" hides the playlist and closes the palette (AC-005)
   it("should hide the sidebar and close the palette if 'Toggle sidebar' is selected", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await screen.findByRole("list", { name: /playlist/i });
 
@@ -158,14 +158,14 @@ describe("Workspace command palette integration", () => {
     ).not.toBeInTheDocument();
     // viewport survives a hidden sidebar (B5)
     expect(
-      screen.getByRole("region", { name: /video viewport/i }),
+      screen.getByRole("region", { name: /media viewport/i }),
     ).toBeInTheDocument();
   });
 
   // side-effect-contract: the toggle-sidebar global hotkey hides the playlist without opening the palette (AC-006)
   it("should hide the sidebar if the toggle-sidebar hotkey is pressed without the palette open", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await screen.findByRole("list", { name: /playlist/i });
 
@@ -182,7 +182,7 @@ describe("Workspace command palette integration", () => {
   // side-effect-contract: selecting "Toggle transport bar" hides the transport and closes the palette (AC-005)
   it("should hide the transport bar and close the palette if 'Toggle transport bar' is selected", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await screen.findByRole("button", { name: /previous/i });
 
@@ -198,14 +198,14 @@ describe("Workspace command palette integration", () => {
     ).not.toBeInTheDocument();
     // viewport survives a hidden transport bar (B5)
     expect(
-      screen.getByRole("region", { name: /video viewport/i }),
+      screen.getByRole("region", { name: /media viewport/i }),
     ).toBeInTheDocument();
   });
 
   // side-effect-contract: the toggle-transport global hotkey hides the transport without opening the palette (AC-006)
   it("should hide the transport bar if the toggle-transport hotkey is pressed without the palette open", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await screen.findByRole("button", { name: /previous/i });
 
@@ -219,15 +219,15 @@ describe("Workspace command palette integration", () => {
     );
   });
 
-  // side-effect-contract: running "Next video" with no active video is a safe no-op that still closes (AC-008 / TC-006)
-  it("should not throw and should close if 'Next video' is run with no active video", async () => {
+  // side-effect-contract: running "Next media" with no active video is a safe no-op that still closes (AC-008 / TC-006)
+  it("should not throw and should close if 'Next media' is run with no active video", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos });
+    renderWorkspace({ media: fixtureMedia });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
 
-    await user.click(screen.getByRole("option", { name: /next video/i }));
+    await user.click(screen.getByRole("option", { name: /next media/i }));
 
     await waitFor(() => expect(searchInput()).not.toBeInTheDocument());
   });
@@ -235,7 +235,7 @@ describe("Workspace command palette integration", () => {
   // behavior: EVERY registered action (except the palette opener) is runnable from the palette (no drift)
   it("should list a row for every registered action except the palette opener", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
@@ -256,7 +256,7 @@ describe("Workspace command palette integration", () => {
   // side-effect-contract: the toggle-fullscreen action runs the fullscreen IPC (AC-015)
   it("should toggle fullscreen and close the palette if 'Toggle fullscreen' is selected", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());
@@ -272,7 +272,7 @@ describe("Workspace command palette integration", () => {
   // behavior: a keyword ('bottom bar') matches the transport action even though its NAME differs (AC-015)
   it("should match the transport action by its 'bottom bar' keyword", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() => expect(searchInput()).toBeInTheDocument());

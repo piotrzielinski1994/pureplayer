@@ -1,4 +1,4 @@
-import { VideoList } from "@/components/workspace/video-list";
+import { MediaList } from "@/components/workspace/media-list";
 import { SortSelector } from "@/components/workspace/sort-selector";
 
 export function Sidebar() {
@@ -7,7 +7,7 @@ export function Sidebar() {
       <div className="flex h-9 shrink-0 items-center border-b text-sm font-semibold">
         <SortSelector />
       </div>
-      <VideoList />
+      <MediaList />
     </div>
   );
 }

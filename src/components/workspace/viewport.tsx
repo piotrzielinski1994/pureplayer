@@ -45,7 +45,7 @@ function resolveDuration(elementDuration: number, probed: number | null): number
 
 export function Viewport() {
   const {
-    activeVideo,
+    activeMedia,
     isPlaying,
     seekToSec,
     volume,
@@ -87,20 +87,20 @@ export function Viewport() {
   // Switching files changes the id, so the title re-shows for the new one.
   const TITLE_VISIBLE_MS = 5000;
   useEffect(() => {
-    const id = activeVideo?.id;
+    const id = activeMedia?.id;
     if (id === undefined) {
       return;
     }
     const timer = setTimeout(() => setTitleHiddenForId(id), TITLE_VISIBLE_MS);
     return () => clearTimeout(timer);
-  }, [activeVideo?.id]);
+  }, [activeMedia?.id]);
 
   // A single click toggles play/pause instantly (no debounce, so it feels as
   // snappy as the transport button). A double click goes fullscreen: the DOM
   // fires `click` twice before `dblclick`, so the two toggles cancel out (net
   // no change) and fullscreen lands on top - no stray toggle, no delay.
   const handleClick = () => {
-    if (!activeVideo) {
+    if (!activeMedia) {
       return;
     }
     togglePlay();
@@ -111,19 +111,19 @@ export function Viewport() {
   // a few seconds. While the resolved source is not (yet) for the active video,
   // we render the "preparing" state - no synchronous reset needed.
   useEffect(() => {
-    if (!activeVideo) {
+    if (!activeMedia) {
       return;
     }
     let cancelled = false;
-    const forId = activeVideo.id;
+    const forId = activeMedia.id;
     timelineRef.current = {
       forId,
-      name: activeVideo.name,
+      name: activeMedia.name,
       activatedAtMs: performance.now(),
       prepareResolvedAtMs: null,
       firstFrameAtMs: null,
     };
-    prepareMediaUrl(activeVideo.path)
+    prepareMediaUrl(activeMedia.path)
       .then(({ url, durationSec, swapId }) => {
         const marks = timelineRef.current;
         if (marks && marks.forId === forId) {
@@ -135,7 +135,7 @@ export function Viewport() {
       })
       .catch((error) => {
         console.error("prepare_media failed", error);
-        void logPlayback(`playback "${activeVideo.name}": prepare FAILED`);
+        void logPlayback(`playback "${activeMedia.name}": prepare FAILED`);
         if (!cancelled) {
           setSource({ status: "error", forId, message: String(error) });
         }
@@ -143,7 +143,7 @@ export function Viewport() {
     return () => {
       cancelled = true;
     };
-  }, [activeVideo?.id]);
+  }, [activeMedia?.id]);
 
   // Two-phase swap: when the background audio re-encode finishes, the backend
   // emits audio-ready with the matching swapId. We point the <video> at the
@@ -168,7 +168,7 @@ export function Viewport() {
   }, []);
 
   const sourceForActive =
-    activeVideo && source?.forId === activeVideo.id ? source : null;
+    activeMedia && source?.forId === activeMedia.id ? source : null;
 
   useEffect(() => {
     const element = videoRef.current;
@@ -209,31 +209,31 @@ export function Viewport() {
   return (
     <div
       role="region"
-      aria-label="Video viewport"
+      aria-label="Media viewport"
       onClick={handleClick}
       onDoubleClick={() => void toggleFullscreen()}
       className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black"
     >
-      {!activeVideo && (
+      {!activeMedia && (
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
           <Film className="size-10" />
-          <p className="text-sm">No video selected</p>
+          <p className="text-sm">No media selected</p>
         </div>
       )}
-      {activeVideo && !sourceForActive && (
+      {activeMedia && !sourceForActive && (
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="size-10 animate-spin" />
-          <p className="text-sm">Preparing {activeVideo.name}…</p>
+          <p className="text-sm">Preparing {activeMedia.name}…</p>
         </div>
       )}
-      {activeVideo && sourceForActive?.status === "error" && (
+      {activeMedia && sourceForActive?.status === "error" && (
         <div className="flex max-w-md flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
           <Film className="size-10" />
           <p className="text-sm font-medium text-white">Could not play this file</p>
           <p className="text-xs">{sourceForActive.message}</p>
         </div>
       )}
-      {activeVideo && sourceForActive?.status === "ready" && (
+      {activeMedia && sourceForActive?.status === "ready" && (
         <>
           <video
             ref={videoRef}
@@ -274,9 +274,9 @@ export function Viewport() {
             }}
             onEnded={() => reportEnded()}
           />
-          {!isFullscreen && titleHiddenForId !== activeVideo.id && (
+          {!isFullscreen && titleHiddenForId !== activeMedia.id && (
             <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-sm text-white">
-              {activeVideo.name}
+              {activeMedia.name}
             </p>
           )}
         </>

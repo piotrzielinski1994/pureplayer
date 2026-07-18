@@ -5,16 +5,20 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 
 const VIDEO_EXTENSIONS = ["mp4", "mkv", "mov", "webm", "avi"];
+const AUDIO_EXTENSIONS = ["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma"];
 
 export function greet(name: string): Promise<string> {
   return invoke<string>("greet", { name });
 }
 
-export async function openVideoFiles(): Promise<string[]> {
+export async function openMediaFiles(): Promise<string[]> {
   const selection = await open({
     multiple: true,
     directory: false,
-    filters: [{ name: "Video", extensions: VIDEO_EXTENSIONS }],
+    filters: [
+      { name: "Video", extensions: VIDEO_EXTENSIONS },
+      { name: "Audio", extensions: AUDIO_EXTENSIONS },
+    ],
   });
   if (selection === null) {
     return [];

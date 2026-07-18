@@ -15,9 +15,9 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => convertFileSrc(path),
 }));
 
-import { openVideoFiles, prepareMediaUrl } from "@/lib/tauri";
+import { openMediaFiles, prepareMediaUrl } from "@/lib/tauri";
 
-describe("openVideoFiles", () => {
+describe("openMediaFiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -26,28 +26,28 @@ describe("openVideoFiles", () => {
   it("should return the selected paths as an array if several files are chosen", async () => {
     open.mockResolvedValue(["/v/a.mp4", "/v/b.mkv"]);
 
-    await expect(openVideoFiles()).resolves.toEqual(["/v/a.mp4", "/v/b.mkv"]);
+    await expect(openMediaFiles()).resolves.toEqual(["/v/a.mp4", "/v/b.mkv"]);
   });
 
   // behavior: a single selected path is normalised to a one-element array (AC-002)
   it("should normalise a single chosen path to a one-element array if one file is chosen", async () => {
     open.mockResolvedValue("/v/solo.mp4");
 
-    await expect(openVideoFiles()).resolves.toEqual(["/v/solo.mp4"]);
+    await expect(openMediaFiles()).resolves.toEqual(["/v/solo.mp4"]);
   });
 
   // behavior: cancelling the picker (null) yields an empty array, never a throw (AC-003/E-1)
   it("should return an empty array if the picker is cancelled", async () => {
     open.mockResolvedValue(null);
 
-    await expect(openVideoFiles()).resolves.toEqual([]);
+    await expect(openMediaFiles()).resolves.toEqual([]);
   });
 
   // side-effect-contract: the dialog opens with multiple selection enabled (AC-001)
   it("should open the dialog with multiple selection enabled if called", async () => {
     open.mockResolvedValue([]);
 
-    await openVideoFiles();
+    await openMediaFiles();
 
     expect(open).toHaveBeenCalledTimes(1);
     expect(open).toHaveBeenCalledWith(

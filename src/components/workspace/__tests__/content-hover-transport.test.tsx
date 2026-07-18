@@ -6,14 +6,14 @@ import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 vi.mock("@/lib/tauri", () => ({
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
 }));
 
@@ -24,8 +24,8 @@ const renderContent = (
   render(
     <SettingsProvider store={createInMemorySettingsStore(settings)}>
       <WorkspaceProvider
-        videos={fixtureVideos}
-        initialActiveVideoId="v-3"
+        media={fixtureMedia}
+        initialActiveMediaId="v-3"
         initialTransportHidden={workspace.transportHidden}
       >
         <Content />
@@ -35,7 +35,7 @@ const renderContent = (
 
 const transportButton = () =>
   screen.queryByRole("button", { name: /play|pause/i });
-const viewport = () => screen.getByRole("region", { name: /video viewport/i });
+const viewport = () => screen.getByRole("region", { name: /media viewport/i });
 
 afterEach(() => {
   vi.useRealTimers();
@@ -47,7 +47,7 @@ describe("Content transport reveal-on-hover", () => {
     renderContent({ ...DEFAULT_SETTINGS }, { transportHidden: false });
 
     expect(
-      await screen.findByRole("region", { name: /video viewport/i }),
+      await screen.findByRole("region", { name: /media viewport/i }),
     ).toBeInTheDocument();
     expect(transportButton()).toBeInTheDocument();
   });
@@ -59,7 +59,7 @@ describe("Content transport reveal-on-hover", () => {
       { transportHidden: true },
     );
 
-    await screen.findByRole("region", { name: /video viewport/i });
+    await screen.findByRole("region", { name: /media viewport/i });
     expect(transportButton()).not.toBeInTheDocument();
 
     fireEvent.mouseMove(viewport());
@@ -208,7 +208,7 @@ describe("Content transport reveal-on-hover", () => {
       { transportHidden: true },
     );
 
-    await screen.findByRole("region", { name: /video viewport/i });
+    await screen.findByRole("region", { name: /media viewport/i });
     expect(transportButton()).not.toBeInTheDocument();
 
     fireEvent.mouseMove(viewport());

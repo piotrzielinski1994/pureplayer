@@ -24,8 +24,8 @@ const cmd = (id: string, name: string): PaletteCommand => ({
 
 const commands: PaletteCommand[] = [
   cmd("toggle-play", "Play / pause"),
-  cmd("next-video", "Next video"),
-  cmd("prev-video", "Previous video"),
+  cmd("next-media", "Next media"),
+  cmd("prev-media", "Previous media"),
   cmd("seek-forward", "Seek forward 5s"),
 ];
 
@@ -56,7 +56,7 @@ describe("command palette pointer stability", () => {
 
     // Keyboard navigation still advances normally.
     await user.keyboard("{ArrowDown}");
-    expect(selectedName()).toBe("Next video");
+    expect(selectedName()).toBe("Next media");
   });
 
   // side-effect-contract: ArrowUp on the first row wraps to the last row (loop nav)

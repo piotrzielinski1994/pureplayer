@@ -1,4 +1,4 @@
-import type { VideoNode } from "@/components/workspace/mock-data";
+import type { MediaNode } from "@/components/workspace/mock-data";
 
 export type SortField = "title" | "type";
 
@@ -7,7 +7,7 @@ function numericPrefix(name: string): number | null {
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
-function compareTitle(a: VideoNode, b: VideoNode): number {
+function compareTitle(a: MediaNode, b: MediaNode): number {
   const prefixA = numericPrefix(a.name);
   const prefixB = numericPrefix(b.name);
   if (prefixA !== null && prefixB !== null && prefixA !== prefixB) {
@@ -18,22 +18,22 @@ function compareTitle(a: VideoNode, b: VideoNode): number {
 
 const FIELD_COMPARATORS: Record<
   SortField,
-  (a: VideoNode, b: VideoNode) => number
+  (a: MediaNode, b: MediaNode) => number
 > = {
   title: compareTitle,
   type: (a, b) => a.format.localeCompare(b.format),
 };
 
-export function sortVideos(
-  videos: VideoNode[],
+export function sortMedia(
+  media: MediaNode[],
   keys: SortField[],
   direction: "asc" | "desc",
-): VideoNode[] {
+): MediaNode[] {
   if (keys.length === 0) {
-    return [...videos];
+    return [...media];
   }
   const sign = direction === "desc" ? -1 : 1;
-  return [...videos].sort((a, b) => {
+  return [...media].sort((a, b) => {
     for (const key of keys) {
       const result = FIELD_COMPARATORS[key](a, b);
       if (result !== 0) {

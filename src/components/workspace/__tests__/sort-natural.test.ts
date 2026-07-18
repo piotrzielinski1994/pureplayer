@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 
-import { sortVideos } from "@/components/workspace/sort-natural";
+import { sortMedia } from "@/components/workspace/sort-natural";
 import type { SortField } from "@/components/workspace/sort-natural";
-import type { VideoNode } from "@/components/workspace/mock-data";
+import type { MediaNode } from "@/components/workspace/mock-data";
 import {
   compositeFixture,
   compositeTitleAscNames,
@@ -11,23 +11,23 @@ import {
 
 const make = (
   name: string,
-  overrides: Partial<VideoNode> = {},
-): VideoNode => ({
+  overrides: Partial<MediaNode> = {},
+): MediaNode => ({
   id: name,
   name,
   format: "MP4",
-  path: `/videos/${name}.mp4`,
+  path: `/media/${name}.mp4`,
   ...overrides,
 });
 
-const names = (videos: VideoNode[]) => videos.map((v) => v.name);
+const names = (media: MediaNode[]) => media.map((v) => v.name);
 
-describe("sortVideos", () => {
+describe("sortMedia", () => {
   // behavior: title key compares numeric prefixes by VALUE, so 3 precedes 21 (not lexical)
   it("should order numeric-prefixed names by integer value if keys is [title] asc", () => {
     const input = [make("1 - a"), make("21 - b"), make("3 - c")];
 
-    const result = names(sortVideos(input, ["title"], "asc"));
+    const result = names(sortMedia(input, ["title"], "asc"));
 
     expect(result).toEqual(["1 - a", "3 - c", "21 - b"]);
   });
@@ -42,7 +42,7 @@ describe("sortVideos", () => {
       make("3 - intro"),
     ];
 
-    const result = names(sortVideos(input, ["title"], "asc"));
+    const result = names(sortMedia(input, ["title"], "asc"));
 
     expect(result).toEqual([
       "1 - opening",
@@ -57,7 +57,7 @@ describe("sortVideos", () => {
   it("should order non-prefixed names locale-aware if keys is [title] and no numeric prefix is present", () => {
     const input = [make("Charlie"), make("alpha"), make("Bravo")];
 
-    const result = names(sortVideos(input, ["title"], "asc"));
+    const result = names(sortMedia(input, ["title"], "asc"));
 
     expect(result).toEqual(["alpha", "Bravo", "Charlie"]);
   });
@@ -71,7 +71,7 @@ describe("sortVideos", () => {
       make("21 - delta"),
     ];
 
-    const run = () => sortVideos(input, ["title"], "asc");
+    const run = () => sortMedia(input, ["title"], "asc");
 
     expect(run).not.toThrow();
     expect(names(run())).toHaveLength(4);
@@ -79,16 +79,16 @@ describe("sortVideos", () => {
 
   // behavior: a [type, title] chain groups by format string then natural title within each group
   it("should group by format then order by natural title within a format if keys is [type, title]", () => {
-    const result = names(sortVideos(compositeFixture, ["type", "title"], "asc"));
+    const result = names(sortMedia(compositeFixture, ["type", "title"], "asc"));
 
     expect(result).toEqual(compositeTypeTitleAscNames);
   });
 
   // behavior: a [type, title] chain produces a DIFFERENT order than [title] alone (proves tie-break chaining)
   it("should differ from a title-only order if the primary key is type", () => {
-    const titleOnly = names(sortVideos(compositeFixture, ["title"], "asc"));
+    const titleOnly = names(sortMedia(compositeFixture, ["title"], "asc"));
     const typeThenTitle = names(
-      sortVideos(compositeFixture, ["type", "title"], "asc"),
+      sortMedia(compositeFixture, ["type", "title"], "asc"),
     );
 
     expect(titleOnly).toEqual(compositeTitleAscNames);
@@ -96,36 +96,36 @@ describe("sortVideos", () => {
   });
 
   // behavior: an equal primary key falls through to the next key in the chain
-  it("should fall through to the next key if videos are equal on the primary key", () => {
+  it("should fall through to the next key if media are equal on the primary key", () => {
     const input = [
       make("3 - same", { format: "MP4" }),
       make("1 - same", { format: "MP4" }),
       make("2 - same", { format: "MP4" }),
     ];
 
-    const result = names(sortVideos(input, ["type", "title"], "asc"));
+    const result = names(sortMedia(input, ["type", "title"], "asc"));
 
     expect(result).toEqual(["1 - same", "2 - same", "3 - same"]);
   });
 
-  // behavior: empty keys returns the videos in their original (open) order
-  it("should return videos in original order if keys is empty", () => {
-    const result = names(sortVideos(compositeFixture, [], "asc"));
+  // behavior: empty keys returns the media in their original (open) order
+  it("should return media in original order if keys is empty", () => {
+    const result = names(sortMedia(compositeFixture, [], "asc"));
 
     expect(result).toEqual(names(compositeFixture));
   });
 
   // behavior: empty keys ignores direction - desc still yields original order
   it("should return original order even for desc if keys is empty", () => {
-    const result = names(sortVideos(compositeFixture, [], "desc"));
+    const result = names(sortMedia(compositeFixture, [], "desc"));
 
     expect(result).toEqual(names(compositeFixture));
   });
 
   // behavior: direction desc reverses the entire composite comparison result
   it("should reverse the whole composite order if direction is desc", () => {
-    const asc = names(sortVideos(compositeFixture, ["type", "title"], "asc"));
-    const desc = names(sortVideos(compositeFixture, ["type", "title"], "desc"));
+    const asc = names(sortMedia(compositeFixture, ["type", "title"], "asc"));
+    const desc = names(sortMedia(compositeFixture, ["type", "title"], "desc"));
 
     expect(desc).toEqual([...asc].reverse());
   });
@@ -135,7 +135,7 @@ describe("sortVideos", () => {
     const input = [make("3 - c"), make("1 - a")];
     const before = names(input);
 
-    const result = sortVideos(input, ["title"], "asc");
+    const result = sortMedia(input, ["title"], "asc");
 
     expect(result).not.toBe(input);
     expect(names(input)).toEqual(before);
@@ -145,7 +145,7 @@ describe("sortVideos", () => {
   it("should return a copy and not the same reference if keys is empty", () => {
     const input = [make("3 - c"), make("1 - a")];
 
-    const result = sortVideos(input, [], "asc");
+    const result = sortMedia(input, [], "asc");
 
     expect(result).not.toBe(input);
     expect(names(result)).toEqual(names(input));
@@ -155,7 +155,7 @@ describe("sortVideos", () => {
   it("should accept every documented SortField in keys if used as a chain", () => {
     const keys: SortField[] = ["title", "type"];
 
-    const run = () => sortVideos(compositeFixture, keys, "asc");
+    const run = () => sortMedia(compositeFixture, keys, "asc");
 
     expect(run).not.toThrow();
     expect(names(run())).toHaveLength(compositeFixture.length);

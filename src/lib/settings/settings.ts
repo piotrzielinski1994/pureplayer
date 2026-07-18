@@ -55,12 +55,21 @@ function mergeLayout(partial: unknown): PanelLayout {
   return allNumbers ? (partial as PanelLayout) : {};
 }
 
+// Legacy action ids renamed in the audio-player rename (video -> media). A
+// persisted override under the old id is migrated to the new one so a user's
+// saved rebind survives the upgrade instead of silently reverting to default.
+const RENAMED_ACTION_IDS: Record<string, string> = {
+  "next-video": "next-media",
+  "prev-video": "prev-media",
+};
+
 function mergeShortcuts(partial: unknown): ShortcutOverrides {
   if (!isRecord(partial)) {
     return {};
   }
   return Object.entries(partial).reduce<ShortcutOverrides>(
-    (acc, [id, value]) => {
+    (acc, [rawId, value]) => {
+      const id = RENAMED_ACTION_IDS[rawId] ?? rawId;
       if (!ACTION_IDS.has(id) || typeof value !== "string") {
         return acc;
       }

@@ -3,9 +3,9 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { VideoList } from "@/components/workspace/video-list";
+import { MediaList } from "@/components/workspace/media-list";
 import { Viewport } from "@/components/workspace/viewport";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 // Viewport pulls in the Tauri IPC boundary; mock the seam, not the components.
 vi.mock("@/lib/tauri", () => ({
@@ -13,30 +13,30 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
 }));
 
-const renderList = (initialActiveVideoId?: string) =>
+const renderList = (initialActiveMediaId?: string) =>
   render(
     <WorkspaceProvider
-      videos={fixtureVideos}
-      initialActiveVideoId={initialActiveVideoId}
+      media={fixtureMedia}
+      initialActiveMediaId={initialActiveMediaId}
     >
-      <VideoList />
+      <MediaList />
     </WorkspaceProvider>,
   );
 
 const getList = () => screen.getByRole("list", { name: /playlist/i });
 
-describe("VideoList", () => {
-  // behavior: a flat list of all open videos renders as listitems (AC-003)
+describe("MediaList", () => {
+  // behavior: a flat list of all open media renders as listitems (AC-003)
   it("should render every open video as a flat list item if mounted", () => {
     renderList();
 
     const items = within(getList()).getAllByRole("listitem");
 
-    expect(items).toHaveLength(fixtureVideos.length);
-    fixtureVideos.forEach((v) => {
+    expect(items).toHaveLength(fixtureMedia.length);
+    fixtureMedia.forEach((v) => {
       expect(
         within(getList()).getByRole("listitem", {
           name: new RegExp(v.name.replace(/[-]/g, "\\-"), "i"),
@@ -57,7 +57,7 @@ describe("VideoList", () => {
   it("should show the format text in each row if a video has a format", () => {
     renderList();
 
-    fixtureVideos.forEach((v) => {
+    fixtureMedia.forEach((v) => {
       const row = within(getList()).getByRole("listitem", {
         name: new RegExp(v.name.replace(/[-]/g, "\\-"), "i"),
       });
@@ -84,13 +84,13 @@ describe("VideoList", () => {
   it("should make the clicked video active so the viewport shows it if a row is clicked", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos}>
-        <VideoList />
+      <WorkspaceProvider media={fixtureMedia}>
+        <MediaList />
         <Viewport />
       </WorkspaceProvider>,
     );
 
-    const region = screen.getByRole("region", { name: /video viewport/i });
+    const region = screen.getByRole("region", { name: /media viewport/i });
     expect(within(region).queryByText(/9 - Interlude/i)).not.toBeInTheDocument();
 
     await user.click(

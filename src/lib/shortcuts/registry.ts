@@ -4,8 +4,8 @@ export type ShortcutActionId =
   | "close-settings"
   | "open-files"
   | "toggle-play"
-  | "next-video"
-  | "prev-video"
+  | "next-media"
+  | "prev-media"
   | "seek-forward"
   | "seek-back"
   | "seek-forward-fine"
@@ -62,62 +62,62 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
   {
     id: "open-files",
     name: "Open files",
-    description: "Open video files and load them into the playlist.",
+    description: "Open media files and load them into the playlist.",
     defaultHotkey: "Mod+O",
   },
   {
     id: "toggle-play",
     name: "Play / pause",
-    description: "Toggle playback of the active video.",
+    description: "Toggle playback of the active media.",
     defaultHotkey: "Space",
   },
   {
-    id: "next-video",
-    name: "Next video",
-    description: "Activate the next video in the current order.",
+    id: "next-media",
+    name: "Next media",
+    description: "Activate the next item in the current order.",
     defaultHotkey: "Mod+Right",
   },
   {
-    id: "prev-video",
-    name: "Previous video",
-    description: "Activate the previous video in the current order.",
+    id: "prev-media",
+    name: "Previous media",
+    description: "Activate the previous item in the current order.",
     defaultHotkey: "Mod+Left",
   },
   {
     id: "seek-forward",
     name: "Seek forward 5s",
-    description: "Jump the active video forward by 5 seconds.",
+    description: "Jump the active media forward by 5 seconds.",
     defaultHotkey: "ArrowRight",
   },
   {
     id: "seek-back",
     name: "Seek back 5s",
-    description: "Jump the active video back by 5 seconds.",
+    description: "Jump the active media back by 5 seconds.",
     defaultHotkey: "ArrowLeft",
   },
   {
     id: "seek-forward-fine",
     name: "Seek forward 1s",
-    description: "Jump the active video forward by 1 second.",
+    description: "Jump the active media forward by 1 second.",
     defaultHotkey: "Shift+ArrowRight",
   },
   {
     id: "seek-back-fine",
     name: "Seek back 1s",
-    description: "Jump the active video back by 1 second.",
+    description: "Jump the active media back by 1 second.",
     defaultHotkey: "Shift+ArrowLeft",
   },
   {
     id: "frame-step-forward",
     name: "Frame step forward",
-    description: "Pause and advance the active video by one frame (1/30s).",
+    description: "Pause and advance the active media by one frame (1/30s).",
     defaultHotkey: ".",
     keywords: ["frame", "step", "advance", "next frame"],
   },
   {
     id: "frame-step-back",
     name: "Frame step back",
-    description: "Pause and step the active video back by one frame (1/30s).",
+    description: "Pause and step the active media back by one frame (1/30s).",
     defaultHotkey: ",",
     keywords: ["frame", "step", "previous frame"],
   },
@@ -136,7 +136,7 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
   {
     id: "toggle-mute",
     name: "Mute / unmute",
-    description: "Toggle mute on the active video.",
+    description: "Toggle mute on the active media.",
     defaultHotkey: "M",
   },
   {

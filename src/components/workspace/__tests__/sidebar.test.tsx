@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { Sidebar } from "@/components/workspace/sidebar";
 import {
-  fixtureVideos,
+  fixtureMedia,
   compositeFixture,
   compositeTitleAscNames,
   compositeTypeTitleAscNames,
@@ -18,7 +18,7 @@ const renderSidebar = (
   props: Omit<React.ComponentProps<typeof WorkspaceProvider>, "children"> = {},
 ) =>
   render(
-    <WorkspaceProvider videos={fixtureVideos} {...props}>
+    <WorkspaceProvider media={fixtureMedia} {...props}>
       <Sidebar />
     </WorkspaceProvider>,
   );
@@ -113,7 +113,7 @@ describe("Sidebar", () => {
   // behavior: selecting Title then Type composes [title, type]; with shared formats the order changes (AC-010)
   it("should reorder by the composite chain if Type then Title are selected in order", async () => {
     const user = userEvent.setup();
-    renderSidebar({ videos: compositeFixture });
+    renderSidebar({ media: compositeFixture });
 
     await openSortMenu(user);
     await user.click(screen.getByRole("menuitemcheckbox", { name: /type/i }));
@@ -130,7 +130,7 @@ describe("Sidebar", () => {
   // behavior: a title-only selection differs from the composite order (proves selection-order chaining) (AC-010)
   it("should yield a title-only order distinct from the composite order if only Title is selected", async () => {
     const user = userEvent.setup();
-    renderSidebar({ videos: compositeFixture });
+    renderSidebar({ media: compositeFixture });
 
     await openSortMenu(user);
     await user.click(screen.getByRole("menuitemcheckbox", { name: /title/i }));
@@ -159,7 +159,7 @@ describe("Sidebar", () => {
   // behavior: the active video is preserved across a sort selection (E-6)
   it("should keep the seeded active video active if a sort field is selected", async () => {
     const user = userEvent.setup();
-    renderSidebar({ initialActiveVideoId: "v-9" });
+    renderSidebar({ initialActiveMediaId: "v-9" });
 
     const list = () => screen.getByRole("list", { name: /playlist/i });
     expect(

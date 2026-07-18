@@ -17,9 +17,9 @@ const playAction: ShortcutAction = {
 };
 
 const nextAction: ShortcutAction = {
-  id: "next-video",
-  name: "Next video",
-  description: "Advance to the next video",
+  id: "next-media",
+  name: "Next media",
+  description: "Advance to the next item",
   defaultHotkey: "Mod+Right",
 };
 
@@ -51,7 +51,7 @@ describe("CommandPalette", () => {
       within(playRow).getByText(formatForDisplay("Space")),
     ).toBeInTheDocument();
 
-    const nextRow = screen.getByRole("option", { name: /next video/i });
+    const nextRow = screen.getByRole("option", { name: /next media/i });
     expect(
       within(nextRow).getByText(formatForDisplay("Mod+Right")),
     ).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("CommandPalette", () => {
     );
 
     expect(
-      screen.getByRole("option", { name: /next video/i }),
+      screen.getByRole("option", { name: /next media/i }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("option", { name: /play \/ pause/i }),

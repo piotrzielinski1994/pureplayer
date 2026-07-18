@@ -13,7 +13,7 @@ import {
   useWorkspace,
 } from "@/components/workspace/workspace-context";
 import { Viewport } from "@/components/workspace/viewport";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 const prepareMediaUrl = vi.fn(
   (
@@ -39,7 +39,7 @@ const watchAudioReady = vi.fn(() => Promise.resolve(() => {}));
 
 vi.mock("@/lib/tauri", () => ({
   prepareMediaUrl: (path: string) => prepareMediaUrl(path),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: () => toggleFullscreen(),
   logPlayback: (message: string) => logPlayback(message),
   watchAudioReady: () => watchAudioReady(),
@@ -70,7 +70,7 @@ function DurationProbe() {
   return <output aria-label="duration">{playbackDurationSec}</output>;
 }
 
-const region = () => screen.getByRole("region", { name: /video viewport/i });
+const region = () => screen.getByRole("region", { name: /media viewport/i });
 const findVideo = async () => {
   await waitFor(() =>
     expect(document.querySelector("video")).not.toBeNull(),
@@ -86,7 +86,7 @@ describe("Viewport", () => {
   // behavior: active video renders inside an accessible region (AC-004)
   it("should expose an accessible video-viewport region if mounted", () => {
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -97,7 +97,7 @@ describe("Viewport", () => {
   // behavior: active video renders a real <video> element once prepared (AC-004)
   it("should render a video element if a video is active", async () => {
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -108,17 +108,17 @@ describe("Viewport", () => {
   // behavior: the file is prepared (probe/transcode) and its result is the <video> src (AC-003/AC-004)
   it("should source the video from the prepared url of the active path if a video is active", async () => {
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
 
     await waitFor(() =>
-      expect(prepareMediaUrl).toHaveBeenCalledWith("/videos/3 - Intro.mov"),
+      expect(prepareMediaUrl).toHaveBeenCalledWith("/media/3 - Intro.mov"),
     );
     const video = await findVideo();
     expect(video.getAttribute("src")).toContain(
-      "asset://localhost/videos/3 - Intro.mov",
+      "asset://localhost/media/3 - Intro.mov",
     );
   });
 
@@ -126,7 +126,7 @@ describe("Viewport", () => {
   it("should source the newly selected file if selection switches", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
         <SelectButton id="v-9" />
       </WorkspaceProvider>,
@@ -146,14 +146,17 @@ describe("Viewport", () => {
     let resolvePrepare: (source: {
       url: string;
       durationSec: number | null;
+      swapId: number | null;
     }) => void = () => {};
     prepareMediaUrl.mockReturnValueOnce(
-      new Promise<{ url: string; durationSec: number | null }>((resolve) => {
-        resolvePrepare = resolve;
-      }),
+      new Promise<{ url: string; durationSec: number | null; swapId: number | null }>(
+        (resolve) => {
+          resolvePrepare = resolve;
+        },
+      ),
     );
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -161,8 +164,9 @@ describe("Viewport", () => {
     expect(within(region()).getByText(/preparing/i)).toBeInTheDocument();
 
     resolvePrepare({
-      url: "asset://localhost/videos/3 - Intro.mov",
+      url: "asset://localhost/media/3 - Intro.mov",
       durationSec: null,
+      swapId: null,
     });
     await findVideo();
   });
@@ -173,9 +177,10 @@ describe("Viewport", () => {
     prepareMediaUrl.mockResolvedValueOnce({
       url: "http://localhost:5000/0/index.m3u8",
       durationSec: 1922.581,
+      swapId: null,
     });
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
         <DurationProbe />
       </WorkspaceProvider>,
@@ -199,7 +204,7 @@ describe("Viewport", () => {
   it("should show an error message if preparing the file fails", async () => {
     prepareMediaUrl.mockRejectedValueOnce(new Error("ffmpeg transcode failed"));
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -213,7 +218,7 @@ describe("Viewport", () => {
   // even if canplay re-fires (AC-010/AC-012)
   it("should log a single playback timeline on the first canplay if the video becomes ready", async () => {
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -231,7 +236,7 @@ describe("Viewport", () => {
   it("should log a prepare-failure marker if preparing the file fails", async () => {
     prepareMediaUrl.mockRejectedValueOnce(new Error("ffmpeg transcode failed"));
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -247,7 +252,7 @@ describe("Viewport", () => {
   it("should play the new source on loadeddata if switched while playing", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
         <SelectButton id="v-9" />
       </WorkspaceProvider>,
@@ -267,7 +272,7 @@ describe("Viewport", () => {
   it("should resume playback from 0 on ended if repeat is one", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
         <CycleRepeatButton />
         <TogglePlayButton />
@@ -294,7 +299,7 @@ describe("Viewport", () => {
   // behavior: the active video's name is shown in the viewport once ready (AC-004)
   it("should show the active video's name if a video is active", async () => {
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -307,7 +312,7 @@ describe("Viewport", () => {
   // behavior: the title overlay auto-hides after 5s of playback (AC-018)
   it("should hide the active video's name after 5 seconds", async () => {
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -327,7 +332,7 @@ describe("Viewport", () => {
   it("should re-show the title if the active video switches after the timeout", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
         <SelectButton id="v-9" />
       </WorkspaceProvider>,
@@ -353,7 +358,7 @@ describe("Viewport", () => {
   it("should call toggleFullscreen once if the viewport is double-clicked", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
       </WorkspaceProvider>,
     );
@@ -367,7 +372,7 @@ describe("Viewport", () => {
   it("should toggle play to pause if the viewport is single-clicked", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
         <PlayingProbe />
       </WorkspaceProvider>,
@@ -386,7 +391,7 @@ describe("Viewport", () => {
   it("should not toggle play if the viewport is double-clicked", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos} initialActiveVideoId="v-3">
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
         <Viewport />
         <PlayingProbe />
       </WorkspaceProvider>,
@@ -401,7 +406,7 @@ describe("Viewport", () => {
   it("should not throw and stay paused if the viewport is single-clicked with no active video", async () => {
     const user = userEvent.setup();
     render(
-      <WorkspaceProvider videos={fixtureVideos}>
+      <WorkspaceProvider media={fixtureMedia}>
         <Viewport />
         <PlayingProbe />
       </WorkspaceProvider>,
@@ -413,14 +418,14 @@ describe("Viewport", () => {
   });
 
   // behavior: empty state placeholder + no <video> when nothing is active (Empty)
-  it("should render a no-video placeholder and no video element if no video is active", () => {
+  it("should render a no-video placeholder and no media element if no media is active", () => {
     const { container } = render(
-      <WorkspaceProvider videos={fixtureVideos}>
+      <WorkspaceProvider media={fixtureMedia}>
         <Viewport />
       </WorkspaceProvider>,
     );
 
-    expect(within(region()).getByText(/no video/i)).toBeInTheDocument();
+    expect(within(region()).getByText(/no media/i)).toBeInTheDocument();
     expect(container.querySelector("video")).toBeNull();
   });
 });

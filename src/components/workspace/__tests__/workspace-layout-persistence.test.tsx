@@ -37,7 +37,7 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
   watchFullscreen: vi.fn(() => Promise.resolve(() => {})),
   watchWindowFocus: vi.fn(() => Promise.resolve(() => {})),
@@ -56,7 +56,7 @@ function spiedStore(initial?: Settings) {
 const renderLayout = (store: SettingsStore) =>
   render(
     <SettingsProvider store={store}>
-      <WorkspaceProvider videos={[]}>
+      <WorkspaceProvider media={[]}>
         <WorkspaceLayout />
       </WorkspaceProvider>
     </SettingsProvider>,

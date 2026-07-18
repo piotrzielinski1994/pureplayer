@@ -7,7 +7,7 @@ import {
   useWorkspace,
 } from "@/components/workspace/workspace-context";
 import { SortSelector } from "@/components/workspace/sort-selector";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 // A sibling probe surfaces context sort state so SortSelector's effect on
 // `toggleSortKey` / `toggleSortDirection` is observable without the full Sidebar.
@@ -25,7 +25,7 @@ const renderSelector = (
   props: Omit<React.ComponentProps<typeof WorkspaceProvider>, "children"> = {},
 ) =>
   render(
-    <WorkspaceProvider videos={fixtureVideos} {...props}>
+    <WorkspaceProvider media={fixtureMedia} {...props}>
       <SortSelector />
       <SortProbe />
     </WorkspaceProvider>,

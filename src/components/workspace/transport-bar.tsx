@@ -30,7 +30,7 @@ const BAR_BUTTON = "h-full w-12 rounded-none";
 
 export function TransportBar() {
   const {
-    activeVideo,
+    activeMedia,
     isPlaying,
     playbackCurrentSec,
     playbackDurationSec,
@@ -41,8 +41,8 @@ export function TransportBar() {
     repeatMode,
     isShuffling,
     togglePlay,
-    nextVideo,
-    prevVideo,
+    nextMedia,
+    prevMedia,
     seek,
     setVolume,
     toggleMute,
@@ -54,7 +54,7 @@ export function TransportBar() {
   const volumeBarRef = useRef<HTMLDivElement>(null);
   const isVolumeScrubbing = useRef(false);
 
-  const timeReadout = activeVideo
+  const timeReadout = activeMedia
     ? `${formatTime(playbackCurrentSec)} / ${formatTime(playbackDurationSec)}`
     : EMPTY_TIME;
 
@@ -72,7 +72,7 @@ export function TransportBar() {
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!activeVideo) {
+    if (!activeMedia) {
       return;
     }
     isScrubbing.current = true;
@@ -206,7 +206,7 @@ export function TransportBar() {
           variant="ghost"
           size="icon"
           aria-label="Previous"
-          onClick={() => prevVideo()}
+          onClick={() => prevMedia()}
           className={`${BAR_BUTTON} border-l border-border`}
         >
           <SkipBack className="size-4" />
@@ -228,7 +228,7 @@ export function TransportBar() {
           variant="ghost"
           size="icon"
           aria-label="Next"
-          onClick={() => nextVideo()}
+          onClick={() => nextMedia()}
           className={`${BAR_BUTTON} border-x border-border`}
         >
           <SkipForward className="size-4" />
@@ -236,7 +236,7 @@ export function TransportBar() {
       </div>
       {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout */}
       <div className="flex items-center justify-end gap-3 pr-4">
-        {activeVideo && !isDefaultTransform(viewportTransform) && (
+        {activeMedia && !isDefaultTransform(viewportTransform) && (
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {formatTransform(viewportTransform)}
           </span>

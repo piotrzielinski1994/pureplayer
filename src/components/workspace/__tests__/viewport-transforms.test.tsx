@@ -13,7 +13,7 @@ import { Workspace } from "@/components/workspace/workspace";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
-import { fixtureVideos } from "./fixtures";
+import { fixtureMedia } from "./fixtures";
 
 // The viewport reaches the Tauri IPC boundary; mock that seam (not the
 // components) so the real <video> can mount and reflect the transforms under jsdom.
@@ -22,7 +22,7 @@ vi.mock("@/lib/tauri", () => ({
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
   watchFullscreen: vi.fn(() => Promise.resolve(() => {})),
   watchWindowFocus: vi.fn(() => Promise.resolve(() => {})),
@@ -41,14 +41,14 @@ function Probe() {
     zoomBy,
     resetViewportTransform,
     selectNode,
-    activeVideoId,
+    activeMediaId,
   } = useWorkspace();
   return (
     <div>
       <output aria-label="rotation">{String(viewportTransform.rotationDeg)}</output>
       <output aria-label="fit">{String(viewportTransform.fitMode)}</output>
       <output aria-label="zoom">{String(viewportTransform.zoom)}</output>
-      <output aria-label="active-id">{String(activeVideoId)}</output>
+      <output aria-label="active-id">{String(activeMediaId)}</output>
       <button onClick={() => rotateClockwise()}>rotate-cw</button>
       <button onClick={() => cycleFitMode()}>cycle-fit</button>
       <button onClick={() => zoomBy(0.1)}>zoom-in</button>
@@ -64,11 +64,11 @@ const findVideo = async () => {
   return document.querySelector("video") as HTMLVideoElement;
 };
 
-const renderProbe = (initialActiveVideoId?: string) =>
+const renderProbe = (initialActiveMediaId?: string) =>
   render(
     <WorkspaceProvider
-      videos={fixtureVideos}
-      initialActiveVideoId={initialActiveVideoId}
+      media={fixtureMedia}
+      initialActiveMediaId={initialActiveMediaId}
     >
       <TransportBar />
       <Viewport />
@@ -80,7 +80,7 @@ const renderWorkspace = (
   props: Omit<
     React.ComponentProps<typeof WorkspaceProvider>,
     "children"
-  > = { videos: fixtureVideos },
+  > = { media: fixtureMedia },
 ) =>
   render(
     <HotkeysProvider>
@@ -390,7 +390,7 @@ describe("viewport transforms: palette parity (AC-009)", () => {
   // behavior: opening the palette lists a command row for each of the five new actions (AC-009 / TC-008)
   it("should list a palette command for each of the five new actions if the palette is open", async () => {
     const user = userEvent.setup();
-    renderWorkspace({ videos: fixtureVideos, initialActiveVideoId: "v-1" });
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
 
     await user.keyboard("{Control>}k{/Control}");
     await waitFor(() =>

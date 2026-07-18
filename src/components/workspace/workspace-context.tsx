@@ -8,8 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { type VideoNode } from "@/components/workspace/mock-data";
-import { sortVideos, type SortField } from "@/components/workspace/sort-natural";
+import { type MediaNode } from "@/components/workspace/mock-data";
+import { sortMedia, type SortField } from "@/components/workspace/sort-natural";
 import { clampRate } from "@/components/workspace/clamp-rate";
 import {
   clampSeekTarget,
@@ -36,10 +36,10 @@ const clampVolume = (value: number) =>
   Math.round(Math.min(1, Math.max(0, value)) * 100) / 100;
 
 type WorkspaceContextValue = {
-  playlist: VideoNode[];
+  playlist: MediaNode[];
   selectedNodeId: string | null;
-  activeVideoId: string | null;
-  activeVideo: VideoNode | null;
+  activeMediaId: string | null;
+  activeMedia: MediaNode | null;
   isPlaying: boolean;
   playbackCurrentSec: number;
   playbackDurationSec: number;
@@ -56,11 +56,11 @@ type WorkspaceContextValue = {
   isSidebarVisible: boolean;
   isTransportVisible: boolean;
   selectNode: (id: string) => void;
-  loadVideos: (videos: VideoNode[]) => void;
-  addVideos: (videos: VideoNode[]) => void;
+  loadMedia: (media: MediaNode[]) => void;
+  addMedia: (media: MediaNode[]) => void;
   togglePlay: () => void;
-  nextVideo: () => void;
-  prevVideo: () => void;
+  nextMedia: () => void;
+  prevMedia: () => void;
   seek: (sec: number) => void;
   seekBy: (delta: number) => void;
   stepFrame: (direction: 1 | -1) => void;
@@ -87,8 +87,8 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 type WorkspaceProviderProps = {
   children: ReactNode;
-  videos?: VideoNode[];
-  initialActiveVideoId?: string;
+  media?: MediaNode[];
+  initialActiveMediaId?: string;
   initialSortKeys?: SortField[];
   initialSortDirection?: SortDirection;
   initialVolume?: number;
@@ -107,8 +107,8 @@ type WorkspaceProviderProps = {
 
 export function WorkspaceProvider({
   children,
-  videos = [],
-  initialActiveVideoId,
+  media = [],
+  initialActiveMediaId,
   initialSortKeys = [],
   initialSortDirection = "asc",
   initialVolume = 1,
@@ -124,12 +124,12 @@ export function WorkspaceProvider({
   onSortDirectionChange,
   rng = Math.random,
 }: WorkspaceProviderProps) {
-  const [sourceVideos, setSourceVideos] = useState<VideoNode[]>(videos);
+  const [sourceMedia, setSourceMedia] = useState<MediaNode[]>(media);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    initialActiveVideoId ?? null,
+    initialActiveMediaId ?? null,
   );
-  const [activeVideoId, setActiveVideoId] = useState<string | null>(
-    initialActiveVideoId ?? null,
+  const [activeMediaId, setActiveMediaId] = useState<string | null>(
+    initialActiveMediaId ?? null,
   );
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackCurrentSec, setPlaybackCurrentSec] = useState(0);
@@ -158,20 +158,20 @@ export function WorkspaceProvider({
   };
   const chromeRef = useRef(initialChrome);
   const preFullscreenChrome = useRef(initialChrome);
-  const sourceVideosRef = useRef(sourceVideos);
-  const activeVideoIdRef = useRef(activeVideoId);
+  const sourceMediaRef = useRef(sourceMedia);
+  const activeMediaIdRef = useRef(activeMediaId);
 
   // Mirror durable state into refs so the reference-stable verbs below
-  // (addVideos) can read CURRENT values without going stale - which lets the
+  // (addMedia) can read CURRENT values without going stale - which lets the
   // drop-subscription effect keep one stable handler instead of re-subscribing.
   useEffect(() => {
-    sourceVideosRef.current = sourceVideos;
-    activeVideoIdRef.current = activeVideoId;
-  }, [sourceVideos, activeVideoId]);
+    sourceMediaRef.current = sourceMedia;
+    activeMediaIdRef.current = activeMediaId;
+  }, [sourceMedia, activeMediaId]);
 
   // Stable identity ([]-deps). Activates a video and starts playback from 0.
-  const activateVideo = useCallback((id: string) => {
-    setActiveVideoId(id);
+  const activateMedia = useCallback((id: string) => {
+    setActiveMediaId(id);
     setSelectedNodeId(id);
     setIsPlaying(true);
     setPlaybackCurrentSec(0);
@@ -180,23 +180,23 @@ export function WorkspaceProvider({
   }, []);
 
   // Stable identity so the Workspace drop effect subscribes once. Appends the
-  // imported videos, deduping by id against the current list; activates the
+  // imported media, deduping by id against the current list; activates the
   // first NEW one only when nothing is active yet (empty-playlist parity).
-  const addVideos = useCallback(
-    (incoming: VideoNode[]) => {
-      const current = sourceVideosRef.current;
+  const addMedia = useCallback(
+    (incoming: MediaNode[]) => {
+      const current = sourceMediaRef.current;
       const fresh = incoming.filter(
         (video) => !current.some((existing) => existing.id === video.id),
       );
       if (fresh.length === 0) {
         return;
       }
-      setSourceVideos((videos) => [...videos, ...fresh]);
-      if (activeVideoIdRef.current === null) {
-        activateVideo(fresh[0].id);
+      setSourceMedia((media) => [...media, ...fresh]);
+      if (activeMediaIdRef.current === null) {
+        activateMedia(fresh[0].id);
       }
     },
-    [activateVideo],
+    [activateMedia],
   );
 
   // Mirror the live visibility into a ref so setFullscreen (stable, []-deps) can
@@ -230,26 +230,26 @@ export function WorkspaceProvider({
   }, []);
 
   const playlist = useMemo(
-    () => sortVideos(sourceVideos, sortKeys, sortDirection),
-    [sourceVideos, sortKeys, sortDirection],
+    () => sortMedia(sourceMedia, sortKeys, sortDirection),
+    [sourceMedia, sortKeys, sortDirection],
   );
 
   // The order Next/Prev/auto-advance walk: the live sorted ids, or - when
   // shuffling - the frozen shuffle order reconciled against the current ids
-  // (so appended videos slot in at the end and removed ones drop out).
+  // (so appended media slot in at the end and removed ones drop out).
   const effectiveOrder = useMemo(() => {
     const playlistIds = playlist.map((video) => video.id);
     return isShuffling ? reconcileOrder(shuffleOrder, playlistIds) : playlistIds;
   }, [playlist, isShuffling, shuffleOrder]);
 
   const value = useMemo<WorkspaceContextValue>(() => {
-    const activate = activateVideo;
+    const activate = activateMedia;
 
-    const stepVideo = (delta: number) => {
-      if (effectiveOrder.length === 0 || activeVideoId === null) {
+    const stepMedia = (delta: number) => {
+      if (effectiveOrder.length === 0 || activeMediaId === null) {
         return;
       }
-      const index = effectiveOrder.indexOf(activeVideoId);
+      const index = effectiveOrder.indexOf(activeMediaId);
       if (index === -1) {
         return;
       }
@@ -263,10 +263,10 @@ export function WorkspaceProvider({
     return {
       playlist,
       selectedNodeId,
-      activeVideoId,
-      activeVideo:
-        activeVideoId !== null
-          ? (playlist.find((video) => video.id === activeVideoId) ?? null)
+      activeMediaId,
+      activeMedia:
+        activeMediaId !== null
+          ? (playlist.find((video) => video.id === activeMediaId) ?? null)
           : null,
       isPlaying,
       playbackCurrentSec,
@@ -284,10 +284,10 @@ export function WorkspaceProvider({
       isSidebarVisible,
       isTransportVisible,
       selectNode: (id) => activate(id),
-      loadVideos: (next) => {
-        setSourceVideos(next);
+      loadMedia: (next) => {
+        setSourceMedia(next);
         if (next.length === 0) {
-          setActiveVideoId(null);
+          setActiveMediaId(null);
           setSelectedNodeId(null);
           setIsPlaying(false);
           setPlaybackCurrentSec(0);
@@ -296,16 +296,16 @@ export function WorkspaceProvider({
         }
         activate(next[0].id);
       },
-      addVideos,
+      addMedia,
       togglePlay: () => setIsPlaying((playing) => !playing),
-      nextVideo: () => stepVideo(1),
-      prevVideo: () => stepVideo(-1),
+      nextMedia: () => stepMedia(1),
+      prevMedia: () => stepMedia(-1),
       seek: (sec) => {
         setPlaybackCurrentSec(sec);
         setSeekToSec(sec);
       },
       seekBy: (delta) => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         const clamped = clampSeekTarget(
@@ -317,7 +317,7 @@ export function WorkspaceProvider({
         setSeekToSec(clamped);
       },
       stepFrame: (direction) => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         setIsPlaying(false);
@@ -330,7 +330,7 @@ export function WorkspaceProvider({
         setSeekToSec(clamped);
       },
       setVolume: (next) => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         const clamped = clampVolume(next);
@@ -338,7 +338,7 @@ export function WorkspaceProvider({
         onVolumeChange?.(clamped);
       },
       changeVolume: (delta) => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         const clamped = clampVolume(volume + delta);
@@ -346,7 +346,7 @@ export function WorkspaceProvider({
         onVolumeChange?.(clamped);
       },
       toggleMute: () => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         const next = !isMuted;
@@ -354,7 +354,7 @@ export function WorkspaceProvider({
         onMutedChange?.(next);
       },
       changeRate: (delta) => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         const clamped = clampRate(playbackRate + delta);
@@ -367,12 +367,12 @@ export function WorkspaceProvider({
         setSeekToSec(null);
       },
       reportEnded: () => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         const decision = decideOnEnded(
           effectiveOrder,
-          activeVideoId,
+          activeMediaId,
           repeatMode,
         );
         if (decision.kind === "advance") {
@@ -388,13 +388,13 @@ export function WorkspaceProvider({
         setIsPlaying(false);
       },
       cycleRepeat: () => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         setRepeatMode(nextRepeatMode);
       },
       toggleShuffle: () => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         setIsShuffling((shuffling) => {
@@ -406,7 +406,7 @@ export function WorkspaceProvider({
       },
       setFullscreen,
       rotateClockwise: () => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         setViewportTransform((transform) => ({
@@ -415,7 +415,7 @@ export function WorkspaceProvider({
         }));
       },
       cycleFitMode: () => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         setViewportTransform((transform) => ({
@@ -424,7 +424,7 @@ export function WorkspaceProvider({
         }));
       },
       zoomBy: (delta) => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         setViewportTransform((transform) => ({
@@ -433,7 +433,7 @@ export function WorkspaceProvider({
         }));
       },
       resetViewportTransform: () => {
-        if (activeVideoId === null) {
+        if (activeMediaId === null) {
           return;
         }
         setViewportTransform(DEFAULT_TRANSFORM);
@@ -464,7 +464,7 @@ export function WorkspaceProvider({
     playlist,
     effectiveOrder,
     selectedNodeId,
-    activeVideoId,
+    activeMediaId,
     isPlaying,
     playbackCurrentSec,
     playbackDurationSec,
@@ -478,8 +478,8 @@ export function WorkspaceProvider({
     isShuffling,
     rng,
     setFullscreen,
-    activateVideo,
-    addVideos,
+    activateMedia,
+    addMedia,
     sortKeys,
     sortDirection,
     isSidebarVisible,

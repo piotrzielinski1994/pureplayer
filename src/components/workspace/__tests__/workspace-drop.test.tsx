@@ -7,7 +7,7 @@ import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { Workspace } from "@/components/workspace/workspace";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
-import type { VideoNode } from "@/components/workspace/mock-data";
+import type { MediaNode } from "@/components/workspace/mock-data";
 
 // The Tauri IPC boundary is the single mockable seam. We mock only this module;
 // the Workspace, context, viewport, DropOverlay and transport are the real SUT.
@@ -30,7 +30,7 @@ const watchFileDrop = vi.fn((handler: (event: FileDropEvent) => void) => {
 vi.mock("@/lib/tauri", () => ({
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
-  openVideoFiles: vi.fn(() => Promise.resolve([])),
+  openMediaFiles: vi.fn(() => Promise.resolve([])),
   prepareMediaUrl: (path: string) =>
     Promise.resolve({ url: `asset://localhost${path}`, durationSec: null }),
   toggleFullscreen: vi.fn(() => Promise.resolve()),
@@ -42,15 +42,15 @@ vi.mock("@/lib/tauri", () => ({
     watchFileDrop(handler),
 }));
 
-const startVideos: VideoNode[] = [
+const startMedia: MediaNode[] = [
   { id: "/v/x.mp4", name: "x.mp4", format: "MP4", path: "/v/x.mp4" },
 ];
 
-const renderWorkspace = (videos: VideoNode[] = []) =>
+const renderWorkspace = (media: MediaNode[] = []) =>
   render(
     <HotkeysProvider>
       <SettingsProvider store={createInMemorySettingsStore()}>
-        <WorkspaceProvider videos={videos} initialActiveVideoId={videos[0]?.id}>
+        <WorkspaceProvider media={media} initialActiveMediaId={media[0]?.id}>
           <Workspace />
         </WorkspaceProvider>
       </SettingsProvider>
@@ -58,7 +58,7 @@ const renderWorkspace = (videos: VideoNode[] = []) =>
   );
 
 const viewport = () =>
-  within(screen.getByRole("region", { name: /video viewport/i }));
+  within(screen.getByRole("region", { name: /media viewport/i }));
 
 const playlist = () => screen.getByRole("list", { name: /playlist/i });
 
@@ -66,7 +66,7 @@ const rows = () => within(playlist()).queryAllByRole("listitem");
 
 const overlay = () => screen.queryByText(/drop to add/i);
 
-// Fire a captured drag-drop event and flush the async expand->addVideos chain.
+// Fire a captured drag-drop event and flush the async expand->addMedia chain.
 // The Workspace must subscribe via watchFileDrop on mount (the wiring contract);
 // that is what captures `dropHandler`.
 const fireDrop = async (event: FileDropEvent) => {
@@ -106,7 +106,7 @@ describe("Workspace drag-drop import", () => {
   it("should append after existing rows and leave the active video playing if dropped while one is active", async () => {
     const user = userEvent.setup();
     expandDroppedPaths.mockResolvedValue(["/v/y.mp4"]);
-    renderWorkspace(startVideos);
+    renderWorkspace(startMedia);
 
     // Start playback (the provider boots paused) so "still playing" is a real
     // precondition the drop must not disturb.
@@ -131,7 +131,7 @@ describe("Workspace drag-drop import", () => {
   // behavior: a path already in the playlist is not doubled (AC-006 / TC-005)
   it("should not double a path that is already in the playlist if it is re-dropped", async () => {
     expandDroppedPaths.mockResolvedValue(["/v/x.mp4", "/v/b.mkv"]);
-    renderWorkspace(startVideos);
+    renderWorkspace(startMedia);
 
     await fireDrop({ type: "drop", paths: ["/v/x.mp4", "/v/b.mkv"] });
 
@@ -142,10 +142,10 @@ describe("Workspace drag-drop import", () => {
     ]);
   });
 
-  // behavior: a drop expanding to zero videos is a no-op; overlay cleared (AC-008 / TC-004/TC-007)
+  // behavior: a drop expanding to zero media is a no-op; overlay cleared (AC-008 / TC-004/TC-007)
   it("should leave the playlist and active video untouched and clear the overlay if the drop expands to nothing", async () => {
     expandDroppedPaths.mockResolvedValue([]);
-    renderWorkspace(startVideos);
+    renderWorkspace(startMedia);
 
     await fireDrop({ type: "enter", paths: ["/v/doc.pdf"] });
     expect(overlay()).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe("Workspace drag-drop import", () => {
 
   // behavior: drag-enter shows the overlay, drag-leave hides it (AC-007 / TC-006)
   it("should show the overlay on drag-enter and hide it on drag-leave", async () => {
-    renderWorkspace(startVideos);
+    renderWorkspace(startMedia);
 
     expect(overlay()).not.toBeInTheDocument();
 
@@ -171,7 +171,7 @@ describe("Workspace drag-drop import", () => {
     expect(overlay()).not.toBeInTheDocument();
   });
 
-  // behavior: a drop hides the overlay even when videos are imported (AC-007 / TC-006)
+  // behavior: a drop hides the overlay even when media are imported (AC-007 / TC-006)
   it("should hide the overlay after a drop", async () => {
     expandDroppedPaths.mockResolvedValue(["/v/a.mp4"]);
     renderWorkspace([]);
