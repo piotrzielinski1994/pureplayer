@@ -72,6 +72,25 @@ describe("shortcut registry", () => {
     expect(transport?.keywords).toContain("bottom bar");
   });
 
+  // TC-008 (registry): the playlist-mini action is registered and bound to
+  // Mod+Shift+L with >=1 search keyword, while the bar-mini action keeps its
+  // existing Mod+Shift+M binding (AC-007)
+  it("should register 'toggle-mini-playlist' on Mod+Shift+L with keywords and keep 'toggle-mini-player' on Mod+Shift+M if read", () => {
+    const playlistMini = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "toggle-mini-playlist",
+    );
+    const barMini = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "toggle-mini-player",
+    );
+
+    expect(playlistMini).toBeDefined();
+    expect(playlistMini?.defaultHotkey).toBe("Mod+Shift+L");
+    expect(playlistMini?.name.trim().length).toBeGreaterThan(0);
+    expect(playlistMini?.keywords?.length ?? 0).toBeGreaterThanOrEqual(1);
+
+    expect(barMini?.defaultHotkey).toBe("Mod+Shift+M");
+  });
+
   // behavior: action ids must be unique so each maps to exactly one handler/binding (AC-003)
   it("should expose a unique id for every registered action if enumerated", () => {
     const ids = SHORTCUT_ACTIONS.map((action) => action.id);

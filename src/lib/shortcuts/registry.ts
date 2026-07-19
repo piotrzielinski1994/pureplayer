@@ -23,6 +23,7 @@ export type ShortcutActionId =
   | "toggle-sidebar"
   | "toggle-transport"
   | "toggle-mini-player"
+  | "toggle-mini-playlist"
   | "toggle-fullscreen"
   | "toggle-reveal-transport"
   | "rotate-cw"
@@ -191,6 +192,14 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
       "Collapse the window to just the transport bar (hides the sidebar and viewport), or restore it.",
     defaultHotkey: "Mod+Shift+M",
     keywords: ["mini", "compact", "bottom bar", "shrink", "minimize", "tiny"],
+  },
+  {
+    id: "toggle-mini-playlist",
+    name: "Toggle mini playlist",
+    description:
+      "Collapse the window to the playlist above the transport bar (hides the viewport), or restore it.",
+    defaultHotkey: "Mod+Shift+L",
+    keywords: ["mini", "playlist", "list", "tracks", "compact", "bottom bar"],
   },
   {
     id: "toggle-fullscreen",
