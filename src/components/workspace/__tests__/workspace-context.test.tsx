@@ -477,14 +477,23 @@ describe("workspace context", () => {
   });
 
   // behavior: the pre-mini snapshot is taken only on the off->mini entry and is
-  // preserved (not overwritten) across a direct bar->playlist switch, so a
-  // sidebar hidden before entering mini stays hidden after exit (TC-004 / AC-004)
-  it("should keep the sidebar hidden after exit if it was hidden before entering and the mini was switched directly", async () => {
+  // preserved (not overwritten) across a direct bar->playlist switch, so the
+  // exact panel visibility from before mini is restored on exit (TC-004 / AC-004).
+  // The transport is HIDDEN before entering while the sidebar stays visible: mini
+  // forces sidebar=false + transport=true, so BOTH pre-mini values differ from the
+  // in-mini values. A re-stash on the direct switch would capture the in-mini state
+  // and restore sidebar=false / transport=true - this asserts the pre-mini state.
+  it("should restore the exact pre-mini panel state after exit if the mini was switched directly", async () => {
     const user = userEvent.setup();
     renderProbe({ media: fixtureMedia });
 
-    await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
-    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-transport" }),
+    );
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "false",
+    );
 
     await user.click(
       screen.getByRole("button", { name: "do-toggle-mini-bar" }),
@@ -497,7 +506,10 @@ describe("workspace context", () => {
     );
 
     expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
-    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "false",
+    );
   });
 
   // behavior: re-selecting the already-active video keeps it active + selected (E-2)

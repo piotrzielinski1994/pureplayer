@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const setSize = vi.fn((_size?: unknown) => Promise.resolve());
+const setSize = vi.fn<(size: LogicalSize) => Promise<void>>(() =>
+  Promise.resolve(),
+);
 const innerSize = vi.fn();
 const scaleFactor = vi.fn(() => Promise.resolve(1));
 
