@@ -23,6 +23,7 @@ import {
   SHORTCUT_ACTIONS,
   type ShortcutActionId,
 } from "@/lib/shortcuts/registry";
+import { nextMiniMode } from "@/lib/mini-mode";
 
 export function Workspace() {
   const {
@@ -41,8 +42,8 @@ export function Workspace() {
     toggleSortDirection,
     toggleSidebar,
     toggleTransport,
-    toggleMiniPlayer,
-    isMiniPlayer,
+    toggleMiniMode,
+    miniMode,
     setFullscreen,
     rotateClockwise,
     cycleFitMode,
@@ -117,8 +118,12 @@ export function Workspace() {
     "toggle-sidebar": toggleSidebar,
     "toggle-transport": toggleTransport,
     "toggle-mini-player": () => {
-      toggleMiniPlayer();
-      void setMiniWindow(!isMiniPlayer);
+      toggleMiniMode("bar");
+      void setMiniWindow(nextMiniMode(miniMode, "bar"));
+    },
+    "toggle-mini-playlist": () => {
+      toggleMiniMode("playlist");
+      void setMiniWindow(nextMiniMode(miniMode, "playlist"));
     },
     "toggle-fullscreen": () => void toggleFullscreen(),
     "toggle-reveal-transport": () =>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 
 import { Content } from "@/components/workspace/content";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
@@ -7,6 +7,8 @@ import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
 import { fixtureMedia } from "./fixtures";
+import type { MiniMode } from "@/lib/mini-mode";
+import type { MediaNode } from "@/components/workspace/mock-data";
 
 vi.mock("@/lib/tauri", () => ({
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
@@ -17,13 +19,13 @@ vi.mock("@/lib/tauri", () => ({
   toggleFullscreen: vi.fn(() => Promise.resolve()),
 }));
 
-const renderContent = (initialMiniPlayer: boolean) =>
+const renderContent = (initialMiniMode: MiniMode, media: MediaNode[] = fixtureMedia) =>
   render(
     <SettingsProvider store={createInMemorySettingsStore({ ...DEFAULT_SETTINGS })}>
       <WorkspaceProvider
-        media={fixtureMedia}
-        initialActiveMediaId="v-3"
-        initialMiniPlayer={initialMiniPlayer}
+        media={media}
+        initialActiveMediaId={media.length > 0 ? "v-3" : undefined}
+        initialMiniMode={initialMiniMode}
       >
         <Content />
       </WorkspaceProvider>
@@ -31,40 +33,75 @@ const renderContent = (initialMiniPlayer: boolean) =>
   );
 
 describe("Content mini-player", () => {
-  // behavior: outside mini-player the viewport region is visible (not hidden)
-  it("should show the viewport region if not in mini-player mode", async () => {
-    renderContent(false);
+  // behavior: outside any mini mode the viewport region is visible and Content
+  // renders no playlist list of its own (TC-007 / AC-005)
+  it("should show the viewport region and render no playlist inside Content if miniMode is off", async () => {
+    renderContent("off");
 
     const region = await screen.findByRole("region", {
       name: /media viewport/i,
     });
     expect(region).toBeVisible();
+    expect(
+      screen.queryByRole("list", { name: /playlist/i }),
+    ).not.toBeInTheDocument();
   });
 
-  // behavior: in mini-player the viewport is HIDDEN (display:none via `hidden`
-  // attr) so only the transport bar shows - but it is NOT unmounted, so the
-  // inner <video> keeps playing (no restart-from-0)
-  it("should hide the viewport but keep it mounted if in mini-player mode", async () => {
-    const { container } = renderContent(true);
+  // behavior: in bar-mini the viewport is HIDDEN (display:none via `hidden`
+  // attr) but NOT unmounted, Content renders no playlist list, and the
+  // transport bar (its play/pause button) stays - the shell collapses to just
+  // the bar (TC-006 / AC-002, AC-006)
+  it("should hide the viewport, keep it mounted, render no playlist and keep the transport bar if miniMode is bar", async () => {
+    const { container } = renderContent("bar");
 
-    // SettingsProvider null-gates on its async load, so the first query must await
     const region = await screen.findByRole("region", {
       name: /media viewport/i,
       hidden: true,
     });
     expect(region).not.toBeVisible();
-    // the <video> element mounts (once prepareMediaUrl resolves) and survives -
-    // playback is uninterrupted because Content hides, not unmounts, the viewport
+    expect(
+      screen.queryByRole("list", { name: /playlist/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /play|pause/i }),
+    ).toBeInTheDocument();
     await waitFor(() =>
       expect(container.querySelector("video")).not.toBeNull(),
     );
   });
 
-  // behavior: the transport bar stays visible in mini-player mode (it is the
-  // whole point - the shell collapses to just the bar)
-  it("should keep the transport bar visible if in mini-player mode", async () => {
-    renderContent(true);
+  // behavior: in playlist-mini Content renders the scrollable playlist list
+  // ABOVE the transport bar, the viewport is HIDDEN, the transport play/pause
+  // button is rendered below the list, and the <video> still mounts + survives
+  // (no restart-from-0) (TC-005 / AC-005, AC-006)
+  it("should render the playlist above a hidden-but-mounted viewport with the transport bar if miniMode is playlist", async () => {
+    const { container } = renderContent("playlist");
 
+    const list = await screen.findByRole("list", { name: /playlist/i });
+    expect(list).toBeVisible();
+    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+
+    const region = screen.getByRole("region", {
+      name: /media viewport/i,
+      hidden: true,
+    });
+    expect(region).not.toBeVisible();
+
+    expect(
+      screen.getByRole("button", { name: /play|pause/i }),
+    ).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(container.querySelector("video")).not.toBeNull(),
+    );
+  });
+
+  // behavior: playlist-mini with an empty playlist renders the "(no media)"
+  // empty state and still shows the transport bar (TC-012 / AC-005)
+  it("should render the (no media) empty state and the transport bar if playlist-mini has no media", async () => {
+    renderContent("playlist", []);
+
+    expect(await screen.findByText("(no media)")).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: /play|pause/i }),
     ).toBeInTheDocument();

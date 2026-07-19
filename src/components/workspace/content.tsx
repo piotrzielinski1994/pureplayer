@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Viewport } from "@/components/workspace/viewport";
 import { TransportBar } from "@/components/workspace/transport-bar";
+import { Sidebar } from "@/components/workspace/sidebar";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useSettings } from "@/lib/settings/settings-context";
 
 const IDLE_HIDE_MS = 3000;
 
 export function Content() {
-  const { isTransportVisible, isMiniPlayer } = useWorkspace();
+  const { isTransportVisible, miniMode } = useWorkspace();
   const { settings } = useSettings();
   const [isPeeking, setIsPeeking] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,7 +65,7 @@ export function Content() {
   return (
     <div className="flex h-full flex-col">
       <div
-        hidden={isMiniPlayer}
+        hidden={miniMode !== "off"}
         className="relative flex-1 overflow-hidden"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
@@ -83,6 +84,11 @@ export function Content() {
           </div>
         )}
       </div>
+      {miniMode === "playlist" && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Sidebar />
+        </div>
+      )}
       {isTransportVisible && <TransportBar />}
     </div>
   );

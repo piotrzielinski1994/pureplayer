@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
+import { type MiniMode, type MiniTarget } from "@/lib/mini-mode";
 
 const VIDEO_EXTENSIONS = ["mp4", "mkv", "mov", "webm", "avi"];
 const AUDIO_EXTENSIONS = ["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma"];
@@ -185,7 +186,16 @@ export async function toggleFullscreen(): Promise<void> {
 }
 
 const MINI_PLAYER_FALLBACK_HEIGHT = 48;
-let preMiniSize: LogicalSize | null = null;
+const MINI_PLAYLIST_WIDTH = 680;
+const SIDEBAR_HEADER_HEIGHT = 36;
+const MEDIA_ROW_HEIGHT = 28;
+const MINI_PLAYLIST_ROWS = 5;
+const MINI_PLAYLIST_SIDEBAR_HEIGHT =
+  SIDEBAR_HEADER_HEIGHT + MINI_PLAYLIST_ROWS * MEDIA_ROW_HEIGHT;
+
+type PreMiniGeometry = { width: number; height: number; titleBarHeight: number };
+let preMini: PreMiniGeometry | null = null;
+let currentMiniMode: MiniMode = "off";
 
 function transportBarHeight(): number {
   const bar = document.querySelector("[data-transport-bar]");
@@ -193,26 +203,45 @@ function transportBarHeight(): number {
   return measured > 0 ? Math.ceil(measured) : MINI_PLAYER_FALLBACK_HEIGHT;
 }
 
-export async function setMiniWindow(enter: boolean): Promise<void> {
+function miniSize(mode: MiniTarget, geometry: PreMiniGeometry): LogicalSize {
+  const barHeight = transportBarHeight() + geometry.titleBarHeight;
+  if (mode === "bar") {
+    return new LogicalSize(geometry.width, barHeight);
+  }
+  return new LogicalSize(
+    MINI_PLAYLIST_WIDTH,
+    MINI_PLAYLIST_SIDEBAR_HEIGHT + barHeight,
+  );
+}
+
+// Resize the OS window to match the mini mode. Geometry (width/height/title-bar
+// delta) is stashed once on the first off->mini entry and reused across a direct
+// bar<->playlist switch (no re-query), then restored + cleared on return to off.
+export async function setMiniWindow(mode: MiniMode): Promise<void> {
+  if (mode === currentMiniMode) {
+    return;
+  }
   try {
     const appWindow = getCurrentWindow();
-    if (enter) {
-      if (preMiniSize !== null) {
-        return;
+    if (mode === "off") {
+      if (preMini !== null) {
+        await appWindow.setSize(new LogicalSize(preMini.width, preMini.height));
+        preMini = null;
       }
-      const scale = await appWindow.scaleFactor();
-      const inner = (await appWindow.innerSize()).toLogical(scale);
-      const titleBarHeight = Math.max(0, Math.round(inner.height - window.innerHeight));
-      preMiniSize = new LogicalSize(inner.width, inner.height);
-      await appWindow.setSize(
-        new LogicalSize(inner.width, transportBarHeight() + titleBarHeight),
-      );
+      currentMiniMode = "off";
       return;
     }
-    if (preMiniSize !== null) {
-      await appWindow.setSize(preMiniSize);
-      preMiniSize = null;
+    if (preMini === null) {
+      const scale = await appWindow.scaleFactor();
+      const inner = (await appWindow.innerSize()).toLogical(scale);
+      const titleBarHeight = Math.max(
+        0,
+        Math.round(inner.height - window.innerHeight),
+      );
+      preMini = { width: inner.width, height: inner.height, titleBarHeight };
     }
+    await appWindow.setSize(miniSize(mode, preMini));
+    currentMiniMode = mode;
   } catch {
     // no-op outside a Tauri host
   }
