@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -178,6 +179,40 @@ export async function toggleFullscreen(): Promise<void> {
     const appWindow = getCurrentWindow();
     const next = !(await appWindow.isFullscreen());
     await appWindow.setFullscreen(next);
+  } catch {
+    // no-op outside a Tauri host
+  }
+}
+
+const MINI_PLAYER_FALLBACK_HEIGHT = 48;
+let preMiniSize: LogicalSize | null = null;
+
+function transportBarHeight(): number {
+  const bar = document.querySelector("[data-transport-bar]");
+  const measured = bar?.getBoundingClientRect().height ?? 0;
+  return measured > 0 ? Math.ceil(measured) : MINI_PLAYER_FALLBACK_HEIGHT;
+}
+
+export async function setMiniWindow(enter: boolean): Promise<void> {
+  try {
+    const appWindow = getCurrentWindow();
+    if (enter) {
+      if (preMiniSize !== null) {
+        return;
+      }
+      const scale = await appWindow.scaleFactor();
+      const inner = (await appWindow.innerSize()).toLogical(scale);
+      const titleBarHeight = Math.max(0, Math.round(inner.height - window.innerHeight));
+      preMiniSize = new LogicalSize(inner.width, inner.height);
+      await appWindow.setSize(
+        new LogicalSize(inner.width, transportBarHeight() + titleBarHeight),
+      );
+      return;
+    }
+    if (preMiniSize !== null) {
+      await appWindow.setSize(preMiniSize);
+      preMiniSize = null;
+    }
   } catch {
     // no-op outside a Tauri host
   }

@@ -98,7 +98,7 @@ download links 404 immediately. Anyone who already downloaded keeps their local 
 > `WorkspaceProvider` context (no prop drilling). The `greet` Tauri command stays wired as the IPC proof for later use. A `Mod+K` command
 > palette (cmdk) lists the workspace actions (open files, play/pause, next, prev, relative seek,
 > volume up/down, mute, speed up/down, toggle shuffle, cycle repeat, toggle sort, toggle sidebar,
-> toggle transport bar, toggle fullscreen, toggle reveal-on-hover, rotate, cycle fit mode, zoom
+> toggle transport bar, toggle mini player, toggle fullscreen, toggle reveal-on-hover, rotate, cycle fit mode, zoom
 > in/out, reset viewport, open settings) - every runnable
 > action is in the palette, and entries carry search keywords (e.g. "bottom bar" finds the transport
 > toggle); each action also has its own global hotkey (fullscreen `Mod+Shift+F`, reveal toggle `Mod+Shift+H`). **Extended transport:** arrows seek the active video
@@ -112,6 +112,10 @@ download links 404 immediately. Anyone who already downloaded keeps their local 
 `F` cycles how it fits its frame (contain -> cover -> fill), `=`/`-` zoom in/out by 0.1x within
 1x-4x (centered), and `Mod+0` resets all three; a transform readout shows in the bar only when
 off-default. They are session-sticky (persist across video switches, reset on app restart).
+**Mini player:** `Mod+Shift+M` (or the palette) collapses the shell to just the transport bar -
+it hides the sidebar and viewport and shrinks the OS window to the bar's height (the `<video>` stays
+mounted, so playback is uninterrupted); toggling again restores the previous window size and the
+panel visibility you had before. Session-only, like fullscreen (not persisted).
 **User settings:** a `/settings` screen (`Mod+,`, or the palette; `Escape`/Back
 > returns) lists every action with its binding and lets you **rebind any hotkey** by recording a
 > new combination (conflicts are rejected and named, Reset reverts to default). Settings persist to

@@ -117,7 +117,10 @@ export function TransportBar() {
   };
 
   return (
-    <div className="relative grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center">
+    <div
+      data-transport-bar
+      className="relative grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center"
+    >
       <div
         ref={seekBarRef}
         role="slider"

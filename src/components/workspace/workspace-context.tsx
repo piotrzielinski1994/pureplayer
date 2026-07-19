@@ -55,6 +55,7 @@ type WorkspaceContextValue = {
   sortDirection: SortDirection;
   isSidebarVisible: boolean;
   isTransportVisible: boolean;
+  isMiniPlayer: boolean;
   selectNode: (id: string) => void;
   loadMedia: (media: MediaNode[]) => void;
   addMedia: (media: MediaNode[]) => void;
@@ -81,6 +82,7 @@ type WorkspaceContextValue = {
   toggleSortDirection: () => void;
   toggleSidebar: () => void;
   toggleTransport: () => void;
+  toggleMiniPlayer: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -96,6 +98,7 @@ type WorkspaceProviderProps = {
   initialPlaybackRate?: number;
   initialSidebarHidden?: boolean;
   initialTransportHidden?: boolean;
+  initialMiniPlayer?: boolean;
   onVolumeChange?: (volume: number) => void;
   onMutedChange?: (isMuted: boolean) => void;
   onPlaybackRateChange?: (rate: number) => void;
@@ -116,6 +119,7 @@ export function WorkspaceProvider({
   initialPlaybackRate = 1,
   initialSidebarHidden = false,
   initialTransportHidden = false,
+  initialMiniPlayer = false,
   onVolumeChange,
   onMutedChange,
   onPlaybackRateChange,
@@ -151,6 +155,11 @@ export function WorkspaceProvider({
   const [isTransportVisible, setIsTransportVisible] = useState(
     !initialTransportHidden,
   );
+  const [isMiniPlayer, setIsMiniPlayer] = useState(initialMiniPlayer);
+  const preMiniChrome = useRef({
+    sidebar: !initialSidebarHidden,
+    transport: !initialTransportHidden,
+  });
   const wasFullscreen = useRef(false);
   const initialChrome = {
     sidebar: !initialSidebarHidden,
@@ -283,6 +292,7 @@ export function WorkspaceProvider({
       sortDirection,
       isSidebarVisible,
       isTransportVisible,
+      isMiniPlayer,
       selectNode: (id) => activate(id),
       loadMedia: (next) => {
         setSourceMedia(next);
@@ -459,6 +469,21 @@ export function WorkspaceProvider({
         setIsTransportVisible(next);
         onTransportHiddenChange?.(!next);
       },
+      toggleMiniPlayer: () => {
+        if (isMiniPlayer) {
+          setIsMiniPlayer(false);
+          setIsSidebarVisible(preMiniChrome.current.sidebar);
+          setIsTransportVisible(preMiniChrome.current.transport);
+          return;
+        }
+        preMiniChrome.current = {
+          sidebar: isSidebarVisible,
+          transport: isTransportVisible,
+        };
+        setIsMiniPlayer(true);
+        setIsSidebarVisible(false);
+        setIsTransportVisible(true);
+      },
     };
   }, [
     playlist,
@@ -484,6 +509,7 @@ export function WorkspaceProvider({
     sortDirection,
     isSidebarVisible,
     isTransportVisible,
+    isMiniPlayer,
     onVolumeChange,
     onMutedChange,
     onPlaybackRateChange,

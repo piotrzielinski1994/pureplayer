@@ -11,6 +11,7 @@ import { mediaFromPaths } from "@/components/workspace/media-from-paths";
 import {
   expandDroppedPaths,
   openMediaFiles,
+  setMiniWindow,
   toggleFullscreen,
   watchFileDrop,
   watchFullscreen,
@@ -40,6 +41,8 @@ export function Workspace() {
     toggleSortDirection,
     toggleSidebar,
     toggleTransport,
+    toggleMiniPlayer,
+    isMiniPlayer,
     setFullscreen,
     rotateClockwise,
     cycleFitMode,
@@ -113,6 +116,10 @@ export function Workspace() {
     "toggle-sort-direction": toggleSortDirection,
     "toggle-sidebar": toggleSidebar,
     "toggle-transport": toggleTransport,
+    "toggle-mini-player": () => {
+      toggleMiniPlayer();
+      void setMiniWindow(!isMiniPlayer);
+    },
     "toggle-fullscreen": () => void toggleFullscreen(),
     "toggle-reveal-transport": () =>
       saveRevealTransportOnHover(!settings.revealTransportOnHover),

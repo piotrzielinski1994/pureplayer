@@ -58,6 +58,8 @@ function Probe() {
       </output>
       <output aria-label="repeat">{ws.repeatMode}</output>
       <output aria-label="shuffling">{String(ws.isShuffling)}</output>
+      <output aria-label="mini-player">{String(ws.isMiniPlayer)}</output>
+      <button onClick={() => ws.toggleMiniPlayer()}>do-toggle-mini</button>
       <button onClick={() => ws.cycleRepeat()}>do-cycle-repeat</button>
       <button onClick={() => ws.toggleShuffle()}>do-toggle-shuffle</button>
       <button
@@ -377,6 +379,62 @@ describe("workspace context", () => {
     await user.click(toggle);
 
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
+  });
+
+  // behavior: mini-player defaults off if just mounted
+  it("should default mini-player to off if just mounted", () => {
+    renderProbe({ media: fixtureMedia });
+
+    expect(screen.getByLabelText("mini-player")).toHaveTextContent("false");
+  });
+
+  // side-effect-contract: toggleMiniPlayer turns mini mode on and hides both
+  // panels (only the transport bar stays), collapsing the shell to the bar
+  it("should enter mini-player and hide both panels if toggleMiniPlayer is called", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: fixtureMedia });
+
+    await user.click(screen.getByRole("button", { name: "do-toggle-mini" }));
+
+    expect(screen.getByLabelText("mini-player")).toHaveTextContent("true");
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "true",
+    );
+  });
+
+  // side-effect-contract: leaving mini-player restores the pre-mini panel
+  // visibility (both back on for the default open shell)
+  it("should restore both panels if toggleMiniPlayer is called twice", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: fixtureMedia });
+
+    const toggle = screen.getByRole("button", { name: "do-toggle-mini" });
+    await user.click(toggle);
+    await user.click(toggle);
+
+    expect(screen.getByLabelText("mini-player")).toHaveTextContent("false");
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "true",
+    );
+  });
+
+  // behavior: leaving mini-player restores a panel the user had hidden BEFORE
+  // entering mini (pre-mini state is snapshotted, not forced back on)
+  it("should restore the pre-mini panel state if the sidebar was hidden before entering mini", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: fixtureMedia });
+
+    await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
+
+    const mini = screen.getByRole("button", { name: "do-toggle-mini" });
+    await user.click(mini);
+    await user.click(mini);
+
+    expect(screen.getByLabelText("mini-player")).toHaveTextContent("false");
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
   });
 
   // behavior: re-selecting the already-active video keeps it active + selected (E-2)
