@@ -21,11 +21,13 @@ BIN_DIR="$ROOT_DIR/src-tauri/binaries"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-# Pinned, immutable artifact URLs (verified 2026-06-20).
+# Pinned, immutable artifact URLs. macOS uses the martin-riedl mirror (stable
+# timestamped URL). Windows + Linux are mirrored to a dedicated pureplayer
+# release (the raw ffmpeg/ffprobe binaries, BtbN LGPLv3 build N-125658-g0869e710e6)
+# because BtbN's own dated autobuild tags get pruned after a few weeks -> 404.
 MR_ARM="https://ffmpeg.martin-riedl.de/download/macos/arm64/1778761665_8.1.1"
 MR_AMD="https://ffmpeg.martin-riedl.de/download/macos/amd64/1778768838_8.1.1"
-BTBN="https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-06-18-14-21/ffmpeg-n8.1.2-win64-lgpl-8.1.zip"
-BTBN_LINUX="https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-06-18-14-21/ffmpeg-n8.1.2-linux64-lgpl-8.1.tar.xz"
+MIRROR="https://github.com/piotrzielinski1994/pureplayer/releases/download/ffmpeg-sidecars-n8.1-btbn"
 
 # SHA-256 of each placed binary. Empty string = not yet pinned: the script will
 # print the computed digest and skip verification so you can paste it back here.
@@ -37,10 +39,10 @@ sha256_for() {
     ffprobe-aarch64-apple-darwin)       echo "3ec76ddd72068162294249465c36257d6c1add564f9b078e31e173837832967d" ;;
     ffmpeg-x86_64-apple-darwin)         echo "6a2c2884161d883fbb1ef21a0223475283eb4e381ee870956719f59f32daf74c" ;;
     ffprobe-x86_64-apple-darwin)        echo "cb39232c06f663e97917798ed75f7538341367401f9c180f10646193a7a29a54" ;;
-    ffmpeg-x86_64-pc-windows-msvc.exe)  echo "381508c710b161c29a72ea410a3faaf269e8e90eec038f4d8034a8596daf1163" ;;
-    ffprobe-x86_64-pc-windows-msvc.exe) echo "5ae7408f3b255fb939958f37e59e752750896ec4c311d3578e13ca004047f7df" ;;
-    ffmpeg-x86_64-unknown-linux-gnu)    echo "24c0fdc25b52e086fffda2bde3986cae4ff407b4e6420266cebbd04299dae088" ;;
-    ffprobe-x86_64-unknown-linux-gnu)   echo "092bd8724eef8d07a003959906199c7dc0bcce6547b79216f0e29ddbd1bb4f44" ;;
+    ffmpeg-x86_64-pc-windows-msvc.exe)  echo "00215bda52cf0a318701b66b80890629c75b626e15e74b936653797a38e924a6" ;;
+    ffprobe-x86_64-pc-windows-msvc.exe) echo "d559aa49fd5924b45be017c13f787ec21c58a97a35ad8d01a0c66b0a38500926" ;;
+    ffmpeg-x86_64-unknown-linux-gnu)    echo "79b2748f7325f480263160767c835cd94e4b9472304ddc61860e13fe0a9d1f69" ;;
+    ffprobe-x86_64-unknown-linux-gnu)   echo "46c8ffe8ac4e4d47987353e5ee4ff1aaa0bd77a1be720843c0b1b324ddab7463" ;;
     *) echo "" ;;
   esac
 }
@@ -101,15 +103,13 @@ fetch_windows() {
     echo "$triple: present, skipping"
     return
   fi
-  echo "$triple: downloading (BtbN, LGPLv3)"
+  echo "$triple: downloading (pureplayer mirror, BtbN LGPLv3)"
   local d="$WORK_DIR/$triple"
   mkdir -p "$d"
-  curl -fsSL "$BTBN" -o "$d/ffmpeg.zip"
-  unzip -oq "$d/ffmpeg.zip" -d "$d"
-  local inner
-  inner="$(find "$d" -type d -name 'ffmpeg-n8.1.2-win64-lgpl-8.1' | head -1)"
-  place "ffmpeg-$triple.exe" "$inner/bin/ffmpeg.exe"
-  place "ffprobe-$triple.exe" "$inner/bin/ffprobe.exe"
+  curl -fsSL "$MIRROR/ffmpeg-$triple.exe" -o "$d/ffmpeg.exe"
+  curl -fsSL "$MIRROR/ffprobe-$triple.exe" -o "$d/ffprobe.exe"
+  place "ffmpeg-$triple.exe" "$d/ffmpeg.exe"
+  place "ffprobe-$triple.exe" "$d/ffprobe.exe"
 }
 
 fetch_linux() {
@@ -118,15 +118,13 @@ fetch_linux() {
     echo "$triple: present, skipping"
     return
   fi
-  echo "$triple: downloading (BtbN, LGPLv3)"
+  echo "$triple: downloading (pureplayer mirror, BtbN LGPLv3)"
   local d="$WORK_DIR/$triple"
   mkdir -p "$d"
-  curl -fsSL "$BTBN_LINUX" -o "$d/ffmpeg.tar.xz"
-  tar -xf "$d/ffmpeg.tar.xz" -C "$d"
-  local inner
-  inner="$(find "$d" -type d -name 'ffmpeg-n8.1.2-linux64-lgpl-8.1' | head -1)"
-  place "ffmpeg-$triple" "$inner/bin/ffmpeg"
-  place "ffprobe-$triple" "$inner/bin/ffprobe"
+  curl -fsSL "$MIRROR/ffmpeg-$triple" -o "$d/ffmpeg"
+  curl -fsSL "$MIRROR/ffprobe-$triple" -o "$d/ffprobe"
+  place "ffmpeg-$triple" "$d/ffmpeg"
+  place "ffprobe-$triple" "$d/ffprobe"
 }
 
 mkdir -p "$BIN_DIR"
