@@ -58,8 +58,13 @@ function Probe() {
       </output>
       <output aria-label="repeat">{ws.repeatMode}</output>
       <output aria-label="shuffling">{String(ws.isShuffling)}</output>
-      <output aria-label="mini-player">{String(ws.isMiniPlayer)}</output>
-      <button onClick={() => ws.toggleMiniPlayer()}>do-toggle-mini</button>
+      <output aria-label="mini-mode">{ws.miniMode}</output>
+      <button onClick={() => ws.toggleMiniMode("bar")}>
+        do-toggle-mini-bar
+      </button>
+      <button onClick={() => ws.toggleMiniMode("playlist")}>
+        do-toggle-mini-playlist
+      </button>
       <button onClick={() => ws.cycleRepeat()}>do-cycle-repeat</button>
       <button onClick={() => ws.toggleShuffle()}>do-toggle-shuffle</button>
       <button
@@ -381,59 +386,117 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
   });
 
-  // behavior: mini-player defaults off if just mounted
-  it("should default mini-player to off if just mounted", () => {
+  // behavior: miniMode defaults to "off" if just mounted (TC-001 / AC-001)
+  it("should default miniMode to off if just mounted", () => {
     renderProbe({ media: fixtureMedia });
 
-    expect(screen.getByLabelText("mini-player")).toHaveTextContent("false");
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
   });
 
-  // side-effect-contract: toggleMiniPlayer turns mini mode on and hides both
-  // panels (only the transport bar stays), collapsing the shell to the bar
-  it("should enter mini-player and hide both panels if toggleMiniPlayer is called", async () => {
+  // behavior: initialMiniMode seeds miniMode at launch (AC-001)
+  it("should seed miniMode from the initialMiniMode prop if given playlist", () => {
+    renderProbe({ media: fixtureMedia, initialMiniMode: "playlist" });
+
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("playlist");
+  });
+
+  // side-effect-contract: toggleMiniMode("bar") from off enters bar-mini and
+  // hides the sidebar while keeping the transport bar visible; toggling bar
+  // again returns to off (TC-001 / AC-002)
+  it("should enter bar-mini hiding the sidebar and return to off if toggleMiniMode('bar') is called twice", async () => {
     const user = userEvent.setup();
     renderProbe({ media: fixtureMedia });
 
-    await user.click(screen.getByRole("button", { name: "do-toggle-mini" }));
+    const toggleBar = screen.getByRole("button", {
+      name: "do-toggle-mini-bar",
+    });
 
-    expect(screen.getByLabelText("mini-player")).toHaveTextContent("true");
+    await user.click(toggleBar);
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("bar");
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
     expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
       "true",
     );
-  });
 
-  // side-effect-contract: leaving mini-player restores the pre-mini panel
-  // visibility (both back on for the default open shell)
-  it("should restore both panels if toggleMiniPlayer is called twice", async () => {
-    const user = userEvent.setup();
-    renderProbe({ media: fixtureMedia });
-
-    const toggle = screen.getByRole("button", { name: "do-toggle-mini" });
-    await user.click(toggle);
-    await user.click(toggle);
-
-    expect(screen.getByLabelText("mini-player")).toHaveTextContent("false");
+    await user.click(toggleBar);
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
     expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
       "true",
     );
   });
 
-  // behavior: leaving mini-player restores a panel the user had hidden BEFORE
-  // entering mini (pre-mini state is snapshotted, not forced back on)
-  it("should restore the pre-mini panel state if the sidebar was hidden before entering mini", async () => {
+  // side-effect-contract: toggleMiniMode("playlist") from off enters
+  // playlist-mini (same hide-sidebar/keep-transport snapshot); toggling
+  // playlist again returns to off restoring both panels (TC-002 / AC-003)
+  it("should enter playlist-mini and return to off restoring both panels if toggleMiniMode('playlist') is called twice", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: fixtureMedia });
+
+    const togglePlaylist = screen.getByRole("button", {
+      name: "do-toggle-mini-playlist",
+    });
+
+    await user.click(togglePlaylist);
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("playlist");
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "true",
+    );
+
+    await user.click(togglePlaylist);
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "true",
+    );
+  });
+
+  // side-effect-contract: the two minis are mutually exclusive with a DIRECT
+  // switch - toggling playlist while in bar goes straight to playlist (never
+  // through off), and toggling bar while in playlist goes straight to bar
+  // (TC-003 / AC-004)
+  it("should switch directly between bar and playlist without passing through off if the other mini is toggled", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: fixtureMedia });
+
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-mini-bar" }),
+    );
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("bar");
+
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-mini-playlist" }),
+    );
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("playlist");
+
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-mini-bar" }),
+    );
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("bar");
+  });
+
+  // behavior: the pre-mini snapshot is taken only on the off->mini entry and is
+  // preserved (not overwritten) across a direct bar->playlist switch, so a
+  // sidebar hidden before entering mini stays hidden after exit (TC-004 / AC-004)
+  it("should keep the sidebar hidden after exit if it was hidden before entering and the mini was switched directly", async () => {
     const user = userEvent.setup();
     renderProbe({ media: fixtureMedia });
 
     await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
 
-    const mini = screen.getByRole("button", { name: "do-toggle-mini" });
-    await user.click(mini);
-    await user.click(mini);
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-mini-bar" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-mini-playlist" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "do-toggle-mini-playlist" }),
+    );
 
-    expect(screen.getByLabelText("mini-player")).toHaveTextContent("false");
+    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
   });
 
