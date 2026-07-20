@@ -245,6 +245,44 @@ describe("TransportBar", () => {
     ).toBeInTheDocument();
   });
 
+  // behavior: the bar is a container-query context exposing three labelled zones
+  // (playback / controls / meta) so it can reflow by its OWN width, not the
+  // viewport's (works regardless of the sidebar's width)
+  it("should expose the three transport zones inside a container-query context if mounted", () => {
+    renderTransport("v-1");
+
+    const bar = document.querySelector("[data-transport-bar]");
+    expect(bar?.className).toContain("@container");
+    expect(
+      document.querySelector('[data-transport-zone="playback"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-transport-zone="controls"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-transport-zone="meta"]'),
+    ).toBeInTheDocument();
+  });
+
+  // behavior: when the bar is narrow it stacks the zones in this visual order via
+  // flex `order` - playback on top, the left controls in the middle, the right
+  // meta readouts at the bottom (order-1 < order-2 < order-3), and resets to the
+  // single-row grid at the wide breakpoint (@2xl:order-none)
+  it("should order playback above controls above meta for the stacked narrow layout", () => {
+    renderTransport("v-1");
+
+    const playback = document.querySelector('[data-transport-zone="playback"]');
+    const controls = document.querySelector('[data-transport-zone="controls"]');
+    const meta = document.querySelector('[data-transport-zone="meta"]');
+
+    expect(playback?.className).toContain("order-1");
+    expect(controls?.className).toContain("order-2");
+    expect(meta?.className).toContain("order-3");
+    expect(playback?.className).toContain("@2xl:order-0");
+    expect(controls?.className).toContain("@2xl:order-0");
+    expect(meta?.className).toContain("@2xl:order-0");
+  });
+
   // behavior: prev/next follow the CURRENT sorted order when a sort key is active (AC-008)
   it("should step to the natural-next video if next is clicked with the title sort key active", async () => {
     const user = userEvent.setup();

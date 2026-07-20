@@ -40,6 +40,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 - Tabs are flat, square, separated by 1px borders; the active tab reads via `bg-background` + full foreground, inactive via muted foreground.
 - Buttons in a thin bar (toolbar / editor header / URL bar) **fill the bar's full height** (`h-full`, square, no margin), divided from siblings by a 1px border (`border-l`/`border-r`), not floating chips with their own height/padding. The bar height is the button height.
 - All bar buttons share one size: the `Button` default (`text-sm`, `px-4`) - do NOT shrink some to `text-xs` or re-pad them. Add only `h-full rounded-none border-0 border-l` (+ optional `border-l-border`); keep everything else from the default so Send/Save/Close read identically across every bar.
+- _(pureplayer-only)_ The transport bar reflows by its **own** width via a container query (`@container` + `@2xl:` on the bar element), not the viewport width, so it stacks correctly in the narrow mini-player window regardless of the sidebar. Wide (`@2xl`) is the single-row `grid-cols-[1fr_auto_1fr]`; below it the three zones stack vertically via flex `order` - playback (transport buttons) on top (`order-1`), the left controls (mute/volume/shuffle/repeat) in the middle (`order-2`), the right meta readouts at the bottom (`order-3`), each `@2xl:order-0` back to source order. Stacked rows keep the `h-12` bar height and are divided by the standard 1px `border-t border-border`.
 
 ## Accessibility
 

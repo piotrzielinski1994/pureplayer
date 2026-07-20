@@ -119,7 +119,7 @@ export function TransportBar() {
   return (
     <div
       data-transport-bar
-      className="relative grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center"
+      className="@container relative flex shrink-0 flex-col @2xl:grid @2xl:h-12 @2xl:grid-cols-[1fr_auto_1fr] @2xl:items-center"
     >
       <div
         ref={seekBarRef}
@@ -142,7 +142,10 @@ export function TransportBar() {
         </div>
       </div>
       {/* left zone (1fr) - mute toggle + volume slider + shuffle + repeat */}
-      <div className="flex h-full items-center">
+      <div
+        data-transport-zone="controls"
+        className="order-2 flex h-12 items-center border-t border-border @2xl:order-0 @2xl:h-full @2xl:border-t-0"
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -204,7 +207,10 @@ export function TransportBar() {
           )}
         </Button>
       </div>
-      <div className="flex h-full items-center justify-center">
+      <div
+        data-transport-zone="playback"
+        className="order-1 flex h-12 items-center justify-center @2xl:order-0 @2xl:h-full"
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -238,7 +244,10 @@ export function TransportBar() {
         </Button>
       </div>
       {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout */}
-      <div className="flex items-center justify-end gap-3 pr-4">
+      <div
+        data-transport-zone="meta"
+        className="order-3 flex h-12 items-center justify-end gap-3 border-t border-border pr-4 @2xl:order-0 @2xl:h-full @2xl:border-t-0"
+      >
         {activeMedia && !isDefaultTransform(viewportTransform) && (
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {formatTransform(viewportTransform)}
