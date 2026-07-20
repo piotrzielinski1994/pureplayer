@@ -18,6 +18,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 ## Tables / grids
 
 - One grid component, reused everywhere a result set is shown. All grids look identical: same row height, padding, header treatment, single-line cells (`overflow-hidden text-ellipsis whitespace-nowrap`), resizable columns.
+- _(pureplayer-only)_ Exception to the single-line-ellipsis rule for the **playlist sidebar** (`media-list`): track names are NOT truncated - they stay full-width on one line (`whitespace-nowrap`, no `truncate`) and the list scrolls **horizontally** instead. Its `ScrollArea` is `type="always"` with a horizontal `ScrollBar` so the bar is visible when names overflow. Rationale: in the narrow mini-player window a filename is more useful scrollable-in-full than ellipsized. Do not propagate this to the shared grid or to `requi`/`dbui`.
 - Headers always render, even for an empty result, so the column structure stays visible; show an empty-state message ("No rows.") beneath the header row, not instead of it.
 - NULL renders as a dim `[NULL]`, visually distinct from an empty string.
 - Edited/dirty cells get a subtle highlight (`bg-amber-500/15`), applied identically in every view (list and single-record).

@@ -7,7 +7,7 @@ export function MediaList() {
   const { playlist, selectedNodeId, selectNode } = useWorkspace();
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea type="always" className="flex-1">
       <ul role="list" aria-label="Playlist">
         {playlist.map((media) => (
           <li
@@ -22,10 +22,10 @@ export function MediaList() {
               selectedNodeId === media.id && "bg-accent",
             )}
           >
-            <span className="truncate">{media.name}</span>
+            <span className="whitespace-nowrap">{media.name}</span>
             <span
               className={cn(
-                "ml-auto shrink-0 font-mono text-[11px] font-semibold",
+                "ml-auto shrink-0 pl-2 font-mono text-[11px] font-semibold",
                 FORMAT_COLOR[media.format],
               )}
             >
