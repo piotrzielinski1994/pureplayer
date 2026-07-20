@@ -91,3 +91,30 @@ One per AC minimum + the edge TCs (TC-001..012). Frontend Vitest. Assert observa
 - `npm run typecheck` + lint clean (no `any`, no new comments).
 - Fresh verifier subagent maps each AC to a passing, non-tautological test.
 - On-device (manual, out of automated scope): `Mod+Shift+L` shrinks to the list-over-bar window; `Mod+Shift+M` still gives bar-only; direct switch keeps `<video>` playing.
+
+## Completion (2026-07-19)
+
+Status: **DONE**. 4 commits (fe1775f, c1b2a05, f99bd0d, 3575f75) on branch `20260719134345-mini-player-playlist`. Gates: 509 tests pass (44 files), typecheck clean, lint 0 errors (5 pre-existing warnings). On-device manual verification still pending (window resize can't run under jsdom).
+
+### AC -> test traceability
+
+| AC | Test(s) |
+| --- | --- |
+| AC-001 | mini-mode.test.ts nextMiniMode table; workspace-context "should default miniMode to off", "should seed miniMode from the initialMiniMode prop" |
+| AC-002 | workspace-context "should enter bar-mini hiding the sidebar and return to off ... twice" |
+| AC-003 | workspace-context "should enter playlist-mini and return to off restoring both panels ... twice" |
+| AC-004 | mini-mode.test.ts (bar/playlist self+cross cases); workspace-context "should switch directly ..." + "should restore the exact pre-mini panel state after exit if the mini was switched directly" (mutation-verified discriminating); mini-window "should not re-stash on a direct bar-to-playlist switch ..." |
+| AC-005 | content-mini-player "should render the playlist above a hidden-but-mounted viewport ...", "should show the viewport region and render no playlist inside Content if miniMode is off", "(no media) empty state" |
+| AC-006 | content-mini-player playlist + bar tests (viewport hidden, `<video>` mounts) |
+| AC-007 | registry.test.ts "should register 'toggle-mini-playlist' on Mod+Shift+L ..." |
+| AC-008 | workspace-mini-mode.test.tsx (3 tests: setMiniWindow('playlist'/'bar'/'off') via palette + viewport visibility) |
+| AC-009 | mini-window.test.ts (bar dims + restore, playlist fixed width/taller height, width-independent-of-stash, no-re-stash, no-recapture, off-no-op) |
+
+### Decision log
+
+| Date | Decision | Rationale |
+| ---- | -------- | --------- |
+| 2026-07-19 | Design gate: pz-ddd N/A, pz-archetypes N/A, pz-codebase-design APPLIED | No domain boundary/shape; interface reshape (isMiniPlayer boolean -> miniMode ADT) is a module-interface decision. ADT makes illegal states unrepresentable. |
+| 2026-07-19 | Shared MiniMode/MiniTarget types in new src/lib/mini-mode.ts | Both workspace-context.tsx (components) and lib/tauri.ts (lib) need them; a lib module avoids a components->lib upward import. |
+| 2026-07-19 | setMiniWindow keeps module-scope state (preMini, currentMiniMode) | Mirrors the pre-existing preMiniSize pattern; window geometry is inherently a singleton OS resource, not React state. Handler passes nextMiniMode(miniMode, target) so window mode and context mode never diverge. |
+| 2026-07-19 | Content renders its own `<Sidebar/>` for playlist-mini (not WorkspaceLayout) | In mini the WorkspaceLayout sidebar panel is hidden (isSidebarVisible=false); the vertical sidebar-above-bar stack is a distinct layout that lives in Content next to the hidden viewport, preserving `<video>` mount. |
