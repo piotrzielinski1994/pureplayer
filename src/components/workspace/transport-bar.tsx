@@ -138,11 +138,12 @@ export function TransportBar() {
           />
         </div>
       </div>
-      <div className="flex flex-col @2xl:grid @2xl:h-12 @2xl:grid-cols-[1fr_auto_1fr] @2xl:items-center">
-      {/* left zone (1fr) - mute toggle + volume slider + shuffle + repeat */}
+      <div className="grid grid-cols-[1fr_auto_1fr] [grid-template-areas:'left_playback_meta'_'controls_controls_controls'] @2xl:h-12 @2xl:items-center @2xl:[grid-template-areas:'controls_playback_meta']">
+      {/* left zone (1fr) - mute toggle + volume slider + shuffle + repeat.
+          Narrow: its own centered row below playback/meta. Wide: left column. */}
       <div
         data-transport-zone="controls"
-        className="order-2 flex h-12 items-center border-t border-border @2xl:order-0 @2xl:h-full @2xl:border-t-0"
+        className="flex h-12 items-center justify-center border-t border-border [grid-area:controls] @2xl:h-full @2xl:justify-start @2xl:border-t-0"
       >
         <Button
           variant="ghost"
@@ -207,7 +208,7 @@ export function TransportBar() {
       </div>
       <div
         data-transport-zone="playback"
-        className="order-1 flex h-12 items-center justify-center @2xl:order-0 @2xl:h-full"
+        className="flex h-12 items-center justify-center [grid-area:playback] @2xl:h-full"
       >
         <Button
           variant="ghost"
@@ -241,10 +242,11 @@ export function TransportBar() {
           <SkipForward className="size-4" />
         </Button>
       </div>
-      {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout */}
+      {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout.
+          Shares the top row with playback (narrow) / right column (wide). */}
       <div
         data-transport-zone="meta"
-        className="order-3 flex h-12 items-center justify-end gap-3 border-t border-border pr-4 @2xl:order-0 @2xl:h-full @2xl:border-t-0"
+        className="flex h-12 items-center justify-end gap-3 pr-4 [grid-area:meta] @2xl:h-full"
       >
         {activeMedia && !isDefaultTransform(viewportTransform) && (
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
