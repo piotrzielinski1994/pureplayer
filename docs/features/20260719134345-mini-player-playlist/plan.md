@@ -118,3 +118,14 @@ Status: **DONE**. 4 commits (fe1775f, c1b2a05, f99bd0d, 3575f75) on branch `2026
 | 2026-07-19 | Shared MiniMode/MiniTarget types in new src/lib/mini-mode.ts | Both workspace-context.tsx (components) and lib/tauri.ts (lib) need them; a lib module avoids a components->lib upward import. |
 | 2026-07-19 | setMiniWindow keeps module-scope state (preMini, currentMiniMode) | Mirrors the pre-existing preMiniSize pattern; window geometry is inherently a singleton OS resource, not React state. Handler passes nextMiniMode(miniMode, target) so window mode and context mode never diverge. |
 | 2026-07-19 | Content renders its own `<Sidebar/>` for playlist-mini (not WorkspaceLayout) | In mini the WorkspaceLayout sidebar panel is hidden (isSidebarVisible=false); the vertical sidebar-above-bar stack is a distinct layout that lives in Content next to the hidden viewport, preserving `<video>` mount. |
+
+## Redesign (2026-07-20) - SUPERSEDES the miniMode ADT above
+
+On-device use showed the miniMode model was wrong: playlist-mini rendered its OWN `<Sidebar/>` inside Content while `Mod+B` toggled the SEPARATE left `WorkspaceLayout` panel -> two sidebars. The user's model is one sidebar, grid-driven, where mini-playlist = mini-player with the sidebar toggled on.
+
+New model (implemented, replaces everything above):
+- **Dropped:** `miniMode` ADT, `src/lib/mini-mode.ts`, `nextMiniMode`, `toggle-mini-playlist` action + `Mod+Shift+L`, the pre-mini panel snapshot, the duplicate `<Sidebar/>` in Content.
+- **Three independent visibility toggles:** `isSidebarVisible`, `isContentVisible`, `isTransportVisible`. `Mod+Shift+M` -> `toggleContent`; `Mod+B` -> `toggleSidebar`.
+- **Layout (WorkspaceLayout):** the normal resizable `sidebar|content` tree stays MOUNTED but `hidden` (display:none) when content is off, so the `<video>` never remounts. When content is off, the single `<Sidebar/>` reflows into a top bar above the transport bar (stacked flex-col). Resizable split kept in normal mode.
+- **`setMiniWindow(layout: MiniLayout)`** where `MiniLayout = { contentVisible, sidebarVisible }`: content hidden -> shrink (bar-only, or sidebar+bar when sidebar shown), sidebar toggle while mini re-sizes without re-stashing, content shown -> restore. Session-only.
+- **Verified live** (playwright, resolved `getBoundingClientRect`) in all 4 states: content-on = 1 sidebar + viewport; content-off+sidebar-on = sidebar above bar; content-off+sidebar-off = bar only; content-on-again = viewport full-width. Video tree stays mounted (h=0) in every mini state. Full suite 507 green, typecheck + lint clean.

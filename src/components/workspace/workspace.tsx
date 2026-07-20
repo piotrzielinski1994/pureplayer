@@ -23,7 +23,6 @@ import {
   SHORTCUT_ACTIONS,
   type ShortcutActionId,
 } from "@/lib/shortcuts/registry";
-import { nextMiniMode } from "@/lib/mini-mode";
 
 export function Workspace() {
   const {
@@ -41,9 +40,10 @@ export function Workspace() {
     toggleShuffle,
     toggleSortDirection,
     toggleSidebar,
+    isSidebarVisible,
+    toggleContent,
+    isContentVisible,
     toggleTransport,
-    toggleMiniMode,
-    miniMode,
     setFullscreen,
     rotateClockwise,
     cycleFitMode,
@@ -115,15 +115,24 @@ export function Workspace() {
     "toggle-shuffle": toggleShuffle,
     "cycle-repeat": cycleRepeat,
     "toggle-sort-direction": toggleSortDirection,
-    "toggle-sidebar": toggleSidebar,
+    "toggle-sidebar": () => {
+      toggleSidebar();
+      // In mini (content hidden) the sidebar reflows into a top bar, so flipping
+      // it changes the mini window height - resize to match the new layout.
+      if (!isContentVisible) {
+        void setMiniWindow({
+          contentVisible: false,
+          sidebarVisible: !isSidebarVisible,
+        });
+      }
+    },
     "toggle-transport": toggleTransport,
     "toggle-mini-player": () => {
-      toggleMiniMode("bar");
-      void setMiniWindow(nextMiniMode(miniMode, "bar"));
-    },
-    "toggle-mini-playlist": () => {
-      toggleMiniMode("playlist");
-      void setMiniWindow(nextMiniMode(miniMode, "playlist"));
+      toggleContent();
+      void setMiniWindow({
+        contentVisible: !isContentVisible,
+        sidebarVisible: isSidebarVisible,
+      });
     },
     "toggle-fullscreen": () => void toggleFullscreen(),
     "toggle-reveal-transport": () =>

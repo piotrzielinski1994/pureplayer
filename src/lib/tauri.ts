@@ -4,7 +4,6 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
-import { type MiniMode, type MiniTarget } from "@/lib/mini-mode";
 
 const VIDEO_EXTENSIONS = ["mp4", "mkv", "mov", "webm", "avi"];
 const AUDIO_EXTENSIONS = ["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma"];
@@ -193,9 +192,12 @@ const MINI_PLAYLIST_ROWS = 5;
 const MINI_PLAYLIST_SIDEBAR_HEIGHT =
   SIDEBAR_HEADER_HEIGHT + MINI_PLAYLIST_ROWS * MEDIA_ROW_HEIGHT;
 
+// The visibility of the two collapsible panels that drive the mini window size.
+// Mini = content hidden; the transport bar is always shown in mini.
+export type MiniLayout = { contentVisible: boolean; sidebarVisible: boolean };
+
 type PreMiniGeometry = { width: number; height: number; titleBarHeight: number };
 let preMini: PreMiniGeometry | null = null;
-let currentMiniMode: MiniMode = "off";
 
 function transportBarHeight(): number {
   const bar = document.querySelector("[data-transport-bar]");
@@ -203,9 +205,11 @@ function transportBarHeight(): number {
   return measured > 0 ? Math.ceil(measured) : MINI_PLAYER_FALLBACK_HEIGHT;
 }
 
-function miniSize(mode: MiniTarget, geometry: PreMiniGeometry): LogicalSize {
+// Mini window size for a content-hidden layout: bar height (+ title bar), plus
+// the sidebar block when the sidebar is shown (it reflows into a top bar).
+function miniSize(sidebarVisible: boolean, geometry: PreMiniGeometry): LogicalSize {
   const barHeight = transportBarHeight() + geometry.titleBarHeight;
-  if (mode === "bar") {
+  if (!sidebarVisible) {
     return new LogicalSize(geometry.width, barHeight);
   }
   return new LogicalSize(
@@ -214,21 +218,18 @@ function miniSize(mode: MiniTarget, geometry: PreMiniGeometry): LogicalSize {
   );
 }
 
-// Resize the OS window to match the mini mode. Geometry (width/height/title-bar
-// delta) is stashed once on the first off->mini entry and reused across a direct
-// bar<->playlist switch (no re-query), then restored + cleared on return to off.
-export async function setMiniWindow(mode: MiniMode): Promise<void> {
-  if (mode === currentMiniMode) {
-    return;
-  }
+// Resize the OS window to match the panel layout. When content becomes hidden we
+// stash the pre-mini geometry once (width/height/title-bar delta) and shrink to
+// the mini size; toggling the sidebar WHILE mini re-sizes without re-stashing;
+// when content is shown again we restore the stashed size and clear it.
+export async function setMiniWindow(layout: MiniLayout): Promise<void> {
   try {
     const appWindow = getCurrentWindow();
-    if (mode === "off") {
+    if (layout.contentVisible) {
       if (preMini !== null) {
         await appWindow.setSize(new LogicalSize(preMini.width, preMini.height));
         preMini = null;
       }
-      currentMiniMode = "off";
       return;
     }
     if (preMini === null) {
@@ -240,8 +241,7 @@ export async function setMiniWindow(mode: MiniMode): Promise<void> {
       );
       preMini = { width: inner.width, height: inner.height, titleBarHeight };
     }
-    await appWindow.setSize(miniSize(mode, preMini));
-    currentMiniMode = mode;
+    await appWindow.setSize(miniSize(layout.sidebarVisible, preMini));
   } catch {
     // no-op outside a Tauri host
   }

@@ -56,15 +56,12 @@ function Probe() {
       <output aria-label="transport-visible">
         {String(ws.isTransportVisible)}
       </output>
+      <output aria-label="content-visible">
+        {String(ws.isContentVisible)}
+      </output>
       <output aria-label="repeat">{ws.repeatMode}</output>
       <output aria-label="shuffling">{String(ws.isShuffling)}</output>
-      <output aria-label="mini-mode">{ws.miniMode}</output>
-      <button onClick={() => ws.toggleMiniMode("bar")}>
-        do-toggle-mini-bar
-      </button>
-      <button onClick={() => ws.toggleMiniMode("playlist")}>
-        do-toggle-mini-playlist
-      </button>
+      <button onClick={() => ws.toggleContent()}>do-toggle-content</button>
       <button onClick={() => ws.cycleRepeat()}>do-cycle-repeat</button>
       <button onClick={() => ws.toggleShuffle()}>do-toggle-shuffle</button>
       <button
@@ -386,130 +383,63 @@ describe("workspace context", () => {
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
   });
 
-  // behavior: miniMode defaults to "off" if just mounted (TC-001 / AC-001)
-  it("should default miniMode to off if just mounted", () => {
+  // behavior: content defaults to visible if just mounted
+  it("should default content to visible if just mounted", () => {
     renderProbe({ media: fixtureMedia });
 
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
+    expect(screen.getByLabelText("content-visible")).toHaveTextContent("true");
   });
 
-  // behavior: initialMiniMode seeds miniMode at launch (AC-001)
-  it("should seed miniMode from the initialMiniMode prop if given playlist", () => {
-    renderProbe({ media: fixtureMedia, initialMiniMode: "playlist" });
+  // behavior: initialContentHidden seeds content hidden at launch
+  it("should seed content hidden from the initialContentHidden prop", () => {
+    renderProbe({ media: fixtureMedia, initialContentHidden: true });
 
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("playlist");
+    expect(screen.getByLabelText("content-visible")).toHaveTextContent("false");
   });
 
-  // side-effect-contract: toggleMiniMode("bar") from off enters bar-mini and
-  // hides the sidebar while keeping the transport bar visible; toggling bar
-  // again returns to off (TC-001 / AC-002)
-  it("should enter bar-mini hiding the sidebar and return to off if toggleMiniMode('bar') is called twice", async () => {
+  // side-effect-contract: toggleContent flips ONLY content visibility, leaving
+  // the sidebar and transport untouched (they are independent toggles now)
+  it("should flip only content visibility if toggleContent is called", async () => {
     const user = userEvent.setup();
     renderProbe({ media: fixtureMedia });
 
-    const toggleBar = screen.getByRole("button", {
-      name: "do-toggle-mini-bar",
-    });
+    await user.click(screen.getByRole("button", { name: "do-toggle-content" }));
 
-    await user.click(toggleBar);
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("bar");
+    expect(screen.getByLabelText("content-visible")).toHaveTextContent("false");
+    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
+    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
+      "true",
+    );
+  });
+
+  // side-effect-contract: toggling content twice restores it (hide then show)
+  it("should restore content if toggleContent is called twice", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: fixtureMedia });
+
+    const toggle = screen.getByRole("button", { name: "do-toggle-content" });
+    await user.click(toggle);
+    await user.click(toggle);
+
+    expect(screen.getByLabelText("content-visible")).toHaveTextContent("true");
+  });
+
+  // behavior: the three panel toggles are fully independent - hiding content does
+  // not force the sidebar off (the old mini-mode coupled them); the sidebar keeps
+  // whatever the user set, so a hidden sidebar stays hidden through a content toggle
+  it("should keep the sidebar hidden across a content toggle if it was hidden first", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: fixtureMedia });
+
+    await user.click(screen.getByRole("button", { name: "do-toggle-sidebar" }));
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
-    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
-      "true",
-    );
 
-    await user.click(toggleBar);
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
-    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
-    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
-      "true",
-    );
-  });
+    const content = screen.getByRole("button", { name: "do-toggle-content" });
+    await user.click(content);
+    await user.click(content);
 
-  // side-effect-contract: toggleMiniMode("playlist") from off enters
-  // playlist-mini (same hide-sidebar/keep-transport snapshot); toggling
-  // playlist again returns to off restoring both panels (TC-002 / AC-003)
-  it("should enter playlist-mini and return to off restoring both panels if toggleMiniMode('playlist') is called twice", async () => {
-    const user = userEvent.setup();
-    renderProbe({ media: fixtureMedia });
-
-    const togglePlaylist = screen.getByRole("button", {
-      name: "do-toggle-mini-playlist",
-    });
-
-    await user.click(togglePlaylist);
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("playlist");
+    expect(screen.getByLabelText("content-visible")).toHaveTextContent("true");
     expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("false");
-    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
-      "true",
-    );
-
-    await user.click(togglePlaylist);
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
-    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
-    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
-      "true",
-    );
-  });
-
-  // side-effect-contract: the two minis are mutually exclusive with a DIRECT
-  // switch - toggling playlist while in bar goes straight to playlist (never
-  // through off), and toggling bar while in playlist goes straight to bar
-  // (TC-003 / AC-004)
-  it("should switch directly between bar and playlist without passing through off if the other mini is toggled", async () => {
-    const user = userEvent.setup();
-    renderProbe({ media: fixtureMedia });
-
-    await user.click(
-      screen.getByRole("button", { name: "do-toggle-mini-bar" }),
-    );
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("bar");
-
-    await user.click(
-      screen.getByRole("button", { name: "do-toggle-mini-playlist" }),
-    );
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("playlist");
-
-    await user.click(
-      screen.getByRole("button", { name: "do-toggle-mini-bar" }),
-    );
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("bar");
-  });
-
-  // behavior: the pre-mini snapshot is taken only on the off->mini entry and is
-  // preserved (not overwritten) across a direct bar->playlist switch, so the
-  // exact panel visibility from before mini is restored on exit (TC-004 / AC-004).
-  // The transport is HIDDEN before entering while the sidebar stays visible: mini
-  // forces sidebar=false + transport=true, so BOTH pre-mini values differ from the
-  // in-mini values. A re-stash on the direct switch would capture the in-mini state
-  // and restore sidebar=false / transport=true - this asserts the pre-mini state.
-  it("should restore the exact pre-mini panel state after exit if the mini was switched directly", async () => {
-    const user = userEvent.setup();
-    renderProbe({ media: fixtureMedia });
-
-    await user.click(
-      screen.getByRole("button", { name: "do-toggle-transport" }),
-    );
-    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
-    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
-      "false",
-    );
-
-    await user.click(
-      screen.getByRole("button", { name: "do-toggle-mini-bar" }),
-    );
-    await user.click(
-      screen.getByRole("button", { name: "do-toggle-mini-playlist" }),
-    );
-    await user.click(
-      screen.getByRole("button", { name: "do-toggle-mini-playlist" }),
-    );
-
-    expect(screen.getByLabelText("mini-mode")).toHaveTextContent("off");
-    expect(screen.getByLabelText("sidebar-visible")).toHaveTextContent("true");
-    expect(screen.getByLabelText("transport-visible")).toHaveTextContent(
-      "false",
-    );
   });
 
   // behavior: re-selecting the already-active video keeps it active + selected (E-2)

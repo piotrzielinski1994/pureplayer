@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
@@ -54,48 +54,73 @@ const viewportRegion = () =>
   screen.getByRole("region", { name: /media viewport/i, hidden: true });
 
 describe("Workspace mini-mode handlers", () => {
-  // side-effect-contract: the mini-playlist action enters playlist-mini (viewport
-  // hidden) AND resizes the OS window with the next mode "playlist" (AC-008)
-  it("should call setMiniWindow('playlist') and enter playlist-mini if 'Toggle mini playlist' is run", async () => {
+  beforeEach(() => {
+    setMiniWindowMock.mockClear();
+  });
+
+  // side-effect-contract: the mini-player action hides content (viewport hidden)
+  // AND resizes the OS window with the new layout - content hidden, sidebar shown
+  // (the default), so the window becomes the sidebar+bar mini
+  it("should hide content and call setMiniWindow with content hidden if 'Toggle mini player' is run", async () => {
     const user = userEvent.setup();
     renderWorkspace();
     await screen.findByRole("button", { name: /play|pause/i });
     expect(viewportRegion()).toBeVisible();
 
-    await runPaletteAction(user, /toggle mini playlist/i);
+    await runPaletteAction(user, /toggle mini player/i);
 
-    expect(setMiniWindowMock).toHaveBeenCalledWith("playlist");
+    expect(setMiniWindowMock).toHaveBeenCalledWith({
+      contentVisible: false,
+      sidebarVisible: true,
+    });
     expect(viewportRegion()).not.toBeVisible();
   });
 
-  // side-effect-contract: the bar-mini action enters bar-mini (viewport hidden,
-  // no playlist rendered) AND resizes the OS window with the next mode "bar" (AC-008)
-  it("should call setMiniWindow('bar') if 'Toggle mini player' is run", async () => {
+  // side-effect-contract: toggling the sidebar WHILE mini (content hidden)
+  // re-sizes the window to the new layout (content still hidden, sidebar now off)
+  // - i.e. cmd+b in mini flips between the sidebar+bar and bar-only mini
+  it("should re-size with the sidebar hidden if the sidebar is toggled while mini", async () => {
     const user = userEvent.setup();
     renderWorkspace();
     await screen.findByRole("button", { name: /play|pause/i });
 
     await runPaletteAction(user, /toggle mini player/i);
+    setMiniWindowMock.mockClear();
 
-    expect(setMiniWindowMock).toHaveBeenCalledWith("bar");
-    expect(viewportRegion()).not.toBeVisible();
-    expect(
-      screen.queryByRole("list", { name: /playlist/i }),
-    ).not.toBeInTheDocument();
+    await runPaletteAction(user, /toggle sidebar/i);
+
+    expect(setMiniWindowMock).toHaveBeenCalledWith({
+      contentVisible: false,
+      sidebarVisible: false,
+    });
   });
 
-  // side-effect-contract: running the SAME mini action twice toggles back to
-  // "off" - the second call passes "off" so the window restores and the viewport
-  // is shown again (AC-008)
-  it("should call setMiniWindow('off') and leave mini if the mini-playlist action is run twice", async () => {
+  // side-effect-contract: toggling the sidebar while content is VISIBLE must NOT
+  // resize the window (no mini) - setMiniWindow is not called
+  it("should not resize the window if the sidebar is toggled while content is visible", async () => {
     const user = userEvent.setup();
     renderWorkspace();
     await screen.findByRole("button", { name: /play|pause/i });
 
-    await runPaletteAction(user, /toggle mini playlist/i);
-    await runPaletteAction(user, /toggle mini playlist/i);
+    await runPaletteAction(user, /toggle sidebar/i);
 
-    expect(setMiniWindowMock).toHaveBeenLastCalledWith("off");
+    expect(setMiniWindowMock).not.toHaveBeenCalled();
+  });
+
+  // side-effect-contract: running the mini-player action twice shows content
+  // again and the second call restores the window (content visible)
+  it("should show content again and restore the window if the mini-player action is run twice", async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+    await screen.findByRole("button", { name: /play|pause/i });
+
+    await runPaletteAction(user, /toggle mini player/i);
+    await runPaletteAction(user, /toggle mini player/i);
+
+    expect(setMiniWindowMock).toHaveBeenLastCalledWith({
+      contentVisible: true,
+      sidebarVisible: true,
+    });
     expect(viewportRegion()).toBeVisible();
   });
 });

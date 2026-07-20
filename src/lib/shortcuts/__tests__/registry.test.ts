@@ -72,23 +72,23 @@ describe("shortcut registry", () => {
     expect(transport?.keywords).toContain("bottom bar");
   });
 
-  // TC-008 (registry): the playlist-mini action is registered and bound to
-  // Mod+Shift+L with >=1 search keyword, while the bar-mini action keeps its
-  // existing Mod+Shift+M binding (AC-007)
-  it("should register 'toggle-mini-playlist' on Mod+Shift+L with keywords and keep 'toggle-mini-player' on Mod+Shift+M if read", () => {
-    const playlistMini = SHORTCUT_ACTIONS.find(
-      (action) => action.id === "toggle-mini-playlist",
-    );
-    const barMini = SHORTCUT_ACTIONS.find(
+  // behavior: the mini-player action is registered on Mod+Shift+M and there is no
+  // longer a separate mini-playlist action (mini-playlist is now just the mini
+  // player with the sidebar toggled on, via cmd+b)
+  it("should register 'toggle-mini-player' on Mod+Shift+M and NOT register a separate mini-playlist action", () => {
+    const miniPlayer = SHORTCUT_ACTIONS.find(
       (action) => action.id === "toggle-mini-player",
     );
 
-    expect(playlistMini).toBeDefined();
-    expect(playlistMini?.defaultHotkey).toBe("Mod+Shift+L");
-    expect(playlistMini?.name.trim().length).toBeGreaterThan(0);
-    expect(playlistMini?.keywords?.length ?? 0).toBeGreaterThanOrEqual(1);
+    expect(miniPlayer).toBeDefined();
+    expect(miniPlayer?.defaultHotkey).toBe("Mod+Shift+M");
+    expect(miniPlayer?.name.trim().length).toBeGreaterThan(0);
 
-    expect(barMini?.defaultHotkey).toBe("Mod+Shift+M");
+    const ids: string[] = SHORTCUT_ACTIONS.map((action) => action.id);
+    expect(ids).not.toContain("toggle-mini-playlist");
+    expect(SHORTCUT_ACTIONS.some((a) => a.defaultHotkey === "Mod+Shift+L")).toBe(
+      false,
+    );
   });
 
   // behavior: action ids must be unique so each maps to exactly one handler/binding (AC-003)

@@ -112,12 +112,13 @@ download links 404 immediately. Anyone who already downloaded keeps their local 
 `F` cycles how it fits its frame (contain -> cover -> fill), `=`/`-` zoom in/out by 0.1x within
 1x-4x (centered), and `Mod+0` resets all three; a transform readout shows in the bar only when
 off-default. They are session-sticky (persist across video switches, reset on app restart).
-**Mini player:** two variants (mutually exclusive, direct switch between them). `Mod+Shift+M` (or the
-palette) collapses the shell to just the transport bar; `Mod+Shift+L` collapses it to the playlist
-above the transport bar (for driving a music playlist), shrinking the window to the bar's width and a
-five-row list. Both hide the viewport but keep the `<video>` mounted so playback is uninterrupted;
-toggling the active variant restores the previous window size and the panel visibility you had before.
-Session-only, like fullscreen (not persisted).
+**Mini player:** `Mod+Shift+M` (or the palette) hides the content viewport and shrinks the window to
+just the sidebar and transport bar - the playlist sidebar reflows into a "top bar" above the transport
+bar (drive a music playlist from a compact window). Toggle the sidebar too (`Mod+B`) for a bar-only
+mini: with content hidden the window auto-resizes between the sidebar+bar and bar-only sizes. The
+`<video>` stays mounted the whole time so playback is uninterrupted; showing content again restores
+the previous window size. Sidebar / content / transport-bar are three independent toggles; the mini
+window sizing is session-only, like fullscreen (not persisted).
 **User settings:** a `/settings` screen (`Mod+,`, or the palette; `Escape`/Back
 > returns) lists every action with its binding and lets you **rebind any hotkey** by recording a
 > new combination (conflicts are rejected and named, Reset reverts to default). Settings persist to
