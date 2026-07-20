@@ -35,6 +35,8 @@ const setDomInnerHeight = (height: number) => {
 const BAR_HEIGHT = 48;
 const TITLE_BAR = 32;
 const BAR_ONLY_HEIGHT = BAR_HEIGHT + TITLE_BAR;
+// The fixed mini width - constant across sidebar toggles (must match tauri.ts).
+const MINI_WIDTH = 680;
 
 const lastSetSizeArg = (): LogicalSize =>
   setSize.mock.calls.at(-1)![0] as unknown as LogicalSize;
@@ -57,16 +59,16 @@ describe("setMiniWindow", () => {
   });
 
   // behavior: hiding content with the sidebar also hidden shrinks the window to
-  // the transport-bar height PLUS the native title-bar deficit at the stashed
-  // inner width; showing content again restores the stashed size (round-trip
-  // proves restore is a real exit)
-  it("should shrink to the stashed width by bar-plus-title-bar height on bar-only then restore when content shown", async () => {
+  // the FIXED mini width (NOT the stashed inner width - so toggling the sidebar
+  // later only changes height) by the transport-bar height PLUS the native
+  // title-bar deficit; showing content again restores the stashed size
+  it("should shrink to the fixed mini width by bar-plus-title-bar height on bar-only then restore when content shown", async () => {
     innerSize.mockResolvedValueOnce(physical(1000, 700));
 
     await setMiniWindow(barOnly);
 
     expect(setSize).toHaveBeenCalledTimes(1);
-    expect(setSize).toHaveBeenCalledWith(new LogicalSize(1000, BAR_ONLY_HEIGHT));
+    expect(setSize).toHaveBeenCalledWith(new LogicalSize(MINI_WIDTH, BAR_ONLY_HEIGHT));
 
     setSize.mockClear();
     await setMiniWindow(normal);
@@ -76,14 +78,30 @@ describe("setMiniWindow", () => {
   });
 
   // behavior: with no title bar (webview viewport == inner window) the bar-only
-  // mini height is exactly the bar height
+  // mini height is exactly the bar height, at the fixed mini width
   it("should use just the bar height for a bar-only mini if there is no title-bar deficit", async () => {
     setDomInnerHeight(700);
     innerSize.mockResolvedValueOnce(physical(1000, 700));
 
     await setMiniWindow(barOnly);
 
-    expect(setSize).toHaveBeenCalledWith(new LogicalSize(1000, BAR_HEIGHT));
+    expect(setSize).toHaveBeenCalledWith(new LogicalSize(MINI_WIDTH, BAR_HEIGHT));
+  });
+
+  // behavior: the mini width is CONSTANT across a sidebar toggle - only the height
+  // changes (this is the bug that made the window jump wide when the sidebar was
+  // hidden). Bar-only and sidebar-mini must share the exact same width.
+  it("should keep the same width when the sidebar is toggled while mini", async () => {
+    innerSize.mockResolvedValueOnce(physical(1000, 700));
+    await setMiniWindow(withSidebar);
+    const withSidebarWidth = lastSetSizeArg().width;
+
+    setSize.mockClear();
+    await setMiniWindow(barOnly);
+    const barOnlyWidth = lastSetSizeArg().width;
+
+    expect(barOnlyWidth).toBe(withSidebarWidth);
+    expect(barOnlyWidth).toBe(MINI_WIDTH);
   });
 
   // behavior: showing content restores the exact pre-mini inner size captured on

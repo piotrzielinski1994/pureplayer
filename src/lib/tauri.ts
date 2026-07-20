@@ -185,7 +185,7 @@ export async function toggleFullscreen(): Promise<void> {
 }
 
 const MINI_PLAYER_FALLBACK_HEIGHT = 48;
-const MINI_PLAYLIST_WIDTH = 680;
+const MINI_WIDTH = 680;
 const SIDEBAR_HEADER_HEIGHT = 36;
 const MEDIA_ROW_HEIGHT = 28;
 const MINI_PLAYLIST_ROWS = 5;
@@ -205,17 +205,14 @@ function transportBarHeight(): number {
   return measured > 0 ? Math.ceil(measured) : MINI_PLAYER_FALLBACK_HEIGHT;
 }
 
-// Mini window size for a content-hidden layout: bar height (+ title bar), plus
-// the sidebar block when the sidebar is shown (it reflows into a top bar).
+// Mini window size for a content-hidden layout: a fixed narrow width (constant,
+// so toggling the sidebar only changes HEIGHT, never width) and a bar height
+// (+ title bar), plus the sidebar block when the sidebar is shown (it reflows
+// into a top bar).
 function miniSize(sidebarVisible: boolean, geometry: PreMiniGeometry): LogicalSize {
   const barHeight = transportBarHeight() + geometry.titleBarHeight;
-  if (!sidebarVisible) {
-    return new LogicalSize(geometry.width, barHeight);
-  }
-  return new LogicalSize(
-    MINI_PLAYLIST_WIDTH,
-    MINI_PLAYLIST_SIDEBAR_HEIGHT + barHeight,
-  );
+  const sidebarHeight = sidebarVisible ? MINI_PLAYLIST_SIDEBAR_HEIGHT : 0;
+  return new LogicalSize(MINI_WIDTH, sidebarHeight + barHeight);
 }
 
 // Resize the OS window to match the panel layout. When content becomes hidden we
