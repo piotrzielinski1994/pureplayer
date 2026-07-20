@@ -190,7 +190,7 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     description:
       "Hide the content viewport and shrink the window to the sidebar and transport bar (mini player), or restore it. Toggle the sidebar too for a bar-only mini.",
     defaultHotkey: "Mod+Shift+M",
-    keywords: ["mini", "compact", "bottom bar", "shrink", "minimize", "tiny", "playlist"],
+    keywords: ["mini", "compact", "bottom bar", "shrink", "minimize", "tiny", "playlist", "content", "viewport", "hide content", "main"],
   },
   {
     id: "toggle-fullscreen",
