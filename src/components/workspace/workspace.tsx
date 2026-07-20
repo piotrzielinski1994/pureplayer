@@ -40,9 +40,10 @@ export function Workspace() {
     toggleShuffle,
     toggleSortDirection,
     toggleSidebar,
+    isSidebarVisible,
+    toggleContent,
+    isContentVisible,
     toggleTransport,
-    toggleMiniPlayer,
-    isMiniPlayer,
     setFullscreen,
     rotateClockwise,
     cycleFitMode,
@@ -114,11 +115,24 @@ export function Workspace() {
     "toggle-shuffle": toggleShuffle,
     "cycle-repeat": cycleRepeat,
     "toggle-sort-direction": toggleSortDirection,
-    "toggle-sidebar": toggleSidebar,
+    "toggle-sidebar": () => {
+      toggleSidebar();
+      // In mini (content hidden) the sidebar reflows into a top bar, so flipping
+      // it changes the mini window height - resize to match the new layout.
+      if (!isContentVisible) {
+        void setMiniWindow({
+          contentVisible: false,
+          sidebarVisible: !isSidebarVisible,
+        });
+      }
+    },
     "toggle-transport": toggleTransport,
     "toggle-mini-player": () => {
-      toggleMiniPlayer();
-      void setMiniWindow(!isMiniPlayer);
+      toggleContent();
+      void setMiniWindow({
+        contentVisible: !isContentVisible,
+        sidebarVisible: isSidebarVisible,
+      });
     },
     "toggle-fullscreen": () => void toggleFullscreen(),
     "toggle-reveal-transport": () =>

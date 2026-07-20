@@ -185,7 +185,19 @@ export async function toggleFullscreen(): Promise<void> {
 }
 
 const MINI_PLAYER_FALLBACK_HEIGHT = 48;
-let preMiniSize: LogicalSize | null = null;
+const MINI_WIDTH = 680;
+const SIDEBAR_HEADER_HEIGHT = 36;
+const MEDIA_ROW_HEIGHT = 28;
+const MINI_PLAYLIST_ROWS = 5;
+const MINI_PLAYLIST_SIDEBAR_HEIGHT =
+  SIDEBAR_HEADER_HEIGHT + MINI_PLAYLIST_ROWS * MEDIA_ROW_HEIGHT;
+
+// The visibility of the two collapsible panels that drive the mini window size.
+// Mini = content hidden; the transport bar is always shown in mini.
+export type MiniLayout = { contentVisible: boolean; sidebarVisible: boolean };
+
+type PreMiniGeometry = { width: number; height: number; titleBarHeight: number };
+let preMini: PreMiniGeometry | null = null;
 
 function transportBarHeight(): number {
   const bar = document.querySelector("[data-transport-bar]");
@@ -193,26 +205,40 @@ function transportBarHeight(): number {
   return measured > 0 ? Math.ceil(measured) : MINI_PLAYER_FALLBACK_HEIGHT;
 }
 
-export async function setMiniWindow(enter: boolean): Promise<void> {
+// Mini window size for a content-hidden layout: a fixed narrow width (constant,
+// so toggling the sidebar only changes HEIGHT, never width) and a bar height
+// (+ title bar), plus the sidebar block when the sidebar is shown (it reflows
+// into a top bar).
+function miniSize(sidebarVisible: boolean, geometry: PreMiniGeometry): LogicalSize {
+  const barHeight = transportBarHeight() + geometry.titleBarHeight;
+  const sidebarHeight = sidebarVisible ? MINI_PLAYLIST_SIDEBAR_HEIGHT : 0;
+  return new LogicalSize(MINI_WIDTH, sidebarHeight + barHeight);
+}
+
+// Resize the OS window to match the panel layout. When content becomes hidden we
+// stash the pre-mini geometry once (width/height/title-bar delta) and shrink to
+// the mini size; toggling the sidebar WHILE mini re-sizes without re-stashing;
+// when content is shown again we restore the stashed size and clear it.
+export async function setMiniWindow(layout: MiniLayout): Promise<void> {
   try {
     const appWindow = getCurrentWindow();
-    if (enter) {
-      if (preMiniSize !== null) {
-        return;
+    if (layout.contentVisible) {
+      if (preMini !== null) {
+        await appWindow.setSize(new LogicalSize(preMini.width, preMini.height));
+        preMini = null;
       }
-      const scale = await appWindow.scaleFactor();
-      const inner = (await appWindow.innerSize()).toLogical(scale);
-      const titleBarHeight = Math.max(0, Math.round(inner.height - window.innerHeight));
-      preMiniSize = new LogicalSize(inner.width, inner.height);
-      await appWindow.setSize(
-        new LogicalSize(inner.width, transportBarHeight() + titleBarHeight),
-      );
       return;
     }
-    if (preMiniSize !== null) {
-      await appWindow.setSize(preMiniSize);
-      preMiniSize = null;
+    if (preMini === null) {
+      const scale = await appWindow.scaleFactor();
+      const inner = (await appWindow.innerSize()).toLogical(scale);
+      const titleBarHeight = Math.max(
+        0,
+        Math.round(inner.height - window.innerHeight),
+      );
+      preMini = { width: inner.width, height: inner.height, titleBarHeight };
     }
+    await appWindow.setSize(miniSize(layout.sidebarVisible, preMini));
   } catch {
     // no-op outside a Tauri host
   }

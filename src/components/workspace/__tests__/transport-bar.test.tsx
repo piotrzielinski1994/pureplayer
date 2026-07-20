@@ -245,6 +245,75 @@ describe("TransportBar", () => {
     ).toBeInTheDocument();
   });
 
+  // behavior: the bar is a container-query context exposing three labelled zones
+  // (playback / controls / meta) so it can reflow by its OWN width, not the
+  // viewport's (works regardless of the sidebar's width)
+  it("should expose the three transport zones inside a container-query context if mounted", () => {
+    renderTransport("v-1");
+
+    const bar = document.querySelector("[data-transport-bar]");
+    expect(bar?.className).toContain("@container");
+    expect(
+      document.querySelector('[data-transport-zone="playback"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-transport-zone="controls"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-transport-zone="meta"]'),
+    ).toBeInTheDocument();
+  });
+
+  // behavior: the `@2xl:` responsive layout classes MUST live on a DESCENDANT of
+  // the `@container` element, never the same node - a container-query variant
+  // queries its ANCESTOR container, so a self-container never matches its own
+  // width and the wide grid layout would never apply (the bug that flattened the
+  // bar to a permanent vertical stack at every width). Assert the container node
+  // carries no `@2xl:` class and the grid layout lives on a descendant.
+  it("should put the @2xl responsive layout on a descendant of the container, not the container itself", () => {
+    renderTransport("v-1");
+
+    const bar = document.querySelector("[data-transport-bar]");
+    expect(bar?.className).toContain("@container");
+    expect(bar?.className).not.toMatch(/@2xl:/);
+
+    const layout = bar?.querySelector(".grid");
+    expect(layout).not.toBeNull();
+    expect(layout).not.toBe(bar);
+    expect(layout?.className).toMatch(/@2xl:/);
+  });
+
+  // behavior: the narrow layout is a two-row grid via grid-template-areas -
+  // playback and meta SHARE the top row, the controls (volume) get their own
+  // centered row below; the wide layout collapses to one row
+  // 'controls playback meta'. Each zone is placed by name, not source order.
+  it("should place playback+meta on the top row and controls on a centered row below when narrow", () => {
+    renderTransport("v-1");
+
+    const layout = document
+      .querySelector("[data-transport-bar]")
+      ?.querySelector(".grid");
+    const playback = document.querySelector('[data-transport-zone="playback"]');
+    const controls = document.querySelector('[data-transport-zone="controls"]');
+    const meta = document.querySelector('[data-transport-zone="meta"]');
+
+    // narrow: two rows, controls spans its own row; wide: single row
+    expect(layout?.className).toContain(
+      "[grid-template-areas:'left_playback_meta'_'controls_controls_controls']",
+    );
+    expect(layout?.className).toContain(
+      "@2xl:[grid-template-areas:'controls_playback_meta']",
+    );
+
+    // zones are placed by name
+    expect(playback?.className).toContain("[grid-area:playback]");
+    expect(meta?.className).toContain("[grid-area:meta]");
+    expect(controls?.className).toContain("[grid-area:controls]");
+    // the controls row centers its content when narrow, left-aligns when wide
+    expect(controls?.className).toContain("justify-center");
+    expect(controls?.className).toContain("@2xl:justify-start");
+  });
+
   // behavior: prev/next follow the CURRENT sorted order when a sort key is active (AC-008)
   it("should step to the natural-next video if next is clicked with the title sort key active", async () => {
     const user = userEvent.setup();

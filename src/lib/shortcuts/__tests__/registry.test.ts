@@ -72,6 +72,25 @@ describe("shortcut registry", () => {
     expect(transport?.keywords).toContain("bottom bar");
   });
 
+  // behavior: the mini-player action is registered on Mod+Shift+M and there is no
+  // longer a separate mini-playlist action (mini-playlist is now just the mini
+  // player with the sidebar toggled on, via cmd+b)
+  it("should register 'toggle-mini-player' on Mod+Shift+M and NOT register a separate mini-playlist action", () => {
+    const miniPlayer = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "toggle-mini-player",
+    );
+
+    expect(miniPlayer).toBeDefined();
+    expect(miniPlayer?.defaultHotkey).toBe("Mod+Shift+M");
+    expect(miniPlayer?.name.trim().length).toBeGreaterThan(0);
+
+    const ids: string[] = SHORTCUT_ACTIONS.map((action) => action.id);
+    expect(ids).not.toContain("toggle-mini-playlist");
+    expect(SHORTCUT_ACTIONS.some((a) => a.defaultHotkey === "Mod+Shift+L")).toBe(
+      false,
+    );
+  });
+
   // behavior: action ids must be unique so each maps to exactly one handler/binding (AC-003)
   it("should expose a unique id for every registered action if enumerated", () => {
     const ids = SHORTCUT_ACTIONS.map((action) => action.id);

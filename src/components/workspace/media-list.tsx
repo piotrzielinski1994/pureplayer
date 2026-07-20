@@ -7,7 +7,7 @@ export function MediaList() {
   const { playlist, selectedNodeId, selectNode } = useWorkspace();
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea type="always" className="flex-1">
       <ul role="list" aria-label="Playlist">
         {playlist.map((media) => (
           <li
@@ -19,13 +19,13 @@ export function MediaList() {
             onClick={() => selectNode(media.id)}
             className={cn(
               "flex cursor-pointer items-center gap-2 px-3 py-1 text-[13px] hover:bg-accent",
-              selectedNodeId === media.id && "bg-accent",
+              selectedNodeId === media.id ? "bg-accent" : "bg-background",
             )}
           >
-            <span className="truncate">{media.name}</span>
+            <span className="whitespace-nowrap">{media.name}</span>
             <span
               className={cn(
-                "ml-auto shrink-0 font-mono text-[11px] font-semibold",
+                "sticky right-0 -mr-3 ml-auto shrink-0 bg-inherit pr-3 pl-2 font-mono text-[11px] font-semibold",
                 FORMAT_COLOR[media.format],
               )}
             >

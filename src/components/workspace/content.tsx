@@ -7,7 +7,7 @@ import { useSettings } from "@/lib/settings/settings-context";
 const IDLE_HIDE_MS = 3000;
 
 export function Content() {
-  const { isTransportVisible, isMiniPlayer } = useWorkspace();
+  const { isTransportVisible } = useWorkspace();
   const { settings } = useSettings();
   const [isPeeking, setIsPeeking] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,7 +64,6 @@ export function Content() {
   return (
     <div className="flex h-full flex-col">
       <div
-        hidden={isMiniPlayer}
         className="relative flex-1 overflow-hidden"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

@@ -117,10 +117,7 @@ export function TransportBar() {
   };
 
   return (
-    <div
-      data-transport-bar
-      className="relative grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center"
-    >
+    <div data-transport-bar className="@container relative shrink-0">
       <div
         ref={seekBarRef}
         role="slider"
@@ -132,7 +129,7 @@ export function TransportBar() {
         onPointerMove={handlePointerMove}
         onPointerUp={stopScrubbing}
         onPointerCancel={stopScrubbing}
-        className="absolute inset-x-0 top-0 flex h-2 -translate-y-1/2 cursor-pointer items-center"
+        className="absolute inset-x-0 top-0 z-10 flex h-2 -translate-y-1/2 cursor-pointer items-center"
       >
         <div className="h-px w-full bg-border">
           <div
@@ -141,8 +138,13 @@ export function TransportBar() {
           />
         </div>
       </div>
-      {/* left zone (1fr) - mute toggle + volume slider + shuffle + repeat */}
-      <div className="flex h-full items-center">
+      <div className="grid grid-cols-[1fr_auto_1fr] [grid-template-areas:'left_playback_meta'_'controls_controls_controls'] @2xl:h-12 @2xl:items-center @2xl:[grid-template-areas:'controls_playback_meta']">
+      {/* left zone (1fr) - mute toggle + volume slider + shuffle + repeat.
+          Narrow: its own centered row below playback/meta. Wide: left column. */}
+      <div
+        data-transport-zone="controls"
+        className="flex h-12 items-center justify-center border-t border-border [grid-area:controls] @2xl:h-full @2xl:justify-start @2xl:border-t-0"
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -204,7 +206,10 @@ export function TransportBar() {
           )}
         </Button>
       </div>
-      <div className="flex h-full items-center justify-center">
+      <div
+        data-transport-zone="playback"
+        className="flex h-12 items-center justify-center [grid-area:playback] @2xl:h-full"
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -237,8 +242,12 @@ export function TransportBar() {
           <SkipForward className="size-4" />
         </Button>
       </div>
-      {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout */}
-      <div className="flex items-center justify-end gap-3 pr-4">
+      {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout.
+          Shares the top row with playback (narrow) / right column (wide). */}
+      <div
+        data-transport-zone="meta"
+        className="flex h-12 items-center justify-end gap-3 pr-4 [grid-area:meta] @2xl:h-full"
+      >
         {activeMedia && !isDefaultTransform(viewportTransform) && (
           <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {formatTransform(viewportTransform)}
@@ -252,6 +261,7 @@ export function TransportBar() {
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {timeReadout}
         </span>
+      </div>
       </div>
     </div>
   );

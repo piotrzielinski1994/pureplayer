@@ -53,6 +53,47 @@ describe("MediaList", () => {
     expect(screen.queryByRole("treeitem")).not.toBeInTheDocument();
   });
 
+  // behavior: long row names are NOT truncated - they keep their full width on a
+  // single line (whitespace-nowrap, no truncate) and the playlist scrolls
+  // HORIZONTALLY instead (pureplayer-only exception to design.md's single-line
+  // ellipsis rule). The ScrollArea is type="always" with a horizontal ScrollBar
+  // so the bar is visible when names overflow. jsdom has no layout engine, so we
+  // assert the invariants (row + scroll-area classes) not the pixels.
+  it("should keep full-width single-line names and enable horizontal scroll", () => {
+    const { container } = renderList();
+
+    const nameSpans = within(getList())
+      .getAllByRole("listitem")
+      .map((row) => row.querySelector("span"));
+    nameSpans.forEach((span) => {
+      expect(span?.className).toContain("whitespace-nowrap");
+      expect(span?.className).not.toContain("truncate");
+    });
+
+    expect(
+      container.querySelector(
+        '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]',
+      ),
+    ).not.toBeNull();
+  });
+
+  // behavior: the format badge is sticky to the right edge with an opaque
+  // (inherited, not translucent) background, so it stays pinned and hides the
+  // name text sliding under it as the row scrolls horizontally. The row carries
+  // an opaque bg (bg-background / bg-accent selected) for bg-inherit to pick up.
+  it("should pin the format badge to the right with an opaque background", () => {
+    renderList();
+
+    const rows = within(getList()).getAllByRole("listitem");
+    rows.forEach((row) => {
+      expect(row.className).toMatch(/bg-background|bg-accent/);
+      const badge = row.querySelectorAll("span")[1];
+      expect(badge?.className).toContain("sticky");
+      expect(badge?.className).toContain("right-0");
+      expect(badge?.className).toContain("bg-inherit");
+    });
+  });
+
   // behavior: each row shows its format badge text (AC-009)
   it("should show the format text in each row if a video has a format", () => {
     renderList();

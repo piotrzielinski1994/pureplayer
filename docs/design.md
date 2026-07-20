@@ -18,6 +18,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 ## Tables / grids
 
 - One grid component, reused everywhere a result set is shown. All grids look identical: same row height, padding, header treatment, single-line cells (`overflow-hidden text-ellipsis whitespace-nowrap`), resizable columns.
+- _(pureplayer-only)_ Exception to the single-line-ellipsis rule for the **playlist sidebar** (`media-list`): track names are NOT truncated - they stay full-width on one line (`whitespace-nowrap`, no `truncate`) and the list scrolls **horizontally** instead. Its `ScrollArea` is `type="always"` with a horizontal `ScrollBar` so the bar is visible when names overflow. Rationale: in the narrow mini-player window a filename is more useful scrollable-in-full than ellipsized. Do not propagate this to the shared grid or to `requi`/`dbui`.
 - Headers always render, even for an empty result, so the column structure stays visible; show an empty-state message ("No rows.") beneath the header row, not instead of it.
 - NULL renders as a dim `[NULL]`, visually distinct from an empty string.
 - Edited/dirty cells get a subtle highlight (`bg-amber-500/15`), applied identically in every view (list and single-record).
@@ -40,6 +41,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 - Tabs are flat, square, separated by 1px borders; the active tab reads via `bg-background` + full foreground, inactive via muted foreground.
 - Buttons in a thin bar (toolbar / editor header / URL bar) **fill the bar's full height** (`h-full`, square, no margin), divided from siblings by a 1px border (`border-l`/`border-r`), not floating chips with their own height/padding. The bar height is the button height.
 - All bar buttons share one size: the `Button` default (`text-sm`, `px-4`) - do NOT shrink some to `text-xs` or re-pad them. Add only `h-full rounded-none border-0 border-l` (+ optional `border-l-border`); keep everything else from the default so Send/Save/Close read identically across every bar.
+- _(pureplayer-only)_ The transport bar reflows by its **own** width via a container query, not the viewport width, so it lays out correctly in the narrow mini-player window regardless of the sidebar. The `@container` marker is on the outer bar; the responsive layout lives on an inner element (a container-query variant queries its ancestor, so the `@container` node cannot match its own width). Layout is a `grid-cols-[1fr_auto_1fr]` reflowed by `grid-template-areas`: wide (`@2xl`) is one row `'controls playback meta'`; narrow is two rows `'left playback meta' / 'controls controls controls'` - the transport buttons (playback) and the time/rate/transform readout (meta) share the top row with playback centered (the empty `left` cell balances `meta`), and the mute/volume/shuffle/repeat controls get their own full-width row below, centered (`justify-center`, `@2xl:justify-start`). Zones are placed by name (`[grid-area:*]`), not source order.
 
 ## Accessibility
 
