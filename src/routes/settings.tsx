@@ -1,12 +1,15 @@
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { PlaybackSection } from "@/components/settings/playback-section";
+import { UpdatesSection } from "@/components/settings/updates-section";
 import { Button } from "@/components/ui/button";
 import { useActionHotkeys } from "@/lib/shortcuts/use-action-hotkeys";
+import { useUpdater } from "@/lib/updater/updater-context";
 import { rootRoute } from "@/routes/__root";
 
 function SettingsPage() {
   const navigate = useNavigate();
+  const { controller, getVersion } = useUpdater();
 
   useActionHotkeys({
     "close-settings": () => void navigate({ to: "/" }),
@@ -23,6 +26,7 @@ function SettingsPage() {
       <div className="flex flex-1 flex-col gap-6 overflow-auto p-4">
         <PlaybackSection />
         <ShortcutsSection />
+        <UpdatesSection controller={controller} getVersion={getVersion} />
       </div>
     </div>
   );

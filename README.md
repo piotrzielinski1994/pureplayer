@@ -56,6 +56,17 @@ on macOS right-click the app and choose Open; on Windows choose "More info -> Ru
 To take installers down later, delete the Release (and its tag) or remove individual assets - the
 download links 404 immediately. Anyone who already downloaded keeps their local copy.
 
+### In-app auto-update
+
+Release builds ship the Tauri v2 updater: on startup (and via **Settings -> Updates -> Check for
+updates**) the app checks the latest GitHub Release's `latest.json` and, on a newer version, offers
+a one-click **Update now** that downloads the signed artifact and relaunches. Update artifacts
+(`.sig` files + `latest.json`) are produced by the `Release` workflow, which signs them using two
+repo secrets: `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (the matching
+public key is baked into `src-tauri/tauri.conf.json`). **Caveat:** a build can only auto-update to
+releases published *after* it - the first updater-enabled release is still a manual download, and
+the pre-updater v0.1.0 cannot retro-update.
+
 > The home route renders the **player workspace shell**: a resizable layout with a flat
 > playlist sidebar (the open video files, one row each, with a sort toggle in the header),
 > a video viewport, and a transport bar (prev / play-pause / next + a live time readout, with
