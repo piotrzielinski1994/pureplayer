@@ -117,10 +117,7 @@ export function TransportBar() {
   };
 
   return (
-    <div
-      data-transport-bar
-      className="@container relative flex shrink-0 flex-col @2xl:grid @2xl:h-12 @2xl:grid-cols-[1fr_auto_1fr] @2xl:items-center"
-    >
+    <div data-transport-bar className="@container relative shrink-0">
       <div
         ref={seekBarRef}
         role="slider"
@@ -132,7 +129,7 @@ export function TransportBar() {
         onPointerMove={handlePointerMove}
         onPointerUp={stopScrubbing}
         onPointerCancel={stopScrubbing}
-        className="absolute inset-x-0 top-0 flex h-2 -translate-y-1/2 cursor-pointer items-center"
+        className="absolute inset-x-0 top-0 z-10 flex h-2 -translate-y-1/2 cursor-pointer items-center"
       >
         <div className="h-px w-full bg-border">
           <div
@@ -141,6 +138,7 @@ export function TransportBar() {
           />
         </div>
       </div>
+      <div className="flex flex-col @2xl:grid @2xl:h-12 @2xl:grid-cols-[1fr_auto_1fr] @2xl:items-center">
       {/* left zone (1fr) - mute toggle + volume slider + shuffle + repeat */}
       <div
         data-transport-zone="controls"
@@ -261,6 +259,7 @@ export function TransportBar() {
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {timeReadout}
         </span>
+      </div>
       </div>
     </div>
   );

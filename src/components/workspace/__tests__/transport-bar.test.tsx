@@ -264,6 +264,25 @@ describe("TransportBar", () => {
     ).toBeInTheDocument();
   });
 
+  // behavior: the `@2xl:` responsive layout classes MUST live on a DESCENDANT of
+  // the `@container` element, never the same node - a container-query variant
+  // queries its ANCESTOR container, so a self-container never matches its own
+  // width and the wide grid layout would never apply (the bug that flattened the
+  // bar to a permanent vertical stack at every width). Assert the container node
+  // carries no `@2xl:` class and a descendant carries the grid layout.
+  it("should put the @2xl grid layout on a descendant of the container, not the container itself", () => {
+    renderTransport("v-1");
+
+    const bar = document.querySelector("[data-transport-bar]");
+    expect(bar?.className).toContain("@container");
+    expect(bar?.className).not.toMatch(/@2xl:/);
+
+    const layout = bar?.querySelector(".\\@2xl\\:grid");
+    expect(layout).not.toBeNull();
+    expect(layout).not.toBe(bar);
+    expect(layout?.className).toContain("@2xl:grid-cols-[1fr_auto_1fr]");
+  });
+
   // behavior: when the bar is narrow it stacks the zones in this visual order via
   // flex `order` - playback on top, the left controls in the middle, the right
   // meta readouts at the bottom (order-1 < order-2 < order-3), and resets to the
