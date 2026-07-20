@@ -25,7 +25,7 @@ export function MediaList() {
             <span className="whitespace-nowrap">{media.name}</span>
             <span
               className={cn(
-                "sticky right-0 ml-auto shrink-0 bg-inherit pl-2 font-mono text-[11px] font-semibold",
+                "sticky right-0 ml-auto shrink-0 bg-inherit pr-3 pl-2 font-mono text-[11px] font-semibold",
                 FORMAT_COLOR[media.format],
               )}
             >
