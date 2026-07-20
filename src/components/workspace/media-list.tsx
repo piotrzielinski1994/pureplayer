@@ -7,7 +7,7 @@ export function MediaList() {
   const { playlist, selectedNodeId, selectNode } = useWorkspace();
 
   return (
-    <ScrollArea type="always" className="flex-1">
+    <ScrollArea className="min-h-0 flex-1" horizontal>
       <ul role="list" aria-label="Playlist">
         {playlist.map((media) => (
           <li

@@ -1,18 +1,26 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
+import * as React from "react";
+import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 function ScrollArea({
   className,
   children,
+  // Radix only makes the viewport scroll on an axis when a ScrollBar for that
+  // axis is mounted; opt in to the horizontal bar for regions whose content can
+  // be wider than the viewport (e.g. the playlist with long track names).
+  horizontal = false,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
+  horizontal?: boolean;
+}) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
+      type="hover"
+      scrollHideDelay={600}
       className={cn("relative", className)}
       {...props}
     >
@@ -23,10 +31,10 @@ function ScrollArea({
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />
-      <ScrollBar orientation="horizontal" />
+      {horizontal && <ScrollBar orientation="horizontal" />}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
-  )
+  );
 }
 
 function ScrollBar({
@@ -39,21 +47,19 @@ function ScrollBar({
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
       className={cn(
-        "flex touch-none p-px transition-colors select-none",
-        orientation === "vertical" &&
-          "h-full w-2.5 border-l border-l-transparent",
-        orientation === "horizontal" &&
-          "h-2.5 flex-col border-t border-t-transparent",
-        className
+        "flex touch-none transition-colors select-none",
+        orientation === "vertical" && "h-full w-1.5",
+        orientation === "horizontal" && "h-1.5 flex-col",
+        className,
       )}
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="relative flex-1 bg-border"
+        className="relative flex-1 bg-foreground/20 transition-colors hover:bg-foreground/30"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
-  )
+  );
 }
 
-export { ScrollArea, ScrollBar }
+export { ScrollArea, ScrollBar };

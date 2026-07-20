@@ -55,12 +55,12 @@ describe("MediaList", () => {
 
   // behavior: long row names are NOT truncated - they keep their full width on a
   // single line (whitespace-nowrap, no truncate) and the playlist scrolls
-  // HORIZONTALLY instead (pureplayer-only exception to design.md's single-line
-  // ellipsis rule). The ScrollArea is type="always" with a horizontal ScrollBar
-  // so the bar is visible when names overflow. jsdom has no layout engine, so we
-  // assert the invariants (row + scroll-area classes) not the pixels.
-  it("should keep full-width single-line names and enable horizontal scroll", () => {
-    const { container } = renderList();
+  // HORIZONTALLY instead. The list is wrapped in a scroll-area with the
+  // horizontal axis opted in (type="hover" matches purerequest, so the bar
+  // itself mounts lazily on interaction - jsdom can't drive that, so we assert
+  // the surviving structural invariants: full-width names inside a scroll-area).
+  it("should keep full-width single-line names inside a scroll-area", () => {
+    renderList();
 
     const nameSpans = within(getList())
       .getAllByRole("listitem")
@@ -71,9 +71,7 @@ describe("MediaList", () => {
     });
 
     expect(
-      container.querySelector(
-        '[data-slot="scroll-area-scrollbar"][data-orientation="horizontal"]',
-      ),
+      getList().closest('[data-slot="scroll-area"]'),
     ).not.toBeNull();
   });
 
