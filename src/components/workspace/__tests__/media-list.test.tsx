@@ -53,6 +53,28 @@ describe("MediaList", () => {
     expect(screen.queryByRole("treeitem")).not.toBeInTheDocument();
   });
 
+  // behavior: each row's name uses `truncate` and the ScrollArea viewport clamps
+  // its inner wrapper to block/full-width - Radix otherwise wraps children in a
+  // `display:table; min-width:100%` box that grows to the widest name, defeating
+  // truncation and overflowing the panel edge. jsdom has no layout engine, so we
+  // assert the invariant (the classes that make truncation work) not the pixels.
+  it("should truncate long row names by clamping the scroll viewport wrapper", () => {
+    const { container } = renderList();
+
+    const nameSpans = within(getList())
+      .getAllByRole("listitem")
+      .map((row) => row.querySelector("span"));
+    nameSpans.forEach((span) => {
+      expect(span?.className).toContain("truncate");
+    });
+
+    const viewport = container.querySelector(
+      '[data-slot="scroll-area-viewport"]',
+    );
+    expect(viewport?.className).toContain("[&>div]:!block");
+    expect(viewport?.className).toContain("[&>div]:w-full");
+  });
+
   // behavior: each row shows its format badge text (AC-009)
   it("should show the format text in each row if a video has a format", () => {
     renderList();
