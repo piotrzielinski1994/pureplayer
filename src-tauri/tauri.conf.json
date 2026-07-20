@@ -29,7 +29,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMwNzQxOEZCNUNGQzIyOTcKUldTWEl2eGMreGgwTUpFMEdQMVVwanhwWVRRblJxaVRCWXJBWmF4R2YwSFI1OHRqWjVQdGh1L0wK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhCMjUxOEUyQTIwQUNEMzUKUldRMXpRcWk0aGdsaXpUOGpFN3pNenR4R1lHQ3BUcEs5SG5nbFpzeVp5UzRhMEZuTFN1WGdGR1UK",
       "endpoints": [
         "https://github.com/piotrzielinski1994/pureplayer/releases/latest/download/latest.json"
       ]
