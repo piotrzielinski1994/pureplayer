@@ -21,5 +21,5 @@ export function useActionHotkeys(
       },
     }));
 
-  useHotkeys(definitions, { ignoreInputs: true });
+  useHotkeys(definitions, { ignoreInputs: true, preventDefault: true });
 }
