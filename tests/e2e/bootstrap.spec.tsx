@@ -14,7 +14,10 @@ import { settingsRoute } from "@/routes/settings";
 
 // No Tauri host under jsdom; the greet IPC wrapper stays wired but is unused by
 // the player shell, so a stub keeps the boundary from throwing if ever called.
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+  isTauri: () => false,
+}));
 
 function renderApp(initialPath = "/") {
   const routeTree = rootRoute.addChildren([indexRoute, settingsRoute]);
