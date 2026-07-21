@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { isTauri } from "@tauri-apps/api/core";
 import { SettingsProvider } from "@/lib/settings/settings-context";
+import { ThemeProvider } from "@/lib/theme/theme-context";
 import { createTauriSettingsStore } from "@/lib/settings/tauri-store";
 import { installBrowserDefaultGuards } from "@/lib/browser-defaults";
 import { ToastProvider } from "@/components/ui/toast";
@@ -35,17 +36,19 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SettingsProvider store={settingsStore}>
-        <HotkeysProvider>
-          <ToastProvider>
-            <UpdaterProvider
-              controller={updateController}
-              getVersion={getAppVersion}
-            >
-              <UpdateChecker controller={updateController} />
-              {children}
-            </UpdaterProvider>
-          </ToastProvider>
-        </HotkeysProvider>
+        <ThemeProvider>
+          <HotkeysProvider>
+            <ToastProvider>
+              <UpdaterProvider
+                controller={updateController}
+                getVersion={getAppVersion}
+              >
+                <UpdateChecker controller={updateController} />
+                {children}
+              </UpdaterProvider>
+            </ToastProvider>
+          </HotkeysProvider>
+        </ThemeProvider>
       </SettingsProvider>
     </QueryClientProvider>
   );

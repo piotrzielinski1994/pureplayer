@@ -35,7 +35,7 @@ UI design rules for this app. Entries are about *visual language and interaction
 
 ## Color & status
 
-- Theme via CSS tokens (`bg-background`, `bg-muted/30`, `text-foreground`, `border-border`), not hard-coded colors, so light/dark both work.
+- Theme via CSS tokens (`bg-background`, `bg-muted/30`, `text-foreground`, `border-border`), not hard-coded colors, so light/dark both work. _(pureplayer-only)_ The mode is now **user-selectable** (light / dark / system) in Settings -> Theme, and the `.dark` block in `index.css` is **live** (toggled on `<html>` by the `ThemeProvider`); it is no longer dead code. Users may also override any of the 18 app-color tokens per mode - overrides are applied as **inline CSS vars on `<html>`** (an inline var beats the `:root`/`.dark` stylesheet rules), so keep using the token utilities and never hard-code a color, or a user override won't reach it.
 - Status colors: success green (`text-green-600 dark:text-green-400`), error/destructive red (`text-red-600 dark:text-red-400`). A destructive action button (e.g. Disconnect) is filled red.
 - Status dots are a small `size-2` filled circle, right-aligned, never with a text label leaking into an accessible name (give the row an explicit `aria-label`).
 

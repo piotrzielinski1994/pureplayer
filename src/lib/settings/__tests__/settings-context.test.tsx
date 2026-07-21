@@ -8,7 +8,13 @@ import {
   DEFAULT_SETTINGS,
   type Settings,
   type SettingsStore,
+  type ThemeColors,
 } from "@/lib/settings/settings";
+
+const COLORS_OVERRIDE: ThemeColors = {
+  light: { primary: "oklch(0.55 0.22 27)" },
+  dark: {},
+};
 
 // Probe that surfaces settings state + exercises the granular savers as
 // observable DOM, mirroring the requi render-under-provider convention.
@@ -22,11 +28,16 @@ function Probe() {
     saveSidebarHidden,
     saveLayout,
     saveRevealTransportOnHover,
+    saveThemeMode,
+    saveThemeColors,
   } = useSettings();
 
   return (
     <div>
       <span data-testid="loaded">loaded</span>
+      <span data-testid="theme-primary">
+        {settings.theme.colors.light.primary ?? "none"}
+      </span>
       <span data-testid="toggle-play-binding">
         {settings.shortcuts["toggle-play"] ?? "none"}
       </span>
@@ -35,6 +46,7 @@ function Probe() {
       <span data-testid="sidebar-hidden">
         {String(settings.sidebarHidden)}
       </span>
+      <span data-testid="theme-mode">{settings.theme.mode}</span>
       <button type="button" onClick={() => saveShortcut("toggle-play", "Mod+P")}>
         save shortcut
       </button>
@@ -61,6 +73,12 @@ function Probe() {
         onClick={() => saveRevealTransportOnHover(false)}
       >
         save reveal
+      </button>
+      <button type="button" onClick={() => saveThemeMode("dark")}>
+        save theme mode
+      </button>
+      <button type="button" onClick={() => saveThemeColors(COLORS_OVERRIDE)}>
+        save theme colors
       </button>
     </div>
   );
@@ -290,5 +308,95 @@ describe("SettingsProvider playback + UI savers", () => {
       expect(saveSpy).toHaveBeenCalled();
     });
     expect(saveSpy.mock.calls.at(-1)![0].sidebarHidden).toBe(true);
+  });
+});
+
+describe("SettingsProvider theme saver", () => {
+  // side-effect-contract: saveThemeMode persists theme.mode via store.save (AC-004)
+  it("should persist theme.mode via store.save if saveThemeMode is called", async () => {
+    const user = userEvent.setup();
+    const { store, saveSpy } = spiedStore();
+
+    render(
+      <SettingsProvider store={store}>
+        <Probe />
+      </SettingsProvider>,
+    );
+
+    await screen.findByTestId("theme-mode");
+    await user.click(screen.getByRole("button", { name: /save theme mode/i }));
+
+    await waitFor(() => {
+      expect(saveSpy).toHaveBeenCalled();
+    });
+    expect(saveSpy.mock.calls.at(-1)![0].theme.mode).toBe("dark");
+  });
+
+  // behavior: saveThemeMode reflects the new mode in exposed state (AC-004)
+  it("should set settings.theme.mode if saveThemeMode is called", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+
+    render(
+      <SettingsProvider store={store}>
+        <Probe />
+      </SettingsProvider>,
+    );
+
+    expect(await screen.findByTestId("theme-mode")).toHaveTextContent("system");
+
+    await user.click(screen.getByRole("button", { name: /save theme mode/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("theme-mode")).toHaveTextContent("dark");
+    });
+  });
+
+  // side-effect-contract: saveThemeColors persists theme.colors via store.save (AC-006)
+  it("should persist theme.colors via store.save if saveThemeColors is called", async () => {
+    const user = userEvent.setup();
+    const { store, saveSpy } = spiedStore();
+
+    render(
+      <SettingsProvider store={store}>
+        <Probe />
+      </SettingsProvider>,
+    );
+
+    await screen.findByTestId("theme-primary");
+    await user.click(
+      screen.getByRole("button", { name: /save theme colors/i }),
+    );
+
+    await waitFor(() => {
+      expect(saveSpy).toHaveBeenCalled();
+    });
+    expect(saveSpy.mock.calls.at(-1)![0].theme.colors).toEqual(COLORS_OVERRIDE);
+  });
+
+  // behavior: saveThemeColors reflects the new overrides in exposed state (AC-005, AC-006)
+  it("should set settings.theme.colors if saveThemeColors is called", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+
+    render(
+      <SettingsProvider store={store}>
+        <Probe />
+      </SettingsProvider>,
+    );
+
+    expect(await screen.findByTestId("theme-primary")).toHaveTextContent(
+      "none",
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /save theme colors/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("theme-primary")).toHaveTextContent(
+        "oklch(0.55 0.22 27)",
+      );
+    });
   });
 });

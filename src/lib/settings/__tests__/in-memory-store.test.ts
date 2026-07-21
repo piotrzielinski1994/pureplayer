@@ -14,6 +14,7 @@ const seeded: Settings = {
   transportHidden: false,
   revealTransportOnHover: false,
   sortDirection: "desc",
+  theme: { mode: "dark", colors: { light: {}, dark: {} } },
 };
 
 describe("createInMemorySettingsStore", () => {
