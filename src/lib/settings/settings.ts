@@ -8,6 +8,49 @@ export type SortDirection = "asc" | "desc";
 
 export type PanelLayout = Record<string, number>;
 
+export type ThemeMode = "light" | "dark" | "system";
+
+export type AppTokenName =
+  | "background"
+  | "foreground"
+  | "card"
+  | "card-foreground"
+  | "popover"
+  | "popover-foreground"
+  | "primary"
+  | "primary-foreground"
+  | "secondary"
+  | "secondary-foreground"
+  | "muted"
+  | "muted-foreground"
+  | "accent"
+  | "accent-foreground"
+  | "destructive"
+  | "border"
+  | "input"
+  | "ring";
+
+// Sparse per-mode override map. An absent key means "use the built-in default
+// for that token in that mode" (defaults live in src/lib/theme/theme-defaults).
+export type ThemeColorOverrides = Partial<Record<AppTokenName, string>>;
+
+export type ThemeColors = {
+  light: ThemeColorOverrides;
+  dark: ThemeColorOverrides;
+};
+
+// The complete (non-sparse) built-in default set: every token present in both
+// modes. Assignable to ThemeColors, so it flows into applyDefaults/diffOverrides.
+export type FullThemeColors = {
+  light: Record<AppTokenName, string>;
+  dark: Record<AppTokenName, string>;
+};
+
+export type ThemeSettings = {
+  mode: ThemeMode;
+  colors: ThemeColors;
+};
+
 export type Settings = {
   version: 1;
   shortcuts: ShortcutOverrides;
@@ -19,12 +62,19 @@ export type Settings = {
   transportHidden: boolean;
   revealTransportOnHover: boolean;
   sortDirection: SortDirection;
+  theme: ThemeSettings;
 };
 
 export type SettingsStore = {
   load: () => Promise<Settings>;
   save: (settings: Settings) => Promise<void>;
 };
+
+const THEME_MODES: ThemeMode[] = ["light", "dark", "system"];
+
+function emptyThemeColors(): ThemeColors {
+  return { light: {}, dark: {} };
+}
 
 export const DEFAULT_SETTINGS: Settings = {
   version: 1,
@@ -37,6 +87,7 @@ export const DEFAULT_SETTINGS: Settings = {
   transportHidden: false,
   revealTransportOnHover: true,
   sortDirection: "asc",
+  theme: { mode: "system", colors: emptyThemeColors() },
 };
 
 const ACTION_IDS = new Set<string>(SHORTCUT_ACTIONS.map((action) => action.id));
@@ -80,6 +131,63 @@ function mergeShortcuts(partial: unknown): ShortcutOverrides {
   );
 }
 
+function isThemeMode(value: unknown): value is ThemeMode {
+  return typeof value === "string" && THEME_MODES.includes(value as ThemeMode);
+}
+
+const APP_TOKEN_NAMES = new Set<string>([
+  "background",
+  "foreground",
+  "card",
+  "card-foreground",
+  "popover",
+  "popover-foreground",
+  "primary",
+  "primary-foreground",
+  "secondary",
+  "secondary-foreground",
+  "muted",
+  "muted-foreground",
+  "accent",
+  "accent-foreground",
+  "destructive",
+  "border",
+  "input",
+  "ring",
+]);
+
+function mergeTokenMap(value: unknown): ThemeColorOverrides {
+  if (!isRecord(value)) {
+    return {};
+  }
+  return Object.entries(value).reduce<ThemeColorOverrides>((acc, [key, val]) => {
+    if (!APP_TOKEN_NAMES.has(key) || typeof val !== "string") {
+      return acc;
+    }
+    return { ...acc, [key as AppTokenName]: val };
+  }, {});
+}
+
+function mergeThemeColors(value: unknown): ThemeColors {
+  if (!isRecord(value)) {
+    return emptyThemeColors();
+  }
+  return {
+    light: mergeTokenMap(value.light),
+    dark: mergeTokenMap(value.dark),
+  };
+}
+
+function mergeTheme(defaults: ThemeSettings, partial: unknown): ThemeSettings {
+  if (!isRecord(partial)) {
+    return defaults;
+  }
+  return {
+    mode: isThemeMode(partial.mode) ? partial.mode : defaults.mode,
+    colors: mergeThemeColors(partial.colors),
+  };
+}
+
 export function mergeSettings(defaults: Settings, partial: unknown): Settings {
   if (!isRecord(partial)) {
     return defaults;
@@ -115,5 +223,6 @@ export function mergeSettings(defaults: Settings, partial: unknown): Settings {
       partial.sortDirection === "asc" || partial.sortDirection === "desc"
         ? partial.sortDirection
         : defaults.sortDirection,
+    theme: mergeTheme(defaults.theme, partial.theme),
   };
 }

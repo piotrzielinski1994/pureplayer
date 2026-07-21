@@ -138,7 +138,12 @@ window sizing is session-only, like fullscreen (not persisted).
 > the resizable sidebar/content split sizes. A **reveal-transport-on-hover** toggle (on by default)
 > shows a hidden transport bar as a bottom-edge overlay while the mouse moves over the video; it
 > auto-hides after ~3s of no movement (but stays put while the cursor is on the bar) and reappears
-> on the next move. The playlist and queue modes still reset on reload.
+> on the next move. The playlist and queue modes still reset on reload. A **Theme** section picks the
+> appearance mode - **light / dark / system** (system follows the OS `prefers-color-scheme` live) -
+> and lets you **customize any of the 18 app-color tokens per mode** in a CodeMirror JSON editor
+> (seeded with the full color set; edit an `oklch(...)` value to override, set it back to the default
+> to clear it; malformed JSON disables Save). The mode persists in `settings.json`; the custom colors
+> live in a separate **`theme.json`** (only tokens differing from the built-in default are stored).
 > **Logging:** each launch writes a fresh `pureplayer-<YYYYMMDDHHMMSS>.log` to the OS app-log dir
 > (macOS `~/Library/Logs/com.pzielinski.pureplayer/`); `prepare_media` records each file's container,
 > codecs, chosen plan, cache HIT/MISS and elapsed ms there (see
@@ -153,12 +158,12 @@ src/
   main.tsx              React entry: providers + RouterProvider
   router.tsx            Code-based TanStack Router assembly
   app/providers.tsx     QueryClientProvider + HotkeysProvider
-  routes/               __root (layout + 404), index (player workspace + settings-persistence bridge), settings (remappable-hotkeys screen)
+  routes/               __root (layout + 404), index (player workspace + settings-persistence bridge), settings (hotkeys + theme + playback + updates screen)
   components/
     workspace/          player shell: context, flat media-list, sort-natural, viewport (real video, black for audio), transport bar, media-from-paths, command palette, drop-overlay (drag-drop import)
-    settings/           settings screen: shortcuts-section + shortcut-row (capture-keystroke rebind), playback-section (reveal-transport-on-hover toggle)
-    ui/                 shadcn primitives (button, badge, scroll-area, resizable, command, dialog, switch)
-  lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn), shortcuts/ (action registry + resolve overrides + global hotkeys), settings/ (Settings ADT + merge, tauri-plugin-store persistence, SettingsProvider)
+    settings/           settings screen: shortcuts-section + shortcut-row (capture-keystroke rebind), playback-section (reveal-transport-on-hover toggle), theme-section (mode selector + CodeMirror JSON color editor)
+    ui/                 shadcn primitives (button, badge, scroll-area, resizable, command, dialog, switch) + code-editor (CodeMirror wrapper)
+  lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn), shortcuts/ (action registry + resolve overrides + global hotkeys), settings/ (Settings ADT + merge, tauri-plugin-store persistence split across settings.json + theme.json, SettingsProvider), theme/ (mode resolve + ThemeProvider + inline-var apply + sparse override diff + built-in editor scheme)
   index.css             Tailwind v4 + theme tokens
   test/setup.ts         Vitest + Testing Library setup
 src-tauri/              Rust desktop shell: greet, media.rs (ffprobe/ffmpeg prepare_media via bundled sidecars - plays audio-only files, HLS-streams unplayable video, ignores cover-art streams, logs plan/timing), hls_server.rs (loopback HTTP server serving the HLS temp dir to the webview's native player), import.rs (expand_dropped_paths - folder-walk + video/audio ext filter for drag-drop), focus.rs (WKWebView first-responder fix), logging.rs (per-launch log filename), binaries/ (gitignored ffmpeg sidecars), tauri.conf.json

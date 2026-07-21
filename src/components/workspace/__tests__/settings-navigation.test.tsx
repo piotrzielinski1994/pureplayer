@@ -6,6 +6,7 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { Workspace } from "@/components/workspace/workspace";
 import { SettingsProvider } from "@/lib/settings/settings-context";
+import { ThemeProvider } from "@/lib/theme/theme-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { settingsRoute } from "@/routes/settings";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
@@ -80,7 +81,9 @@ describe("settings navigation", () => {
     render(
       <HotkeysProvider>
         <SettingsProvider store={createInMemorySettingsStore()}>
-          <SettingsComponent />
+          <ThemeProvider>
+            <SettingsComponent />
+          </ThemeProvider>
         </SettingsProvider>
       </HotkeysProvider>,
     );

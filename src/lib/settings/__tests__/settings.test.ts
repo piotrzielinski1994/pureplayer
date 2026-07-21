@@ -21,6 +21,7 @@ describe("mergeSettings", () => {
       transportHidden: true,
       revealTransportOnHover: false,
       sortDirection: "desc",
+      theme: { mode: "dark", colors: { light: {}, dark: {} } },
     };
 
     expect(mergeSettings(DEFAULT_SETTINGS, full)).toEqual(full);
@@ -69,6 +70,165 @@ describe("mergeSettings", () => {
     expect(() => mergeSettings(DEFAULT_SETTINGS, null)).not.toThrow();
     expect(() =>
       mergeSettings(DEFAULT_SETTINGS, { volume: {}, sortDirection: 1 }),
+    ).not.toThrow();
+  });
+});
+
+describe("mergeSettings theme", () => {
+  // behavior: theme defaults to system mode if the key is absent (AC-004)
+  it("should default theme.mode to system if theme is absent", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { volume: 0.5 });
+
+    expect(merged.theme.mode).toBe("system");
+  });
+
+  // behavior: the shipped default theme mode is system (AC-004)
+  it("should default DEFAULT_SETTINGS.theme.mode to system", () => {
+    expect(DEFAULT_SETTINGS.theme.mode).toBe("system");
+  });
+
+  // behavior: a valid mode is kept (AC-004)
+  it("should keep a valid 'dark' theme mode", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { theme: { mode: "dark" } });
+
+    expect(merged.theme.mode).toBe("dark");
+  });
+
+  // behavior: a valid light mode is kept (AC-001, AC-004)
+  it("should keep a valid 'light' theme mode", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { theme: { mode: "light" } });
+
+    expect(merged.theme.mode).toBe("light");
+  });
+
+  // behavior: a bad mode string falls back to the default system mode (AC-004, E-2)
+  it("should fall back to system if theme.mode is not a known mode", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      theme: { mode: "solarized" },
+    });
+
+    expect(merged.theme.mode).toBe(DEFAULT_SETTINGS.theme.mode);
+  });
+
+  // behavior: a non-string mode falls back to the default system mode (AC-004, E-2)
+  it("should fall back to system if theme.mode is not a string", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { theme: { mode: 42 } });
+
+    expect(merged.theme.mode).toBe("system");
+  });
+
+  // behavior: a non-object theme yields the default system mode (AC-004, E-2)
+  it("should default theme.mode to system if the persisted theme is not an object", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { theme: "dark" });
+
+    expect(merged.theme.mode).toBe("system");
+  });
+
+  // behavior: a garbage theme value never throws (AC-004, E-2)
+  it("should not throw if the persisted theme is garbage", () => {
+    expect(() =>
+      mergeSettings(DEFAULT_SETTINGS, { theme: [1, 2, 3] }),
+    ).not.toThrow();
+    expect(() =>
+      mergeSettings(DEFAULT_SETTINGS, { theme: { mode: null } }),
+    ).not.toThrow();
+  });
+});
+
+describe("mergeSettings theme colors", () => {
+  // behavior: colors default to empty per-mode maps if absent (AC-006, AC-007)
+  it("should default theme.colors to empty maps if the key is absent", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { theme: { mode: "dark" } });
+
+    expect(merged.theme.colors).toEqual({ light: {}, dark: {} });
+  });
+
+  // behavior: the shipped default colors are empty per-mode maps (AC-007)
+  it("should default DEFAULT_SETTINGS.theme.colors to empty maps", () => {
+    expect(DEFAULT_SETTINGS.theme.colors).toEqual({ light: {}, dark: {} });
+  });
+
+  // behavior: a known app token with a string value is kept per mode (AC-005, AC-006)
+  it("should keep a known app-token override with a string value", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      theme: {
+        mode: "light",
+        colors: {
+          light: { primary: "oklch(0.55 0.22 27)" },
+          dark: { background: "oklch(0.12 0 0)" },
+        },
+      },
+    });
+
+    expect(merged.theme.colors.light.primary).toBe("oklch(0.55 0.22 27)");
+    expect(merged.theme.colors.dark.background).toBe("oklch(0.12 0 0)");
+  });
+
+  // behavior: an unknown token key is dropped by the merge (AC-010)
+  it("should drop an unknown token key", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      theme: {
+        mode: "light",
+        colors: {
+          light: { primary: "oklch(0.55 0.22 27)", bogus: "oklch(0.5 0 0)" },
+          dark: {},
+        },
+      },
+    });
+
+    expect(merged.theme.colors.light).not.toHaveProperty("bogus");
+    expect(merged.theme.colors.light.primary).toBe("oklch(0.55 0.22 27)");
+  });
+
+  // behavior: a non-string token value is dropped by the merge (AC-010)
+  it("should drop a non-string token value", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      theme: {
+        mode: "light",
+        colors: {
+          light: { primary: 42, background: "oklch(0.99 0 0)" },
+          dark: {},
+        },
+      },
+    });
+
+    expect(merged.theme.colors.light).not.toHaveProperty("primary");
+    expect(merged.theme.colors.light.background).toBe("oklch(0.99 0 0)");
+  });
+
+  // behavior: a non-object colors value yields empty per-mode maps (AC-010, E-2)
+  it("should yield empty maps if theme.colors is not an object", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      theme: { mode: "light", colors: "nope" },
+    });
+
+    expect(merged.theme.colors).toEqual({ light: {}, dark: {} });
+  });
+
+  // behavior: a non-object per-mode value yields an empty map for that mode (AC-010, E-2)
+  it("should yield an empty map if a per-mode colors value is not an object", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      theme: {
+        mode: "light",
+        colors: { light: 42, dark: { primary: "oklch(0.9 0 0)" } },
+      },
+    });
+
+    expect(merged.theme.colors.light).toEqual({});
+    expect(merged.theme.colors.dark.primary).toBe("oklch(0.9 0 0)");
+  });
+
+  // behavior: garbage theme.colors never throws (AC-010, E-2)
+  it("should not throw if theme.colors is garbage", () => {
+    expect(() =>
+      mergeSettings(DEFAULT_SETTINGS, {
+        theme: { mode: "light", colors: [1, 2, 3] },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      mergeSettings(DEFAULT_SETTINGS, {
+        theme: { mode: "light", colors: { light: null, dark: 7 } },
+      }),
     ).not.toThrow();
   });
 });

@@ -13,6 +13,8 @@ import {
   type Settings,
   type SettingsStore,
   type SortDirection,
+  type ThemeColors,
+  type ThemeMode,
 } from "@/lib/settings/settings";
 import type { ShortcutActionId } from "@/lib/shortcuts/registry";
 
@@ -28,6 +30,8 @@ type SettingsContextValue = {
   saveTransportHidden: (hidden: boolean) => void;
   saveRevealTransportOnHover: (reveal: boolean) => void;
   saveSortDirection: (direction: SortDirection) => void;
+  saveThemeMode: (mode: ThemeMode) => void;
+  saveThemeColors: (colors: ThemeColors) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -126,6 +130,18 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
     [update],
   );
 
+  const saveThemeMode = useCallback(
+    (mode: ThemeMode) =>
+      update((base) => ({ ...base, theme: { ...base.theme, mode } })),
+    [update],
+  );
+
+  const saveThemeColors = useCallback(
+    (colors: ThemeColors) =>
+      update((base) => ({ ...base, theme: { ...base.theme, colors } })),
+    [update],
+  );
+
   const value = useMemo<SettingsContextValue | null>(
     () =>
       settings === null
@@ -142,6 +158,8 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
             saveTransportHidden,
             saveRevealTransportOnHover,
             saveSortDirection,
+            saveThemeMode,
+            saveThemeColors,
           },
     [
       settings,
@@ -155,6 +173,8 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
       saveTransportHidden,
       saveRevealTransportOnHover,
       saveSortDirection,
+      saveThemeMode,
+      saveThemeColors,
     ],
   );
 
