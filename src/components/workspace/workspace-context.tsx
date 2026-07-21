@@ -1,27 +1,27 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
-import { type MediaNode } from "@/components/workspace/mock-data";
-import { sortMedia, type SortField } from "@/components/workspace/sort-natural";
 import { clampRate } from "@/components/workspace/clamp-rate";
 import {
   clampSeekTarget,
   FRAME_STEP_SEC,
 } from "@/components/workspace/frame-step";
+import type { MediaNode } from "@/components/workspace/mock-data";
 import {
   decideOnEnded,
   nextRepeatMode,
+  type RepeatMode,
   reconcileOrder,
   shuffleIds,
-  type RepeatMode,
 } from "@/components/workspace/queue";
+import { type SortField, sortMedia } from "@/components/workspace/sort-natural";
 import {
   clampZoom,
   DEFAULT_TRANSFORM,
@@ -151,7 +151,9 @@ export function WorkspaceProvider({
   const [sortKeys, setSortKeys] = useState<SortField[]>(initialSortKeys);
   const [sortDirection, setSortDirection] =
     useState<SortDirection>(initialSortDirection);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(!initialSidebarHidden);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(
+    !initialSidebarHidden,
+  );
   const [isContentVisible, setIsContentVisible] = useState(
     !initialContentHidden,
   );
@@ -246,7 +248,9 @@ export function WorkspaceProvider({
   // (so appended media slot in at the end and removed ones drop out).
   const effectiveOrder = useMemo(() => {
     const playlistIds = playlist.map((video) => video.id);
-    return isShuffling ? reconcileOrder(shuffleOrder, playlistIds) : playlistIds;
+    return isShuffling
+      ? reconcileOrder(shuffleOrder, playlistIds)
+      : playlistIds;
   }, [playlist, isShuffling, shuffleOrder]);
 
   const value = useMemo<WorkspaceContextValue>(() => {
@@ -407,7 +411,12 @@ export function WorkspaceProvider({
         }
         setIsShuffling((shuffling) => {
           if (!shuffling) {
-            setShuffleOrder(shuffleIds(playlist.map((v) => v.id), rng));
+            setShuffleOrder(
+              shuffleIds(
+                playlist.map((v) => v.id),
+                rng,
+              ),
+            );
           }
           return !shuffling;
         });

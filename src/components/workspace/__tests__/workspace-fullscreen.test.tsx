@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  WorkspaceProvider,
   useWorkspace,
+  WorkspaceProvider,
 } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { fixtureMedia } from "./fixtures";
 
 vi.mock("@/lib/tauri", () => ({

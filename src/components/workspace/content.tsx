@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Viewport } from "@/components/workspace/viewport";
 import { TransportBar } from "@/components/workspace/transport-bar";
+import { Viewport } from "@/components/workspace/viewport";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useSettings } from "@/lib/settings/settings-context";
 

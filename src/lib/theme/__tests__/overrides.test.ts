@@ -1,7 +1,6 @@
-import { describe, it, expect } from "vitest";
-
-import { applyDefaults, diffOverrides } from "@/lib/theme/overrides";
+import { describe, expect, it } from "vitest";
 import type { FullThemeColors, ThemeColors } from "@/lib/settings/settings";
+import { applyDefaults, diffOverrides } from "@/lib/theme/overrides";
 
 // Stage 2 - Themes feature. overrides.ts is pure:
 //  - applyDefaults(sparse, defaults) -> the FULL effective set (defaults with the
@@ -134,7 +133,10 @@ describe("diffOverrides / applyDefaults round-trip", () => {
       dark: { background: "oklch(0.12 0 0)" },
     };
 
-    const roundTripped = diffOverrides(applyDefaults(sparse, DEFAULTS), DEFAULTS);
+    const roundTripped = diffOverrides(
+      applyDefaults(sparse, DEFAULTS),
+      DEFAULTS,
+    );
 
     expect(roundTripped).toEqual(sparse);
   });

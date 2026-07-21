@@ -190,7 +190,19 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     description:
       "Hide the content viewport and shrink the window to the sidebar and transport bar (mini player), or restore it. Toggle the sidebar too for a bar-only mini.",
     defaultHotkey: "Mod+Shift+M",
-    keywords: ["mini", "compact", "bottom bar", "shrink", "minimize", "tiny", "playlist", "content", "viewport", "hide content", "main"],
+    keywords: [
+      "mini",
+      "compact",
+      "bottom bar",
+      "shrink",
+      "minimize",
+      "tiny",
+      "playlist",
+      "content",
+      "viewport",
+      "hide content",
+      "main",
+    ],
   },
   {
     id: "toggle-fullscreen",
@@ -217,7 +229,8 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
   {
     id: "cycle-fit-mode",
     name: "Cycle fit mode",
-    description: "Cycle how the video fits its frame: contain, cover, then fill.",
+    description:
+      "Cycle how the video fits its frame: contain, cover, then fill.",
     defaultHotkey: "F",
     keywords: ["fit", "aspect", "contain", "cover", "fill", "crop", "stretch"],
   },

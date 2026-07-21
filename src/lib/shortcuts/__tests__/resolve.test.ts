@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   SHORTCUT_ACTIONS,
   type ShortcutOverrides,
 } from "@/lib/shortcuts/registry";
 import {
-  safeNormalize,
-  resolveShortcuts,
   findConflict,
+  resolveShortcuts,
+  safeNormalize,
 } from "@/lib/shortcuts/resolve";
 
 // Pick two real actions with distinct default bindings for the conflict tests,
@@ -69,8 +69,9 @@ describe("resolveShortcuts", () => {
   // behavior: an unparseable override string falls back to the default (AC-011, TC-013, E-4)
   it("should fall back to the default if an override is an invalid hotkey string", () => {
     const overrides: ShortcutOverrides = { "toggle-play": "bogus!!" };
-    const def = SHORTCUT_ACTIONS.find((a) => a.id === "toggle-play")!
-      .defaultHotkey;
+    const def = SHORTCUT_ACTIONS.find(
+      (a) => a.id === "toggle-play",
+    )!.defaultHotkey;
 
     expect(resolveShortcuts(overrides)["toggle-play"]).toBe(def);
   });
@@ -80,8 +81,9 @@ describe("resolveShortcuts", () => {
     const overrides = {
       "toggle-play": 42,
     } as unknown as ShortcutOverrides;
-    const def = SHORTCUT_ACTIONS.find((a) => a.id === "toggle-play")!
-      .defaultHotkey;
+    const def = SHORTCUT_ACTIONS.find(
+      (a) => a.id === "toggle-play",
+    )!.defaultHotkey;
 
     expect(resolveShortcuts(overrides)["toggle-play"]).toBe(def);
   });

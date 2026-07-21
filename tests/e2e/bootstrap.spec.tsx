@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
-  createRouter,
   createMemoryHistory,
+  createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/app/providers";
 import { rootRoute } from "@/routes/__root";

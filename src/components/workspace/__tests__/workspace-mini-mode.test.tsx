@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Workspace } from "@/components/workspace/workspace";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { setMiniWindow } from "@/lib/tauri";
 import { fixtureMedia } from "./fixtures";
 

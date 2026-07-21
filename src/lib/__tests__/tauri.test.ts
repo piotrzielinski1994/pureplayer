@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the Tauri JS plugins/api that tauri.ts wraps. tauri.ts is the SUT here,
 // so we mock only the underlying Tauri primitives, never tauri.ts itself.

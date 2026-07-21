@@ -1,6 +1,6 @@
-import * as React from "react";
-import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { CheckIcon } from "lucide-react";
+import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
+import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -95,9 +95,9 @@ function DropdownMenuSeparator({
 
 export {
   DropdownMenu,
-  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 };

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { formatForDisplay } from "@tanstack/hotkeys";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { formatForDisplay } from "@tanstack/hotkeys";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CommandPalette,
@@ -68,10 +68,7 @@ describe("CommandPalette", () => {
       />,
     );
 
-    await user.type(
-      screen.getByPlaceholderText(/type a command/i),
-      "next",
-    );
+    await user.type(screen.getByPlaceholderText(/type a command/i), "next");
 
     expect(
       screen.getByRole("option", { name: /next media/i }),

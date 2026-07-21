@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  FRAME_STEP_SEC,
   clampSeekTarget,
+  FRAME_STEP_SEC,
 } from "@/components/workspace/frame-step";
 
 describe("FRAME_STEP_SEC", () => {

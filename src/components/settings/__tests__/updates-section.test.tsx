@@ -1,9 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { ToastProvider } from "@/components/ui/toast";
+import { describe, expect, it, vi } from "vitest";
 import { UpdatesSection } from "@/components/settings/updates-section";
+import { ToastProvider } from "@/components/ui/toast";
 import type {
   UpdateController,
   UpdateInfo,
@@ -36,9 +35,8 @@ function renderSection(
 describe("UpdatesSection", () => {
   // TC-011 behavior: renders the current version string from the injected source
   it("should render the current version from the injected version source", async () => {
-    renderSection(
-      { check: () => Promise.resolve(null) },
-      () => Promise.resolve("1.2.3"),
+    renderSection({ check: () => Promise.resolve(null) }, () =>
+      Promise.resolve("1.2.3"),
     );
 
     expect(await screen.findByText(/1\.2\.3/)).toBeInTheDocument();

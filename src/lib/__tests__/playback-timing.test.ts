@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { formatTimeline, type PlaybackMarks } from "@/lib/playback-timing";
 
@@ -59,7 +59,9 @@ describe("formatTimeline", () => {
 
     const phases = [...line.matchAll(/(\d+)ms/g)].map((m) => Number(m[1]));
     expect(phases).toHaveLength(3);
-    phases.forEach((ms) => expect(ms).toBeGreaterThanOrEqual(0));
+    phases.forEach((ms) => {
+      expect(ms).toBeGreaterThanOrEqual(0);
+    });
   });
 
   // behavior: AC-010/AC-013 - the provided video name is named verbatim in the line

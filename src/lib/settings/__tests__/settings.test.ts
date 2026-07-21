@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_SETTINGS,
@@ -96,7 +96,9 @@ describe("mergeSettings theme", () => {
 
   // behavior: a valid light mode is kept (AC-001, AC-004)
   it("should keep a valid 'light' theme mode", () => {
-    const merged = mergeSettings(DEFAULT_SETTINGS, { theme: { mode: "light" } });
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      theme: { mode: "light" },
+    });
 
     expect(merged.theme.mode).toBe("light");
   });
@@ -303,7 +305,9 @@ describe("mergeSettings per-field type guards", () => {
 
   // behavior: a bad sortDirection falls back to the default (AC-002, TC-007, E-2)
   it("should fall back to default sortDirection if it is not asc or desc", () => {
-    const merged = mergeSettings(DEFAULT_SETTINGS, { sortDirection: "sideways" });
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      sortDirection: "sideways",
+    });
 
     expect(merged.sortDirection).toBe(DEFAULT_SETTINGS.sortDirection);
   });

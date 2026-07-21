@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import type { UpdateController } from "@/lib/updater/update-controller";
 import { showUpdateToast } from "@/lib/updater/show-update-toast";
+import type { UpdateController } from "@/lib/updater/update-controller";
 
 export function UpdatesSection({
   controller,

@@ -1,6 +1,6 @@
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { PlaybackSection } from "@/components/settings/playback-section";
+import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { ThemeSection } from "@/components/settings/theme-section";
 import { UpdatesSection } from "@/components/settings/updates-section";
 import { Button } from "@/components/ui/button";

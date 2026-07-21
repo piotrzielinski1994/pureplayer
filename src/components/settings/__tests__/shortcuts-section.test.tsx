@@ -1,17 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
+import { formatForDisplay } from "@tanstack/hotkeys";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-import { formatForDisplay } from "@tanstack/hotkeys";
-
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { describe, expect, it, vi } from "vitest";
+import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import {
   DEFAULT_SETTINGS,
   type Settings,
   type SettingsStore,
 } from "@/lib/settings/settings";
-import { ShortcutsSection } from "@/components/settings/shortcuts-section";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import {
   SHORTCUT_ACTIONS,
   type ShortcutOverrides,
@@ -58,7 +57,11 @@ describe("ShortcutsSection", () => {
   it("should list rows for open-settings, close-settings and open-command-palette", async () => {
     renderSection();
 
-    for (const id of ["open-settings", "close-settings", "open-command-palette"]) {
+    for (const id of [
+      "open-settings",
+      "close-settings",
+      "open-command-palette",
+    ]) {
       const action = SHORTCUT_ACTIONS.find((a) => a.id === id);
       expect(action).toBeDefined();
       expect(await screen.findByText(action!.name)).toBeInTheDocument();

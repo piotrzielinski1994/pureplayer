@@ -1,8 +1,8 @@
 import { json, jsonParseLinter } from "@codemirror/lang-json";
-import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { linter, type Diagnostic } from "@codemirror/lint";
+import { type Diagnostic, linter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 
 type EditorScheme = {

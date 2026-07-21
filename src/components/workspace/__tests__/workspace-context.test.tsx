@@ -1,18 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
+import { describe, expect, it, vi } from "vitest";
+import type { MediaNode } from "@/components/workspace/mock-data";
 import {
-  WorkspaceProvider,
   useWorkspace,
+  WorkspaceProvider,
 } from "@/components/workspace/workspace-context";
 import {
-  fixtureMedia,
-  singleMediaList,
   compositeFixture,
   compositeTypeTitleAscNames,
+  fixtureMedia,
+  singleMediaList,
 } from "./fixtures";
-import type { MediaNode } from "@/components/workspace/mock-data";
 
 const loadFixture: MediaNode[] = [
   { id: "l-1", name: "L1", format: "MP4", path: "/load/l1.mp4" },
@@ -78,7 +77,9 @@ function Probe() {
       <button onClick={() => ws.changeVolume(-0.05)}>do-volume-down</button>
       <button onClick={() => ws.toggleMute()}>do-toggle-mute</button>
       <button onClick={() => ws.changeRate(0.1)}>do-rate-up</button>
-      <button onClick={() => ws.setFullscreen(true)}>do-enter-fullscreen</button>
+      <button onClick={() => ws.setFullscreen(true)}>
+        do-enter-fullscreen
+      </button>
       <button onClick={() => ws.toggleSortKey("title")}>key-title</button>
       <button onClick={() => ws.toggleSortKey("type")}>key-type</button>
       <button onClick={() => ws.toggleSortDirection()}>flip-dir</button>

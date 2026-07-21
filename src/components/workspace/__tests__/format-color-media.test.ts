@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { FORMAT_COLOR } from "@/components/workspace/format-color";
 import type { MediaFormat } from "@/components/workspace/mock-data";

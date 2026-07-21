@@ -1,14 +1,13 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { describe, expect, it } from "vitest";
 import { Sidebar } from "@/components/workspace/sidebar";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import {
-  fixtureMedia,
   compositeFixture,
   compositeTitleAscNames,
   compositeTypeTitleAscNames,
+  fixtureMedia,
 } from "./fixtures";
 
 const prefixOf = (name: string) =>
@@ -50,9 +49,7 @@ describe("Sidebar", () => {
   it("should still render the playlist list below the header if mounted", () => {
     renderSidebar();
 
-    expect(
-      screen.getByRole("list", { name: /playlist/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /playlist/i })).toBeInTheDocument();
   });
 
   // behavior: the header carries a sort combobox trigger named /sort/i (AC-010)
@@ -122,9 +119,7 @@ describe("Sidebar", () => {
     await user.click(screen.getByRole("menuitemcheckbox", { name: /title/i }));
 
     // assert by numeric-prefix sequence: composite [type,title] = 2,10,1,3,21
-    expect(numericPrefixes()).toEqual(
-      compositeTypeTitleAscNames.map(prefixOf),
-    );
+    expect(numericPrefixes()).toEqual(compositeTypeTitleAscNames.map(prefixOf));
   });
 
   // behavior: a title-only selection differs from the composite order (proves selection-order chaining) (AC-010)

@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
 import { Workspace } from "@/components/workspace/workspace";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
 import { fixtureMedia } from "./fixtures";
 
@@ -45,7 +44,9 @@ function Probe() {
   } = useWorkspace();
   return (
     <div>
-      <output aria-label="rotation">{String(viewportTransform.rotationDeg)}</output>
+      <output aria-label="rotation">
+        {String(viewportTransform.rotationDeg)}
+      </output>
       <output aria-label="fit">{String(viewportTransform.fitMode)}</output>
       <output aria-label="zoom">{String(viewportTransform.zoom)}</output>
       <output aria-label="active-id">{String(activeMediaId)}</output>
@@ -77,10 +78,9 @@ const renderProbe = (initialActiveMediaId?: string) =>
   );
 
 const renderWorkspace = (
-  props: Omit<
-    React.ComponentProps<typeof WorkspaceProvider>,
-    "children"
-  > = { media: fixtureMedia },
+  props: Omit<React.ComponentProps<typeof WorkspaceProvider>, "children"> = {
+    media: fixtureMedia,
+  },
 ) =>
   render(
     <HotkeysProvider>
@@ -140,7 +140,9 @@ describe("viewport transforms: rotate registry + verb + element (AC-001)", () =>
     const video = await findVideo();
     await clickN(user, "rotate-cw", 1);
 
-    await waitFor(() => expect(video.style.transform).toContain("rotate(90deg)"));
+    await waitFor(() =>
+      expect(video.style.transform).toContain("rotate(90deg)"),
+    );
   });
 });
 

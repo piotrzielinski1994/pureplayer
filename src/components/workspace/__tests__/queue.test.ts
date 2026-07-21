@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  nextRepeatMode,
-  shuffleIds,
-  reconcileOrder,
   decideOnEnded,
+  nextRepeatMode,
+  reconcileOrder,
+  shuffleIds,
 } from "@/components/workspace/queue";
 
 describe("nextRepeatMode", () => {
