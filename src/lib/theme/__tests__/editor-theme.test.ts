@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { EditorView } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
 import { language } from "@codemirror/language";
-import { forceLinting, diagnosticCount } from "@codemirror/lint";
+import { diagnosticCount, forceLinting } from "@codemirror/lint";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { describe, expect, it } from "vitest";
 
 // Stage 3 - Themes. editor-theme.ts ships the BUILT-IN light + dark editor
 // scheme (fixed hues, NOT user-customizable) plus the JSON language + an
@@ -10,17 +10,20 @@ import { forceLinting, diagnosticCount } from "@codemirror/lint";
 // jsonEditorExtensions(isDark) / emptyTolerantJsonLinter() do not exist yet, so
 // the import fails RED.
 import {
+  emptyTolerantJsonLinter,
+  jsonEditorExtensions,
   makeChrome,
   makeHighlight,
-  jsonEditorExtensions,
-  emptyTolerantJsonLinter,
 } from "@/lib/theme/editor-theme";
 
 // CodeMirror themes/highlights are global StyleModule rules injected into <style>
 // tags, deduped across the whole run. To read a factory's CSS in isolation we
 // mount each editor inside its OWN shadow root and read only that root's <style>
 // tags - so a color's PRESENCE/ABSENCE is a reliable per-factory signal.
-function shadowCss(extension: unknown, doc = '"x"'): { css: string; view: EditorView } {
+function shadowCss(
+  extension: unknown,
+  doc = '"x"',
+): { css: string; view: EditorView } {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const shadow = host.attachShadow({ mode: "open" });

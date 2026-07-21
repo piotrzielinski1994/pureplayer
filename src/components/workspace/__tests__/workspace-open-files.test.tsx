@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Workspace } from "@/components/workspace/workspace";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 
 // The Tauri IPC boundary is the single mockable seam. We mock only this module;
 // the Workspace, context, viewport and transport are the real SUT.
@@ -84,16 +83,15 @@ describe("Workspace open-files flow", () => {
   // behavior: chosen files replace the (empty) playlist with one row each (AC-002 / TC-001)
   it("should replace the playlist with the chosen files if files are returned", async () => {
     const user = userEvent.setup();
-    openMediaFiles.mockResolvedValue([
-      "/media/Alpha.mp4",
-      "/media/Bravo.mkv",
-    ]);
+    openMediaFiles.mockResolvedValue(["/media/Alpha.mp4", "/media/Bravo.mkv"]);
     renderWorkspace();
 
     await openPaletteAndRunOpenFiles(user);
 
     await waitFor(() =>
-      expect(within(playlist() as HTMLElement).getAllByRole("listitem")).toHaveLength(2),
+      expect(
+        within(playlist() as HTMLElement).getAllByRole("listitem"),
+      ).toHaveLength(2),
     );
     expect(
       within(playlist() as HTMLElement).getByRole("listitem", {
@@ -110,10 +108,7 @@ describe("Workspace open-files flow", () => {
   // behavior: the first chosen file becomes active in the viewport and plays (AC-002/AC-004/AC-005 / TC-001)
   it("should activate and play the first chosen file if files are returned", async () => {
     const user = userEvent.setup();
-    openMediaFiles.mockResolvedValue([
-      "/media/Alpha.mp4",
-      "/media/Bravo.mkv",
-    ]);
+    openMediaFiles.mockResolvedValue(["/media/Alpha.mp4", "/media/Bravo.mkv"]);
     renderWorkspace();
 
     await openPaletteAndRunOpenFiles(user);

@@ -1,15 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Workspace } from "@/components/workspace/workspace";
-import { SettingsProvider } from "@/lib/settings/settings-context";
-import { ThemeProvider } from "@/lib/theme/theme-context";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
-import { settingsRoute } from "@/routes/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
+import { ThemeProvider } from "@/lib/theme/theme-context";
+import { settingsRoute } from "@/routes/settings";
 import { fixtureMedia } from "./fixtures";
 
 // Assert navigation without standing up a full router: stub useNavigate to a spy
@@ -51,10 +50,7 @@ describe("settings navigation", () => {
     render(
       <HotkeysProvider>
         <SettingsProvider store={createInMemorySettingsStore()}>
-          <WorkspaceProvider
-            media={fixtureMedia}
-            initialActiveMediaId="v-1"
-          >
+          <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-1">
             <Workspace />
           </WorkspaceProvider>
         </SettingsProvider>

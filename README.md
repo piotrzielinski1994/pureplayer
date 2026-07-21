@@ -37,9 +37,10 @@ present. macOS binaries are GPLv3, Windows and Linux are LGPLv3 - see [docs/adr.
 | `npm run dev` | Frontend-only Vite dev server (browser, no native shell). |
 | `npm run build` | Typecheck + production frontend build (`dist/`). |
 | `npm run tauri build` | Produce a native desktop bundle. |
-| `npm run lint` | ESLint (flat config). |
+| `npm run lint` | Biome check (lint + format + import sort). |
+| `npm run lint:fix` | Biome check with safe autofixes applied. |
 | `npm run typecheck` | `tsc --noEmit`. |
-| `npm run format` | Prettier write. |
+| `npm run format` | Biome format write. |
 | `npm test` | Frontend behavior tests (Vitest, run once). |
 | `npm run test:watch` | Vitest in watch mode. |
 

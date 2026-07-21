@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
 import { Film, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { formatTimeline } from "@/lib/playback-timing";
 import {
+  logPlayback,
   prepareMediaUrl,
   toggleFullscreen,
-  logPlayback,
   watchAudioReady,
 } from "@/lib/tauri";
-import { formatTimeline } from "@/lib/playback-timing";
 
 function logPlayError(error: unknown) {
   console.error("video play() rejected", error);
@@ -36,7 +36,10 @@ type SourceState =
 // HLS streams report `<video>.duration` as Infinity (and NaN before metadata),
 // so prefer the element's value only when it's a real finite length; otherwise
 // fall back to the duration ffprobe gave us at prepare time.
-function resolveDuration(elementDuration: number, probed: number | null): number {
+function resolveDuration(
+  elementDuration: number,
+  probed: number | null,
+): number {
   if (Number.isFinite(elementDuration) && elementDuration > 0) {
     return elementDuration;
   }
@@ -143,7 +146,7 @@ export function Viewport() {
     return () => {
       cancelled = true;
     };
-  }, [activeMedia?.id]);
+  }, [activeMedia?.id, activeMedia]);
 
   // Two-phase swap: when the background audio re-encode finishes, the backend
   // emits audio-ready with the matching swapId. We point the <video> at the
@@ -180,7 +183,7 @@ export function Viewport() {
       return;
     }
     element.pause();
-  }, [isPlaying, sourceForActive]);
+  }, [isPlaying]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -204,7 +207,7 @@ export function Viewport() {
     element.volume = volume;
     element.muted = isMuted;
     element.playbackRate = playbackRate;
-  }, [volume, isMuted, playbackRate, sourceForActive]);
+  }, [volume, isMuted, playbackRate]);
 
   return (
     <div
@@ -229,7 +232,9 @@ export function Viewport() {
       {activeMedia && sourceForActive?.status === "error" && (
         <div className="flex max-w-md flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
           <Film className="size-10" />
-          <p className="text-sm font-medium text-white">Could not play this file</p>
+          <p className="text-sm font-medium text-white">
+            Could not play this file
+          </p>
           <p className="text-xs">{sourceForActive.message}</p>
         </div>
       )}

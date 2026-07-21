@@ -118,16 +118,15 @@ function mergeShortcuts(partial: unknown): ShortcutOverrides {
   if (!isRecord(partial)) {
     return {};
   }
-  return Object.entries(partial).reduce<ShortcutOverrides>(
-    (acc, [rawId, value]) => {
+  return Object.fromEntries(
+    Object.entries(partial).flatMap(([rawId, value]) => {
       const id = RENAMED_ACTION_IDS[rawId] ?? rawId;
       if (!ACTION_IDS.has(id) || typeof value !== "string") {
-        return acc;
+        return [];
       }
       const normalized = safeNormalize(value);
-      return normalized === null ? acc : { ...acc, [id]: normalized };
-    },
-    {},
+      return normalized === null ? [] : [[id, normalized] as const];
+    }),
   );
 }
 
@@ -160,12 +159,12 @@ function mergeTokenMap(value: unknown): ThemeColorOverrides {
   if (!isRecord(value)) {
     return {};
   }
-  return Object.entries(value).reduce<ThemeColorOverrides>((acc, [key, val]) => {
-    if (!APP_TOKEN_NAMES.has(key) || typeof val !== "string") {
-      return acc;
-    }
-    return { ...acc, [key as AppTokenName]: val };
-  }, {});
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [AppTokenName, string] =>
+        APP_TOKEN_NAMES.has(entry[0]) && typeof entry[1] === "string",
+    ),
+  );
 }
 
 function mergeThemeColors(value: unknown): ThemeColors {

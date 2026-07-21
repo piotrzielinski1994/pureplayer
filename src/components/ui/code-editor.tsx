@@ -1,5 +1,5 @@
-import CodeMirror from "@uiw/react-codemirror";
 import type { Extension } from "@codemirror/state";
+import CodeMirror from "@uiw/react-codemirror";
 
 // The ONE CodeMirror wrapper the app goes through, so the chrome stays
 // consistent: `theme="none"` (colors come from the themed extension set) and

@@ -1,13 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
-
-import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { describe, expect, it, vi } from "vitest";
+import type { MediaNode } from "@/components/workspace/mock-data";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { DEFAULT_SETTINGS } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { fixtureMedia } from "./fixtures";
-import type { MediaNode } from "@/components/workspace/mock-data";
 
 vi.mock("@/lib/tauri", () => ({
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
@@ -30,7 +29,9 @@ const renderLayout = ({
   media = fixtureMedia,
 }: Overrides = {}) =>
   render(
-    <SettingsProvider store={createInMemorySettingsStore({ ...DEFAULT_SETTINGS })}>
+    <SettingsProvider
+      store={createInMemorySettingsStore({ ...DEFAULT_SETTINGS })}
+    >
       <WorkspaceProvider
         media={media}
         initialActiveMediaId={media.length > 0 ? "v-3" : undefined}
@@ -101,7 +102,9 @@ describe("WorkspaceLayout content toggle (mini player)", () => {
   it("should render the (no media) empty state and the transport bar if mini has no media", async () => {
     renderLayout({ contentHidden: true, media: [] });
 
-    expect((await screen.findAllByText("(no media)")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("(no media)")).length).toBeGreaterThan(
+      0,
+    );
     expect(
       await screen.findByRole("button", { name: /play|pause/i }),
     ).toBeInTheDocument();

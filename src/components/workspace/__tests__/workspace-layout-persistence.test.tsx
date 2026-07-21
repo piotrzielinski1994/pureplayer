@@ -1,15 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-
-import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { describe, expect, it, vi } from "vitest";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import {
   DEFAULT_SETTINGS,
   type Settings,
   type SettingsStore,
 } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 
 // Capture the props react-resizable-panels' Group receives so the test can read
 // the wired defaultLayout and fire onLayoutChanged without a real pointer drag

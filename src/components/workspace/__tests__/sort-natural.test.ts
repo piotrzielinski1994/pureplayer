@@ -1,18 +1,14 @@
-import { describe, it, expect } from "vitest";
-
-import { sortMedia } from "@/components/workspace/sort-natural";
-import type { SortField } from "@/components/workspace/sort-natural";
+import { describe, expect, it } from "vitest";
 import type { MediaNode } from "@/components/workspace/mock-data";
+import type { SortField } from "@/components/workspace/sort-natural";
+import { sortMedia } from "@/components/workspace/sort-natural";
 import {
   compositeFixture,
   compositeTitleAscNames,
   compositeTypeTitleAscNames,
 } from "./fixtures";
 
-const make = (
-  name: string,
-  overrides: Partial<MediaNode> = {},
-): MediaNode => ({
+const make = (name: string, overrides: Partial<MediaNode> = {}): MediaNode => ({
   id: name,
   name,
   format: "MP4",

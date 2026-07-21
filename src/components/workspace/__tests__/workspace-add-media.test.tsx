@@ -1,12 +1,11 @@
-import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { describe, expect, it } from "vitest";
 import type { MediaNode } from "@/components/workspace/mock-data";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 
 const existing: MediaNode[] = [
   { id: "/v/a.mp4", name: "a.mp4", format: "MP4", path: "/v/a.mp4" },

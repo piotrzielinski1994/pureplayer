@@ -8,8 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { SortField } from "@/components/workspace/sort-natural";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 
 const SORT_FIELDS: { field: SortField; label: string }[] = [
   { field: "title", label: "Title" },

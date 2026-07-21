@@ -3,8 +3,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Sidebar } from "@/components/workspace/sidebar";
 import { Content } from "@/components/workspace/content";
+import { Sidebar } from "@/components/workspace/sidebar";
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useSettings } from "@/lib/settings/settings-context";

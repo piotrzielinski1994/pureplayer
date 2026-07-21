@@ -1,8 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
+import { describe, expect, it, vi } from "vitest";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import {
   DEFAULT_SETTINGS,
@@ -10,6 +8,7 @@ import {
   type SettingsStore,
   type ThemeColors,
 } from "@/lib/settings/settings";
+import { SettingsProvider, useSettings } from "@/lib/settings/settings-context";
 
 const COLORS_OVERRIDE: ThemeColors = {
   light: { primary: "oklch(0.55 0.22 27)" },
@@ -43,11 +42,12 @@ function Probe() {
       </span>
       <span data-testid="volume">{String(settings.volume)}</span>
       <span data-testid="muted">{String(settings.isMuted)}</span>
-      <span data-testid="sidebar-hidden">
-        {String(settings.sidebarHidden)}
-      </span>
+      <span data-testid="sidebar-hidden">{String(settings.sidebarHidden)}</span>
       <span data-testid="theme-mode">{settings.theme.mode}</span>
-      <button type="button" onClick={() => saveShortcut("toggle-play", "Mod+P")}>
+      <button
+        type="button"
+        onClick={() => saveShortcut("toggle-play", "Mod+P")}
+      >
         save shortcut
       </button>
       <button type="button" onClick={() => resetShortcut("toggle-play")}>
@@ -68,10 +68,7 @@ function Probe() {
       >
         save layout
       </button>
-      <button
-        type="button"
-        onClick={() => saveRevealTransportOnHover(false)}
-      >
+      <button type="button" onClick={() => saveRevealTransportOnHover(false)}>
         save reveal
       </button>
       <button type="button" onClick={() => saveThemeMode("dark")}>

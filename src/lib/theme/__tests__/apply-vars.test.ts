@@ -1,7 +1,6 @@
-import { describe, it, expect } from "vitest";
-
-import { applyThemeVars } from "@/lib/theme/apply-vars";
+import { describe, expect, it } from "vitest";
 import type { ThemeColorOverrides } from "@/lib/settings/settings";
+import { applyThemeVars } from "@/lib/theme/apply-vars";
 
 // Stage 2 - Themes feature. apply-vars.ts is pure-ish: applyThemeVars(el, mode,
 // overrides) sets an inline CSS var (e.g. --primary) on el.style for each provided
@@ -29,7 +28,11 @@ describe("applyThemeVars", () => {
   it("should set --card-foreground inline for the card-foreground token", () => {
     const el = document.createElement("div");
 
-    applyThemeVars(el, "light", tokens({ "card-foreground": "oklch(0.2 0 0)" }));
+    applyThemeVars(
+      el,
+      "light",
+      tokens({ "card-foreground": "oklch(0.2 0 0)" }),
+    );
 
     expect(el.style.getPropertyValue("--card-foreground").trim()).toBe(
       "oklch(0.2 0 0)",

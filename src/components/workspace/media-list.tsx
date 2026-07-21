@@ -1,21 +1,19 @@
-import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { FORMAT_COLOR } from "@/components/workspace/format-color";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 export function MediaList() {
   const { playlist, selectedNodeId, selectNode } = useWorkspace();
 
   return (
     <ScrollArea className="min-h-0 flex-1" horizontal>
-      <ul role="list" aria-label="Playlist">
+      <ul aria-label="Playlist">
         {playlist.map((media) => (
           <li
             key={media.id}
-            role="listitem"
             aria-selected={selectedNodeId === media.id}
             aria-label={media.name}
-            tabIndex={0}
             onClick={() => selectNode(media.id)}
             className={cn(
               "flex cursor-pointer items-center gap-2 px-3 py-1 text-[13px] hover:bg-accent",

@@ -6,7 +6,16 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 
 const VIDEO_EXTENSIONS = ["mp4", "mkv", "mov", "webm", "avi"];
-const AUDIO_EXTENSIONS = ["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma"];
+const AUDIO_EXTENSIONS = [
+  "mp3",
+  "m4a",
+  "aac",
+  "flac",
+  "wav",
+  "ogg",
+  "opus",
+  "wma",
+];
 
 export function greet(name: string): Promise<string> {
   return invoke<string>("greet", { name });
@@ -196,7 +205,11 @@ const MINI_PLAYLIST_SIDEBAR_HEIGHT =
 // Mini = content hidden; the transport bar is always shown in mini.
 export type MiniLayout = { contentVisible: boolean; sidebarVisible: boolean };
 
-type PreMiniGeometry = { width: number; height: number; titleBarHeight: number };
+type PreMiniGeometry = {
+  width: number;
+  height: number;
+  titleBarHeight: number;
+};
 let preMini: PreMiniGeometry | null = null;
 
 function transportBarHeight(): number {
@@ -209,7 +222,10 @@ function transportBarHeight(): number {
 // so toggling the sidebar only changes HEIGHT, never width) and a bar height
 // (+ title bar), plus the sidebar block when the sidebar is shown (it reflows
 // into a top bar).
-function miniSize(sidebarVisible: boolean, geometry: PreMiniGeometry): LogicalSize {
+function miniSize(
+  sidebarVisible: boolean,
+  geometry: PreMiniGeometry,
+): LogicalSize {
   const barHeight = transportBarHeight() + geometry.titleBarHeight;
   const sidebarHeight = sidebarVisible ? MINI_PLAYLIST_SIDEBAR_HEIGHT : 0;
   return new LogicalSize(MINI_WIDTH, sidebarHeight + barHeight);

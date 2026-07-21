@@ -37,15 +37,12 @@ function diffSection(
   edited: ThemeColorOverrides,
   defaults: Record<AppTokenName, string>,
 ): ThemeColorOverrides {
-  return Object.entries(edited).reduce<ThemeColorOverrides>(
-    (acc, [key, value]) => {
-      const name = key as AppTokenName;
-      if (value !== undefined && !sameColor(value, defaults[name])) {
-        return { ...acc, [name]: value };
-      }
-      return acc;
-    },
-    {},
+  return Object.fromEntries(
+    Object.entries(edited).filter(
+      (entry): entry is [AppTokenName, string] =>
+        entry[1] !== undefined &&
+        !sameColor(entry[1], defaults[entry[0] as AppTokenName]),
+    ),
   );
 }
 

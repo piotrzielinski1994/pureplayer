@@ -36,7 +36,10 @@ export function createTauriSettingsStore(): SettingsStore {
     // on its own.
     const settingsPayload: Settings = {
       ...settings,
-      theme: { mode: settings.theme.mode, colors: DEFAULT_SETTINGS.theme.colors },
+      theme: {
+        mode: settings.theme.mode,
+        colors: DEFAULT_SETTINGS.theme.colors,
+      },
     };
     await persist(settingsStore, SETTINGS_KEY, settingsPayload);
     await persist(themeStore, THEME_COLORS_KEY, settings.theme.colors);

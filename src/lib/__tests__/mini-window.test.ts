@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const setSize = vi.fn<(size: LogicalSize) => Promise<void>>(() =>
   Promise.resolve(),
@@ -15,8 +15,8 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => path,
 }));
 
-import { setMiniWindow } from "@/lib/tauri";
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { setMiniWindow } from "@/lib/tauri";
 
 const physical = (width: number, height: number) => ({
   toLogical: () => new LogicalSize(width, height),
@@ -68,7 +68,9 @@ describe("setMiniWindow", () => {
     await setMiniWindow(barOnly);
 
     expect(setSize).toHaveBeenCalledTimes(1);
-    expect(setSize).toHaveBeenCalledWith(new LogicalSize(MINI_WIDTH, BAR_ONLY_HEIGHT));
+    expect(setSize).toHaveBeenCalledWith(
+      new LogicalSize(MINI_WIDTH, BAR_ONLY_HEIGHT),
+    );
 
     setSize.mockClear();
     await setMiniWindow(normal);
@@ -85,7 +87,9 @@ describe("setMiniWindow", () => {
 
     await setMiniWindow(barOnly);
 
-    expect(setSize).toHaveBeenCalledWith(new LogicalSize(MINI_WIDTH, BAR_HEIGHT));
+    expect(setSize).toHaveBeenCalledWith(
+      new LogicalSize(MINI_WIDTH, BAR_HEIGHT),
+    );
   });
 
   // behavior: the mini width is CONSTANT across a sidebar toggle - only the height

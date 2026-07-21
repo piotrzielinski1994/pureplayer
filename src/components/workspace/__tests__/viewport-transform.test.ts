@@ -1,17 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  nextRotation,
-  nextFitMode,
   clampZoom,
-  isDefaultTransform,
-  formatTransform,
   DEFAULT_TRANSFORM,
-  ZOOM_MIN,
-  ZOOM_MAX,
-  ZOOM_STEP,
-  ROTATIONS,
   FIT_MODES,
+  formatTransform,
+  isDefaultTransform,
+  nextFitMode,
+  nextRotation,
+  ROTATIONS,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  ZOOM_STEP,
 } from "@/components/workspace/viewport-transform";
 
 describe("viewport-transform constants", () => {
@@ -168,9 +168,9 @@ describe("formatTransform", () => {
 
   // behavior: only the fit-mode facet is named when only fit mode is non-default (AC-007)
   it("should name only the fit mode if only fit mode is non-default", () => {
-    expect(
-      formatTransform({ rotationDeg: 0, fitMode: "cover", zoom: 1 }),
-    ).toBe("cover");
+    expect(formatTransform({ rotationDeg: 0, fitMode: "cover", zoom: 1 })).toBe(
+      "cover",
+    );
   });
 
   // behavior: only the zoom facet is named when only zoom is non-default (AC-007 / TC-007)

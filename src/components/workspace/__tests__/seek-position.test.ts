@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  seekSecondsFromPointer,
   fractionFromPointer,
+  seekSecondsFromPointer,
 } from "@/components/workspace/seek-position";
 
 describe("seekSecondsFromPointer", () => {

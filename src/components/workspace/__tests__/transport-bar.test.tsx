@@ -1,14 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Sidebar } from "@/components/workspace/sidebar";
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
-import { Sidebar } from "@/components/workspace/sidebar";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { fixtureMedia, singleMediaList } from "./fixtures";
 
 // Viewport pulls in the Tauri IPC boundary; mock the seam, not the components.
@@ -22,7 +21,13 @@ vi.mock("@/lib/tauri", () => ({
 
 // A tiny probe button that pushes a live playback report into the context, the
 // same way the real <video> element's timeupdate/loadedmetadata handlers would.
-function ProgressProbe({ current, duration }: { current: number; duration: number }) {
+function ProgressProbe({
+  current,
+  duration,
+}: {
+  current: number;
+  duration: number;
+}) {
   const { reportProgress, seekToSec } = useWorkspace();
   return (
     <>

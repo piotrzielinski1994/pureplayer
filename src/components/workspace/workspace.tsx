@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
-import { DropOverlay } from "@/components/workspace/drop-overlay";
+import { useEffect, useState } from "react";
 import {
   CommandPalette,
   type PaletteCommand,
 } from "@/components/workspace/command-palette";
-import { useWorkspace } from "@/components/workspace/workspace-context";
+import { DropOverlay } from "@/components/workspace/drop-overlay";
 import { mediaFromPaths } from "@/components/workspace/media-from-paths";
+import { useWorkspace } from "@/components/workspace/workspace-context";
+import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { useSettings } from "@/lib/settings/settings-context";
+import {
+  SHORTCUT_ACTIONS,
+  type ShortcutActionId,
+} from "@/lib/shortcuts/registry";
+import { useActionHotkeys } from "@/lib/shortcuts/use-action-hotkeys";
 import {
   expandDroppedPaths,
   openMediaFiles,
@@ -17,12 +23,6 @@ import {
   watchFullscreen,
   watchWindowFocus,
 } from "@/lib/tauri";
-import { useSettings } from "@/lib/settings/settings-context";
-import { useActionHotkeys } from "@/lib/shortcuts/use-action-hotkeys";
-import {
-  SHORTCUT_ACTIONS,
-  type ShortcutActionId,
-} from "@/lib/shortcuts/registry";
 
 export function Workspace() {
   const {

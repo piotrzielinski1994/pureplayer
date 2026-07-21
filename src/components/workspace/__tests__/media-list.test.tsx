@@ -1,10 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { describe, expect, it, vi } from "vitest";
 import { MediaList } from "@/components/workspace/media-list";
 import { Viewport } from "@/components/workspace/viewport";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { fixtureMedia } from "./fixtures";
 
 // Viewport pulls in the Tauri IPC boundary; mock the seam, not the components.
@@ -70,9 +69,7 @@ describe("MediaList", () => {
       expect(span?.className).not.toContain("truncate");
     });
 
-    expect(
-      getList().closest('[data-slot="scroll-area"]'),
-    ).not.toBeNull();
+    expect(getList().closest('[data-slot="scroll-area"]')).not.toBeNull();
   });
 
   // behavior: the format badge is sticky to the right edge with an opaque
@@ -130,7 +127,9 @@ describe("MediaList", () => {
     );
 
     const region = screen.getByRole("region", { name: /media viewport/i });
-    expect(within(region).queryByText(/9 - Interlude/i)).not.toBeInTheDocument();
+    expect(
+      within(region).queryByText(/9 - Interlude/i),
+    ).not.toBeInTheDocument();
 
     await user.click(
       within(getList()).getByRole("listitem", { name: /9 - Interlude/i }),

@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
 import { Workspace } from "@/components/workspace/workspace";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
 import { fixtureMedia } from "./fixtures";
 
@@ -107,10 +106,9 @@ const renderProbe = (
   );
 
 const renderWorkspace = (
-  props: Omit<
-    React.ComponentProps<typeof WorkspaceProvider>,
-    "children"
-  > = { media: fixtureMedia },
+  props: Omit<React.ComponentProps<typeof WorkspaceProvider>, "children"> = {
+    media: fixtureMedia,
+  },
 ) =>
   render(
     <HotkeysProvider>
@@ -336,9 +334,7 @@ describe("extended transport: mute (AC-005)", () => {
     await user.click(screen.getByRole("button", { name: /^mute$/i }));
 
     expect(screen.getByLabelText("muted")).toHaveTextContent("true");
-    expect(
-      screen.getByRole("button", { name: /unmute/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /unmute/i })).toBeInTheDocument();
     await waitFor(() => expect(video.muted).toBe(true));
   });
 

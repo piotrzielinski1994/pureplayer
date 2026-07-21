@@ -1,10 +1,9 @@
 /// <reference types="node" />
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it, expect } from "vitest";
-
-import { APP_TOKENS, DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
+import { describe, expect, it } from "vitest";
 import type { AppTokenName } from "@/lib/settings/settings";
+import { APP_TOKENS, DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
 
 // Stage 2 - Themes feature. theme-defaults.ts is the single source of truth for
 // the built-in (non-sparse) color values. Light values mirror index.css `:root`,

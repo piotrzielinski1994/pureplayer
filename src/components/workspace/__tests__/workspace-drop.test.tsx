@@ -1,13 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { Workspace } from "@/components/workspace/workspace";
-import { SettingsProvider } from "@/lib/settings/settings-context";
-import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MediaNode } from "@/components/workspace/mock-data";
+import { Workspace } from "@/components/workspace/workspace";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 
 // The Tauri IPC boundary is the single mockable seam. We mock only this module;
 // the Workspace, context, viewport, DropOverlay and transport are the real SUT.

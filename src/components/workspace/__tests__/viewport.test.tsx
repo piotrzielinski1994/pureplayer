@@ -1,18 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+  fireEvent,
   render,
   screen,
-  within,
-  fireEvent,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Viewport } from "@/components/workspace/viewport";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { fixtureMedia } from "./fixtures";
 
 const prepareMediaUrl = vi.fn(
@@ -72,9 +71,7 @@ function DurationProbe() {
 
 const region = () => screen.getByRole("region", { name: /media viewport/i });
 const findVideo = async () => {
-  await waitFor(() =>
-    expect(document.querySelector("video")).not.toBeNull(),
-  );
+  await waitFor(() => expect(document.querySelector("video")).not.toBeNull());
   return document.querySelector("video") as HTMLVideoElement;
 };
 
@@ -149,11 +146,13 @@ describe("Viewport", () => {
       swapId: number | null;
     }) => void = () => {};
     prepareMediaUrl.mockReturnValueOnce(
-      new Promise<{ url: string; durationSec: number | null; swapId: number | null }>(
-        (resolve) => {
-          resolvePrepare = resolve;
-        },
-      ),
+      new Promise<{
+        url: string;
+        durationSec: number | null;
+        swapId: number | null;
+      }>((resolve) => {
+        resolvePrepare = resolve;
+      }),
     );
     render(
       <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
@@ -194,9 +193,7 @@ describe("Viewport", () => {
     fireEvent(video, new Event("loadedmetadata"));
 
     await waitFor(() =>
-      expect(
-        screen.getByLabelText("duration").textContent,
-      ).toBe("1922.581"),
+      expect(screen.getByLabelText("duration").textContent).toBe("1922.581"),
     );
   });
 
@@ -323,7 +320,9 @@ describe("Viewport", () => {
 
     await waitFor(
       () =>
-        expect(within(region()).queryByText(/3 - Intro/i)).not.toBeInTheDocument(),
+        expect(
+          within(region()).queryByText(/3 - Intro/i),
+        ).not.toBeInTheDocument(),
       { timeout: 6000 },
     );
   }, 8000);
@@ -343,7 +342,9 @@ describe("Viewport", () => {
     );
     await waitFor(
       () =>
-        expect(within(region()).queryByText(/3 - Intro/i)).not.toBeInTheDocument(),
+        expect(
+          within(region()).queryByText(/3 - Intro/i),
+        ).not.toBeInTheDocument(),
       { timeout: 6000 },
     );
 

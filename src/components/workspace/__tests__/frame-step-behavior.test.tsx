@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HotkeysProvider } from "@tanstack/react-hotkeys";
-
-import {
-  WorkspaceProvider,
-  useWorkspace,
-} from "@/components/workspace/workspace-context";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
 import { Workspace } from "@/components/workspace/workspace";
-import { SettingsProvider } from "@/lib/settings/settings-context";
+import {
+  useWorkspace,
+  WorkspaceProvider,
+} from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
+import { SettingsProvider } from "@/lib/settings/settings-context";
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
 import { fixtureMedia } from "./fixtures";
 
@@ -88,10 +87,9 @@ const renderProbe = (
   );
 
 const renderWorkspace = (
-  props: Omit<
-    React.ComponentProps<typeof WorkspaceProvider>,
-    "children"
-  > = { media: fixtureMedia },
+  props: Omit<React.ComponentProps<typeof WorkspaceProvider>, "children"> = {
+    media: fixtureMedia,
+  },
 ) =>
   render(
     <HotkeysProvider>
@@ -138,12 +136,8 @@ describe("frame-step: stepFrame verb (AC-002)", () => {
     await user.click(screen.getByRole("button", { name: "report-progress" }));
     await user.click(screen.getByRole("button", { name: "step-forward" }));
 
-    const target = Number(
-      screen.getByLabelText("seek-target").textContent,
-    );
-    const currentSec = Number(
-      screen.getByLabelText("current-sec").textContent,
-    );
+    const target = Number(screen.getByLabelText("seek-target").textContent);
+    const currentSec = Number(screen.getByLabelText("current-sec").textContent);
     expect(target).toBeCloseTo(30.0333, 3);
     expect(currentSec).toBeCloseTo(30.0333, 3);
   });
@@ -156,9 +150,7 @@ describe("frame-step: stepFrame verb (AC-002)", () => {
     await user.click(screen.getByRole("button", { name: "report-progress" }));
     await user.click(screen.getByRole("button", { name: "step-back" }));
 
-    const target = Number(
-      screen.getByLabelText("seek-target").textContent,
-    );
+    const target = Number(screen.getByLabelText("seek-target").textContent);
     expect(target).toBeCloseTo(29.9667, 3);
   });
 
@@ -218,9 +210,7 @@ describe("frame-step: clamping (AC-004)", () => {
     await user.click(screen.getByRole("button", { name: "report-progress" }));
     await user.click(screen.getByRole("button", { name: "step-forward" }));
 
-    const target = Number(
-      screen.getByLabelText("seek-target").textContent,
-    );
+    const target = Number(screen.getByLabelText("seek-target").textContent);
     expect(target).toBeCloseTo(10.0333, 3);
   });
 });

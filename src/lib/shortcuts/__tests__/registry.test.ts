@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { SHORTCUT_ACTIONS } from "@/lib/shortcuts/registry";
 
@@ -86,9 +86,9 @@ describe("shortcut registry", () => {
 
     const ids: string[] = SHORTCUT_ACTIONS.map((action) => action.id);
     expect(ids).not.toContain("toggle-mini-playlist");
-    expect(SHORTCUT_ACTIONS.some((a) => a.defaultHotkey === "Mod+Shift+L")).toBe(
-      false,
-    );
+    expect(
+      SHORTCUT_ACTIONS.some((a) => a.defaultHotkey === "Mod+Shift+L"),
+    ).toBe(false);
   });
 
   // behavior: action ids must be unique so each maps to exactly one handler/binding (AC-003)

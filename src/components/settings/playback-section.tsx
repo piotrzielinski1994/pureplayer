@@ -11,8 +11,8 @@ export function PlaybackSection() {
         <div className="flex flex-col">
           <span className="text-sm">Reveal transport bar on hover</span>
           <span className="text-xs text-muted-foreground">
-            When the transport bar is hidden, show it while the mouse is over the
-            video.
+            When the transport bar is hidden, show it while the mouse is over
+            the video.
           </span>
         </div>
         <Switch

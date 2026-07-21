@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
-import { useTheme } from "@/lib/theme/theme-context";
 import type {
   ThemeColorOverrides,
   ThemeColors,
   ThemeMode,
 } from "@/lib/settings/settings";
-import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
-import { applyDefaults, diffOverrides } from "@/lib/theme/overrides";
 import { jsonEditorExtensions } from "@/lib/theme/editor-theme";
+import { applyDefaults, diffOverrides } from "@/lib/theme/overrides";
+import { useTheme } from "@/lib/theme/theme-context";
+import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
 
 const MODES: { id: ThemeMode; label: string }[] = [
   { id: "light", label: "Light" },

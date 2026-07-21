@@ -1,10 +1,9 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { EditorView } from "@codemirror/view";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ThemeSection } from "@/components/settings/theme-section";
-import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import {
   DEFAULT_SETTINGS,
@@ -12,9 +11,10 @@ import {
   type SettingsStore,
   type ThemeColors,
 } from "@/lib/settings/settings";
+import { SettingsProvider } from "@/lib/settings/settings-context";
+import { applyDefaults } from "@/lib/theme/overrides";
 import { ThemeProvider } from "@/lib/theme/theme-context";
 import { DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
-import { applyDefaults } from "@/lib/theme/overrides";
 
 // Stage 3 - Themes (AC-005/007/008/009). Below the mode selector the ThemeSection
 // now renders a CodeMirror JSON color editor seeded with the FULL effective color
@@ -111,7 +111,10 @@ describe("ThemeSection color editor", () => {
     });
 
     const seeded = JSON.parse(liveDoc()) as ThemeColors;
-    const full = applyDefaults(DEFAULT_SETTINGS.theme.colors, DEFAULT_THEME_COLORS);
+    const full = applyDefaults(
+      DEFAULT_SETTINGS.theme.colors,
+      DEFAULT_THEME_COLORS,
+    );
     expect(seeded).toEqual(full);
 
     // A couple of concrete default token values are present for BOTH modes.
@@ -135,7 +138,10 @@ describe("ThemeSection color editor", () => {
       expect(document.querySelector(".cm-editor")).not.toBeNull();
     });
 
-    const full = applyDefaults(DEFAULT_SETTINGS.theme.colors, DEFAULT_THEME_COLORS);
+    const full = applyDefaults(
+      DEFAULT_SETTINGS.theme.colors,
+      DEFAULT_THEME_COLORS,
+    );
     const edited: ThemeColors = {
       ...full,
       light: { ...full.light, primary: NEW_PRIMARY },
@@ -167,7 +173,10 @@ describe("ThemeSection color editor", () => {
       expect(document.querySelector(".cm-editor")).not.toBeNull();
     });
 
-    const full = applyDefaults({ light: { primary: NEW_PRIMARY }, dark: {} }, DEFAULT_THEME_COLORS);
+    const full = applyDefaults(
+      { light: { primary: NEW_PRIMARY }, dark: {} },
+      DEFAULT_THEME_COLORS,
+    );
     const resetToDefault: ThemeColors = {
       ...full,
       light: { ...full.light, primary: DEFAULT_THEME_COLORS.light.primary },
@@ -248,7 +257,10 @@ describe("ThemeSection color editor", () => {
       expect(saveButton()).toBeDisabled();
     });
 
-    const full = applyDefaults(DEFAULT_SETTINGS.theme.colors, DEFAULT_THEME_COLORS);
+    const full = applyDefaults(
+      DEFAULT_SETTINGS.theme.colors,
+      DEFAULT_THEME_COLORS,
+    );
     await setDoc(JSON.stringify(full, null, 2));
 
     await waitFor(() => {

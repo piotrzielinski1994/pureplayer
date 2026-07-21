@@ -1,6 +1,6 @@
 import { createRoute } from "@tanstack/react-router";
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { Workspace } from "@/components/workspace/workspace";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { useSettings } from "@/lib/settings/settings-context";
 import { rootRoute } from "@/routes/__root";
 

@@ -1,12 +1,8 @@
-import { describe, it, expect } from "vitest";
-
-import { sortMedia } from "@/components/workspace/sort-natural";
+import { describe, expect, it } from "vitest";
 import type { MediaNode } from "@/components/workspace/mock-data";
+import { sortMedia } from "@/components/workspace/sort-natural";
 
-const make = (
-  name: string,
-  format: MediaNode["format"],
-): MediaNode => ({
+const make = (name: string, format: MediaNode["format"]): MediaNode => ({
   id: name,
   name,
   format,
