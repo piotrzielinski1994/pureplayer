@@ -37,18 +37,16 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@uiw/react-codemirror": "^4.25.11",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "lucide-react": "^1.25.0",
     "radix-ui": "^1.6.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-resizable-panels": "^4.12.2",
-    "tailwind-merge": "^3.6.0"
+    "react-resizable-panels": "^4.12.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",
-    "@pziel/pureui": "^0.2.0",
+    "@pziel/pureui": "^0.2.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^7.0.0",

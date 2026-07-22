@@ -1,7 +1,7 @@
+import { cn } from "@pziel/pureui";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FORMAT_COLOR } from "@/components/workspace/format-color";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { cn } from "@/lib/utils";
 
 export function MediaList() {
   const { playlist, selectedNodeId, selectNode } = useWorkspace();
