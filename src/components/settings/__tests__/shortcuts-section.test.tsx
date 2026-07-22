@@ -78,7 +78,7 @@ describe("ShortcutsSection", () => {
 
   // behavior: a seeded override is shown as the binding label (TC-002, AC-006)
   it("should show the override binding label if an override is set", async () => {
-    renderSection({ "toggle-play": "Mod+P" });
+    renderSection({ "toggle-play": ["Mod+P"] });
 
     const overrideLabel = formatForDisplay("Mod+P");
     expect(await screen.findByText(overrideLabel)).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("ShortcutsSection", () => {
       expect(saveSpy).toHaveBeenCalled();
     });
     const persisted = saveSpy.mock.calls.at(-1)![0];
-    expect(persisted.shortcuts["toggle-play"]).toBe("Mod+Y");
+    expect(persisted.shortcuts["toggle-play"]).toEqual(["Mod+Y"]);
   });
 
   // behavior: recording a combo owned by another action is rejected, owner named (TC-003, AC-005)
@@ -161,7 +161,7 @@ describe("ShortcutsSection", () => {
   // side-effect-contract: Reset removes the override and the row reverts to default (TC-005, AC-006)
   it("should remove the override and restore the default label if reset is clicked", async () => {
     const user = userEvent.setup();
-    const { saveSpy } = renderSection({ "toggle-play": "Mod+P" });
+    const { saveSpy } = renderSection({ "toggle-play": ["Mod+P"] });
 
     const resetButton = await screen.findByRole("button", {
       name: new RegExp(`reset.*${TOGGLE_PLAY.name}`, "i"),

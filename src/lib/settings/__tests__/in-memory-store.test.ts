@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings/settings";
 
 const seeded: Settings = {
   version: 1,
-  shortcuts: { "toggle-play": "Mod+P" },
+  shortcuts: { "toggle-play": ["Mod+P"] },
   layout: { sidebar: 25, content: 75 },
   volume: 0.5,
   isMuted: true,

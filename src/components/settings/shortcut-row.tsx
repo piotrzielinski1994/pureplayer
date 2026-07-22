@@ -1,6 +1,5 @@
-import { Button } from "@pziel/pureui";
+import { Button, useRecordHotkey } from "@pziel/pureui";
 import { formatForDisplay } from "@tanstack/hotkeys";
-import { useHotkeyRecorder } from "@tanstack/react-hotkeys";
 import { useState } from "react";
 import { useSettings } from "@/lib/settings/settings-context";
 import {
@@ -17,7 +16,7 @@ function actionName(id: ShortcutActionId): string {
 type ShortcutRowProps = {
   action: ShortcutAction;
   binding: string;
-  effective: Record<ShortcutActionId, string>;
+  effective: Record<ShortcutActionId, string[]>;
   hasOverride: boolean;
 };
 
@@ -30,7 +29,7 @@ export function ShortcutRow({
   const { saveShortcut, resetShortcut } = useSettings();
   const [conflictName, setConflictName] = useState<string | null>(null);
 
-  const recorder = useHotkeyRecorder({
+  const recorder = useRecordHotkey({
     onRecord: (hotkey) => {
       const owner = findConflict(hotkey, action.id, effective);
       if (owner !== null) {

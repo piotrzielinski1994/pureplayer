@@ -39,7 +39,7 @@ export type ShortcutAction = {
   keywords?: string[];
 };
 
-export type ShortcutOverrides = Partial<Record<ShortcutActionId, string>>;
+export type ShortcutOverrides = Partial<Record<ShortcutActionId, string[]>>;
 
 export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
   {

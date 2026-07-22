@@ -12,14 +12,14 @@ export function useActionHotkeys(
 
   const definitions: UseHotkeyDefinition[] = (
     Object.keys(handlers) as ShortcutActionId[]
-  )
-    .filter((id) => handlers[id] !== undefined)
-    .map((id) => ({
-      hotkey: effective[id] as Hotkey,
+  ).flatMap((id) =>
+    effective[id].map((hotkey) => ({
+      hotkey: hotkey as Hotkey,
       callback: () => {
         handlers[id]?.();
       },
-    }));
+    })),
+  );
 
   useHotkeys(definitions, { ignoreInputs: true, preventDefault: true });
 }
