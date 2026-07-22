@@ -1,5 +1,5 @@
+import { Button } from "@pziel/pureui";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
 import type {
   ThemeColorOverrides,
