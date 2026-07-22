@@ -1,8 +1,7 @@
+import { cn } from "@pziel/pureui";
 import { CheckIcon } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type * as React from "react";
-
-import { cn } from "@/lib/utils";
 
 function DropdownMenu({
   ...props
