@@ -1,9 +1,6 @@
+import { CommandPalette, type PaletteCommand } from "@pziel/pureui";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  CommandPalette,
-  type PaletteCommand,
-} from "@/components/workspace/command-palette";
 import { DropOverlay } from "@/components/workspace/drop-overlay";
 import { mediaFromPaths } from "@/components/workspace/media-from-paths";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -153,13 +150,14 @@ export function Workspace() {
   const commands: PaletteCommand[] = SHORTCUT_ACTIONS.filter(
     (action) => action.id !== "open-command-palette",
   )
-    .map((action) => {
+    .map((action): PaletteCommand | null => {
       const run = handlers[action.id];
       if (!run) {
         return null;
       }
       return {
-        action,
+        key: action.id,
+        name: action.name,
         binding: action.defaultHotkey,
         keywords: action.keywords ?? [],
         run,
@@ -175,6 +173,8 @@ export function Workspace() {
         open={isPaletteOpen}
         onOpenChange={setIsPaletteOpen}
         commands={commands}
+        loop
+        disablePointerSelection
       />
     </div>
   );

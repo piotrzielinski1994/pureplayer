@@ -1,12 +1,8 @@
+import { CommandPalette, type PaletteCommand } from "@pziel/pureui";
 import { formatForDisplay } from "@tanstack/hotkeys";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-
-import {
-  CommandPalette,
-  type PaletteCommand,
-} from "@/components/workspace/command-palette";
 import type { ShortcutAction } from "@/lib/shortcuts/registry";
 
 const playAction: ShortcutAction = {
@@ -27,7 +23,8 @@ const buildCommand = (
   action: ShortcutAction,
   run = vi.fn(),
 ): PaletteCommand => ({
-  action,
+  key: action.id,
+  name: action.name,
   binding: action.defaultHotkey,
   keywords: action.keywords ?? [],
   run,
