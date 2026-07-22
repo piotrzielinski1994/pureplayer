@@ -1,19 +1,24 @@
 /// <reference types="node" />
 import { readFileSync } from "node:fs";
-import path from "node:path";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import type { AppTokenName } from "@/lib/settings/settings";
 import { APP_TOKENS, DEFAULT_THEME_COLORS } from "@/lib/theme/theme-defaults";
 
 // Stage 2 - Themes feature. theme-defaults.ts is the single source of truth for
-// the built-in (non-sparse) color values. Light values mirror index.css `:root`,
-// dark mirror `.dark`. We cross-check a couple against the real CSS by reading it
-// off disk (vitest mocks css imports to empty, so a normal import returns nothing;
-// the file-local node reference keeps node types out of the app's tsconfig). PP's
-// model is FLATTENED: DEFAULT_THEME_COLORS.light is a flat token->oklch map (no
-// tokens/editor wrapper, no editor tokens - editor theming is out of scope).
-const REPO_ROOT = process.cwd();
-const indexCss = readFileSync(path.join(REPO_ROOT, "src/index.css"), "utf8");
+// the built-in (non-sparse) color values. Light values mirror the canonical
+// `:root`, dark mirror `.dark`. Those tokens live in
+// @pziel/pureui/styles/theme.css (imported by src/index.css); read it off disk
+// to cross-check (vitest mocks css imports to empty, so a normal import returns
+// nothing; the file-local node reference keeps node types out of the app's
+// tsconfig). PP's model is FLATTENED: DEFAULT_THEME_COLORS.light is a flat
+// token->oklch map (no tokens/editor wrapper, no editor tokens - editor theming
+// is out of scope).
+const nodeRequire = createRequire(import.meta.url);
+const indexCss = readFileSync(
+  nodeRequire.resolve("@pziel/pureui/styles/theme.css"),
+  "utf8",
+);
 
 // All 18 app tokens (spec §5.1).
 const EXPECTED_APP_TOKENS: AppTokenName[] = [
