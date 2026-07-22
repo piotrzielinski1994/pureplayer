@@ -2,7 +2,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "@/components/ui/resizable";
+} from "@pziel/pureui";
 import { Content } from "@/components/workspace/content";
 import { Sidebar } from "@/components/workspace/sidebar";
 import { TransportBar } from "@/components/workspace/transport-bar";

@@ -19,7 +19,8 @@ let groupProps: {
   onLayoutChanged?: (layout: Record<string, number>) => void;
 } = {};
 
-vi.mock("@/components/ui/resizable", () => ({
+vi.mock("@pziel/pureui", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@pziel/pureui")>()),
   ResizablePanelGroup: (props: Record<string, unknown>) => {
     groupProps = props as typeof groupProps;
     return <div data-testid="group">{props.children as React.ReactNode}</div>;
