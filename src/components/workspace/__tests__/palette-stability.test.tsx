@@ -1,22 +1,11 @@
+import { CommandPalette, type PaletteCommand } from "@pziel/pureui";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  CommandPalette,
-  type PaletteCommand,
-} from "@/components/workspace/command-palette";
-import type { ShortcutAction } from "@/lib/shortcuts/registry";
-
-const action = (id: string, name: string): ShortcutAction => ({
-  id: id as ShortcutAction["id"],
-  name,
-  description: name,
-  defaultHotkey: "Space",
-});
-
 const cmd = (id: string, name: string): PaletteCommand => ({
-  action: action(id, name),
+  key: id,
+  name,
   binding: "Space",
   keywords: [],
   run: vi.fn(),
@@ -40,7 +29,15 @@ describe("command palette pointer stability", () => {
   // Reproduces the on-device "ArrowDown -> selection snaps to the row under the mouse".
   it("should keep the keyboard selection if a row receives a pointermove from a scroll", async () => {
     const user = userEvent.setup();
-    render(<CommandPalette open onOpenChange={vi.fn()} commands={commands} />);
+    render(
+      <CommandPalette
+        open
+        onOpenChange={vi.fn()}
+        commands={commands}
+        loop
+        disablePointerSelection
+      />,
+    );
 
     // cmdk auto-highlights the first row.
     expect(selectedName()).toBe("Play / pause");
@@ -60,7 +57,15 @@ describe("command palette pointer stability", () => {
   // side-effect-contract: ArrowUp on the first row wraps to the last row (loop nav)
   it("should select the last row if ArrowUp is pressed on the first row", async () => {
     const user = userEvent.setup();
-    render(<CommandPalette open onOpenChange={vi.fn()} commands={commands} />);
+    render(
+      <CommandPalette
+        open
+        onOpenChange={vi.fn()}
+        commands={commands}
+        loop
+        disablePointerSelection
+      />,
+    );
 
     expect(selectedName()).toBe("Play / pause");
 
@@ -72,7 +77,15 @@ describe("command palette pointer stability", () => {
   // side-effect-contract: ArrowDown on the last row wraps to the first row (loop nav)
   it("should select the first row if ArrowDown is pressed on the last row", async () => {
     const user = userEvent.setup();
-    render(<CommandPalette open onOpenChange={vi.fn()} commands={commands} />);
+    render(
+      <CommandPalette
+        open
+        onOpenChange={vi.fn()}
+        commands={commands}
+        loop
+        disablePointerSelection
+      />,
+    );
 
     await user.keyboard("{ArrowUp}");
     expect(selectedName()).toBe("Seek forward 5s");
