@@ -19,7 +19,7 @@ export function ShortcutsSection() {
           <ShortcutRow
             key={action.id}
             action={action}
-            binding={effective[action.id]}
+            binding={effective[action.id][0]}
             effective={effective}
             hasOverride={action.id in settings.shortcuts}
           />

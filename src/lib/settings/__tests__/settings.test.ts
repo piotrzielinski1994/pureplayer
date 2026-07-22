@@ -12,7 +12,7 @@ describe("mergeSettings", () => {
   it("should pass a valid full settings object through unchanged", () => {
     const full: Settings = {
       version: 1,
-      shortcuts: { "toggle-play": "Mod+P" },
+      shortcuts: { "toggle-play": ["Mod+P"] },
       layout: { sidebar: 25, content: 75 },
       volume: 0.5,
       isMuted: true,
@@ -370,70 +370,100 @@ describe("mergeSettings shortcuts", () => {
   // behavior: a valid override map is kept, normalized (AC-002, TC-007)
   it("should keep a valid shortcuts override map", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, {
-      shortcuts: { "toggle-play": "Mod+P" },
+      shortcuts: { "toggle-play": ["Mod+P"] },
     });
 
-    expect(merged.shortcuts).toEqual({ "toggle-play": "Mod+P" });
+    expect(merged.shortcuts).toEqual({ "toggle-play": ["Mod+P"] });
+  });
+
+  // behavior: a legacy single-string override widens to a one-element list (AC-006, TC-009)
+  it("should migrate a legacy single-string override to a one-element list", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      shortcuts: { "toggle-play": "Space", "next-video": "Mod+Right" },
+    });
+
+    expect(merged.shortcuts).toEqual({
+      "toggle-play": ["Space"],
+      "next-media": ["Mod+ArrowRight"],
+    });
+  });
+
+  // behavior: a multi-binding list keeps every entry that normalizes (AC-005)
+  it("should keep every valid entry in a multi-binding override", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      shortcuts: { "toggle-play": ["Space", "Mod+P"] },
+    });
+
+    expect(merged.shortcuts["toggle-play"]).toEqual(["Space", "Mod+P"]);
+  });
+
+  // behavior: an empty-array override is preserved (disabled action) (AC-005)
+  it("should preserve an empty-array override as a disabled action", () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      shortcuts: { "toggle-play": [] },
+    });
+
+    expect(merged.shortcuts["toggle-play"]).toEqual([]);
   });
 
   // behavior: a lower-case override is normalized on merge (AC-002)
   it("should normalize a valid override hotkey on merge", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, {
-      shortcuts: { "toggle-play": "mod+p" },
+      shortcuts: { "toggle-play": ["mod+p"] },
     });
 
-    expect(merged.shortcuts["toggle-play"]).toBe("Mod+P");
+    expect(merged.shortcuts["toggle-play"]).toEqual(["Mod+P"]);
   });
 
-  // behavior: a non-string hotkey value is dropped (AC-002, TC-007, E-2)
+  // behavior: a non-string/array hotkey value is dropped (AC-002, TC-007, E-2)
   it("should drop a non-string shortcut value", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, {
-      shortcuts: { "toggle-play": 42, "toggle-mute": "Mod+Shift+M" },
+      shortcuts: { "toggle-play": 42, "toggle-mute": ["Mod+Shift+M"] },
     });
 
     expect(merged.shortcuts).not.toHaveProperty("toggle-play");
-    expect(merged.shortcuts["toggle-mute"]).toBe("Mod+Shift+M");
+    expect(merged.shortcuts["toggle-mute"]).toEqual(["Mod+Shift+M"]);
   });
 
   // behavior: an unparseable hotkey string is dropped (AC-002, TC-007, E-4)
   it("should drop an invalid hotkey string", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, {
-      shortcuts: { "toggle-play": "bogus!!", "toggle-mute": "Mod+Shift+M" },
+      shortcuts: { "toggle-play": ["bogus!!"], "toggle-mute": ["Mod+Shift+M"] },
     });
 
-    expect(merged.shortcuts).not.toHaveProperty("toggle-play");
-    expect(merged.shortcuts["toggle-mute"]).toBe("Mod+Shift+M");
+    expect(merged.shortcuts["toggle-play"]).toEqual([]);
+    expect(merged.shortcuts["toggle-mute"]).toEqual(["Mod+Shift+M"]);
   });
 
   // behavior: an override for an unknown action id is dropped (AC-002, TC-007, E-3)
   it("should drop an override for an unknown action id", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, {
-      shortcuts: { bogus: "Mod+Q", "toggle-play": "Mod+P" },
+      shortcuts: { bogus: ["Mod+Q"], "toggle-play": ["Mod+P"] },
     });
 
     expect(merged.shortcuts).not.toHaveProperty("bogus");
-    expect(merged.shortcuts["toggle-play"]).toBe("Mod+P");
+    expect(merged.shortcuts["toggle-play"]).toEqual(["Mod+P"]);
   });
 
   // behavior: a persisted override under a legacy (renamed) action id migrates to
   // the new id so a saved rebind survives the video->media rename
   it("should migrate a legacy next-video override to next-media", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, {
-      shortcuts: { "next-video": "Mod+P" },
+      shortcuts: { "next-video": ["Mod+P"] },
     });
 
     expect(merged.shortcuts).not.toHaveProperty("next-video");
-    expect(merged.shortcuts["next-media"]).toBe("Mod+P");
+    expect(merged.shortcuts["next-media"]).toEqual(["Mod+P"]);
   });
 
   // behavior: the legacy prev-video id migrates to prev-media likewise
   it("should migrate a legacy prev-video override to prev-media", () => {
     const merged = mergeSettings(DEFAULT_SETTINGS, {
-      shortcuts: { "prev-video": "Mod+Q" },
+      shortcuts: { "prev-video": ["Mod+Q"] },
     });
 
     expect(merged.shortcuts).not.toHaveProperty("prev-video");
-    expect(merged.shortcuts["prev-media"]).toBe("Mod+Q");
+    expect(merged.shortcuts["prev-media"]).toEqual(["Mod+Q"]);
   });
 
   // behavior: a non-object shortcuts value yields an empty map (AC-002)

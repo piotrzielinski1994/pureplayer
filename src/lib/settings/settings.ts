@@ -114,6 +114,22 @@ const RENAMED_ACTION_IDS: Record<string, string> = {
   "prev-video": "prev-media",
 };
 
+// A legacy single stored hotkey migrates to a one-element list; a list keeps only
+// the entries that normalize. An empty list is preserved - the action was
+// deliberately disabled. A value that is neither a string nor an array is dropped.
+function mergeShortcutValue(value: unknown): string[] | null {
+  if (typeof value === "string") {
+    const normalized = safeNormalize(value);
+    return normalized === null ? null : [normalized];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  return value
+    .map((entry) => (typeof entry === "string" ? safeNormalize(entry) : null))
+    .filter((entry): entry is string => entry !== null);
+}
+
 function mergeShortcuts(partial: unknown): ShortcutOverrides {
   if (!isRecord(partial)) {
     return {};
@@ -121,11 +137,11 @@ function mergeShortcuts(partial: unknown): ShortcutOverrides {
   return Object.fromEntries(
     Object.entries(partial).flatMap(([rawId, value]) => {
       const id = RENAMED_ACTION_IDS[rawId] ?? rawId;
-      if (!ACTION_IDS.has(id) || typeof value !== "string") {
+      if (!ACTION_IDS.has(id)) {
         return [];
       }
-      const normalized = safeNormalize(value);
-      return normalized === null ? [] : [[id, normalized] as const];
+      const bindings = mergeShortcutValue(value);
+      return bindings === null ? [] : [[id, bindings] as const];
     }),
   );
 }

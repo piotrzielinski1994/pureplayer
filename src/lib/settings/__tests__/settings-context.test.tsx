@@ -109,7 +109,7 @@ describe("SettingsProvider", () => {
   it("should expose a seeded shortcut override to children", async () => {
     const seeded: Settings = {
       ...DEFAULT_SETTINGS,
-      shortcuts: { "toggle-play": "Mod+P" },
+      shortcuts: { "toggle-play": ["Mod+P"] },
     };
     const { store } = spiedStore(seeded);
 
@@ -144,7 +144,7 @@ describe("SettingsProvider shortcut savers", () => {
       expect(saveSpy).toHaveBeenCalled();
     });
     const persisted = saveSpy.mock.calls.at(-1)![0];
-    expect(persisted.shortcuts["toggle-play"]).toBe("Mod+P");
+    expect(persisted.shortcuts["toggle-play"]).toEqual(["Mod+P"]);
   });
 
   // behavior: saveShortcut reflects the new override in exposed state (TC-001, AC-003)
@@ -175,7 +175,7 @@ describe("SettingsProvider shortcut savers", () => {
     const user = userEvent.setup();
     const seeded: Settings = {
       ...DEFAULT_SETTINGS,
-      shortcuts: { "toggle-play": "Mod+P" },
+      shortcuts: { "toggle-play": ["Mod+P"] },
     };
     const { store, saveSpy } = spiedStore(seeded);
 

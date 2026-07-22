@@ -71,7 +71,7 @@ export function SettingsProvider({ store, children }: SettingsProviderProps) {
     (id: ShortcutActionId, hotkey: string) =>
       update((base) => ({
         ...base,
-        shortcuts: { ...base.shortcuts, [id]: hotkey },
+        shortcuts: { ...base.shortcuts, [id]: [hotkey] },
       })),
     [update],
   );
