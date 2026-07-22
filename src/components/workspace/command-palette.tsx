@@ -1,4 +1,3 @@
-import { formatForDisplay } from "@tanstack/hotkeys";
 import {
   CommandDialog,
   CommandEmpty,
@@ -6,7 +5,8 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut,
-} from "@/components/ui/command";
+} from "@pziel/pureui";
+import { formatForDisplay } from "@tanstack/hotkeys";
 import type { ShortcutAction } from "@/lib/shortcuts/registry";
 
 export type PaletteCommand = {
@@ -28,7 +28,12 @@ export function CommandPalette({
   commands,
 }: CommandPaletteProps) {
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      loop
+      disablePointerSelection
+    >
       <CommandInput placeholder="Type a command…" />
       <CommandList>
         <CommandEmpty>No matching commands</CommandEmpty>
