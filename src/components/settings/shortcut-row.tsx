@@ -1,7 +1,7 @@
+import { Button } from "@pziel/pureui";
 import { formatForDisplay } from "@tanstack/hotkeys";
 import { useHotkeyRecorder } from "@tanstack/react-hotkeys";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { useSettings } from "@/lib/settings/settings-context";
 import {
   SHORTCUT_ACTIONS,

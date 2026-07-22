@@ -1,3 +1,4 @@
+import { Button } from "@pziel/pureui";
 import {
   Pause,
   Play,
@@ -10,7 +11,6 @@ import {
   VolumeX,
 } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useRef } from "react";
-import { Button } from "@/components/ui/button";
 import { formatTime } from "@/components/workspace/format-time";
 import {
   fractionFromPointer,

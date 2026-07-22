@@ -1,5 +1,5 @@
+import { Button } from "@pziel/pureui";
 import { ArrowDownAZ, ArrowUpAZ, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
