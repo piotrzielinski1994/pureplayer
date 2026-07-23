@@ -1,4 +1,8 @@
-import { CommandPalette, type PaletteCommand } from "@pziel/pureui";
+import {
+  CommandPalette,
+  type PaletteCommand,
+  useActionHotkeys,
+} from "@pziel/pureui";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { DropOverlay } from "@/components/workspace/drop-overlay";
@@ -10,7 +14,7 @@ import {
   SHORTCUT_ACTIONS,
   type ShortcutActionId,
 } from "@/lib/shortcuts/registry";
-import { useActionHotkeys } from "@/lib/shortcuts/use-action-hotkeys";
+import { useEffectiveShortcuts } from "@/lib/shortcuts/use-effective-shortcuts";
 import {
   expandDroppedPaths,
   openMediaFiles,
@@ -142,10 +146,14 @@ export function Workspace() {
     "reset-viewport": resetViewportTransform,
   };
 
-  useActionHotkeys({
-    ...handlers,
-    "open-command-palette": () => setIsPaletteOpen(true),
-  });
+  useActionHotkeys(
+    {
+      ...handlers,
+      "open-command-palette": () => setIsPaletteOpen(true),
+    },
+    useEffectiveShortcuts(),
+    { ignoreInputs: true, preventDefault: true },
+  );
 
   const commands: PaletteCommand[] = SHORTCUT_ACTIONS.filter(
     (action) => action.id !== "open-command-palette",
