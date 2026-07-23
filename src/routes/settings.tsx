@@ -1,19 +1,23 @@
-import { Button, useUpdater } from "@pziel/pureui";
+import { Button, useActionHotkeys, useUpdater } from "@pziel/pureui";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PlaybackSection } from "@/components/settings/playback-section";
 import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { ThemeSection } from "@/components/settings/theme-section";
 import { UpdatesSection } from "@/components/settings/updates-section";
-import { useActionHotkeys } from "@/lib/shortcuts/use-action-hotkeys";
+import { useEffectiveShortcuts } from "@/lib/shortcuts/use-effective-shortcuts";
 import { rootRoute } from "@/routes/__root";
 
 function SettingsPage() {
   const navigate = useNavigate();
   const { controller, getVersion } = useUpdater();
 
-  useActionHotkeys({
-    "close-settings": () => void navigate({ to: "/" }),
-  });
+  useActionHotkeys(
+    {
+      "close-settings": () => void navigate({ to: "/" }),
+    },
+    useEffectiveShortcuts(),
+    { ignoreInputs: true, preventDefault: true },
+  );
 
   return (
     <div className="flex h-full w-full flex-col">
