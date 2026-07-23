@@ -1,8 +1,7 @@
-import { Button } from "@pziel/pureui";
+import { Button, showUpdateToast, type UpdateController } from "@pziel/pureui";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/toast";
-import { showUpdateToast } from "@/lib/updater/show-update-toast";
-import type { UpdateController } from "@/lib/updater/update-controller";
+import { createPlayerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 
 export function UpdatesSection({
   controller,
@@ -12,6 +11,7 @@ export function UpdatesSection({
   getVersion: () => Promise<string>;
 }) {
   const { show } = useToast();
+  const [sink] = useState(() => createPlayerUpdateToastSink(show));
   const [version, setVersion] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
@@ -39,7 +39,7 @@ export function UpdatesSection({
           show("You're on the latest version");
           return;
         }
-        showUpdateToast(show, update);
+        showUpdateToast(sink, update);
       })
       .catch(() => show("Update check failed"))
       .finally(() => setIsChecking(false));

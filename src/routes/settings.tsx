@@ -1,11 +1,10 @@
-import { Button } from "@pziel/pureui";
+import { Button, useUpdater } from "@pziel/pureui";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PlaybackSection } from "@/components/settings/playback-section";
 import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { ThemeSection } from "@/components/settings/theme-section";
 import { UpdatesSection } from "@/components/settings/updates-section";
 import { useActionHotkeys } from "@/lib/shortcuts/use-action-hotkeys";
-import { useUpdater } from "@/lib/updater/updater-context";
 import { rootRoute } from "@/routes/__root";
 
 function SettingsPage() {
