@@ -1,18 +1,22 @@
+import {
+  UpdateChecker,
+  type UpdateController,
+  type UpdateInfo,
+} from "@pziel/pureui";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ToastProvider } from "@/components/ui/toast";
-import { UpdateChecker } from "@/lib/updater/update-checker";
-import type {
-  UpdateController,
-  UpdateInfo,
-} from "@/lib/updater/update-controller";
+import { ToastProvider, useToast } from "@/components/ui/toast";
+import { createPlayerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 
-// The startup bridge: mounts inside providers, runs one check on mount via the
-// injected controller, and on an available update shows a persistent action toast
-// that drives download/install/relaunch. Renders null - all assertions go through
-// the ToastProvider's rendered DOM.
+// AC-009 parity: pureplayer wires the hoisted pureui updater flow to its OWN
+// ToastProvider via createPlayerUpdateToastSink. This test drives the real
+// UpdateChecker (from pureui) through the real ToastProvider + the app sink, so
+// the assertions prove the app's toast presentation is preserved: a persistent
+// toast that survives the 2500ms auto-dismiss, the "Update now" button replaced
+// by the Downloading… label once download starts, and × dismiss without install.
+// The controller is a hand-written fake (the injected port), NOT mocked.
 
 type UpdateInfoOverrides = Partial<UpdateInfo>;
 
@@ -29,10 +33,18 @@ function controllerWith(info: UpdateInfo | null): UpdateController {
   return { check: () => Promise.resolve(info) };
 }
 
+// Mounts the pureui UpdateChecker with the app sink built from the surrounding
+// ToastProvider's `show` - the same wiring AppProviders uses.
+function CheckerHarness({ controller }: { controller: UpdateController }) {
+  const { show } = useToast();
+  const sink = createPlayerUpdateToastSink(show);
+  return <UpdateChecker controller={controller} sink={sink} />;
+}
+
 function renderChecker(controller: UpdateController) {
   return render(
     <ToastProvider>
-      <UpdateChecker controller={controller} />
+      <CheckerHarness controller={controller} />
     </ToastProvider>,
   );
 }
@@ -41,9 +53,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("UpdateChecker startup bridge", () => {
-  // TC-001 behavior: an available update shows a persistent toast with the
-  // version text + an "Update now" button
+describe("pureplayer update toast sink parity", () => {
+  // TC-016 behavior: an available update shows a persistent toast with the
+  // version text + an "Update now" button.
   it("should show an update toast with the version and an Update now button if an update is available", async () => {
     renderChecker(controllerWith(fakeUpdateInfo({ version: "v0.2.0" })));
 
@@ -53,7 +65,7 @@ describe("UpdateChecker startup bridge", () => {
     ).toBeInTheDocument();
   });
 
-  // TC-002 behavior: no update -> no toast
+  // behavior: no update -> no toast.
   it("should not show any toast if no update is available", async () => {
     renderChecker(controllerWith(null));
 
@@ -64,7 +76,7 @@ describe("UpdateChecker startup bridge", () => {
     ).not.toBeInTheDocument();
   });
 
-  // TC-003 behavior: check rejects -> error swallowed, no toast, no throw
+  // behavior: check rejects -> error swallowed, no toast, no throw.
   it("should swallow a rejected check without a toast or a throw", async () => {
     const controller: UpdateController = {
       check: () => Promise.reject(new Error("network down")),
@@ -79,8 +91,8 @@ describe("UpdateChecker startup bridge", () => {
     ).not.toBeInTheDocument();
   });
 
-  // TC-004 side-effect-contract: clicking Update now invokes downloadAndInstall,
-  // progress drives the label, and relaunch is invoked after it resolves
+  // TC-016 side-effect-contract: clicking Update now invokes downloadAndInstall,
+  // progress drives the label, and relaunch is invoked after it resolves.
   it("should download+install then relaunch when Update now is clicked", async () => {
     const relaunch = vi.fn(() => Promise.resolve());
     const downloadAndInstall = vi.fn((onProgress: (pct: number) => void) => {
@@ -106,24 +118,7 @@ describe("UpdateChecker startup bridge", () => {
     });
   });
 
-  // AC-001 side-effect-contract: the check fires exactly once on mount, not on
-  // every re-render.
-  it("should check for updates only once across re-renders", async () => {
-    const check = vi.fn(() => Promise.resolve(null));
-    const { rerender } = renderChecker({ check });
-
-    await Promise.resolve();
-    rerender(
-      <ToastProvider>
-        <UpdateChecker controller={{ check }} />
-      </ToastProvider>,
-    );
-    await Promise.resolve();
-
-    expect(check).toHaveBeenCalledTimes(1);
-  });
-
-  // AC-003 behavior: once download starts, the Update now button is replaced by
+  // TC-016 behavior: once download starts, the Update now button is replaced by
   // the progress label so it can't be re-fired mid-download.
   it("should replace the Update now button with progress once download starts", async () => {
     const downloadAndInstall = vi.fn((onProgress: (pct: number) => void) => {
@@ -145,7 +140,7 @@ describe("UpdateChecker startup bridge", () => {
     ).not.toBeInTheDocument();
   });
 
-  // TC-005 behavior: the available toast is persistent - it survives past the old
+  // TC-014 behavior: the available toast is persistent - it survives past the
   // 2500ms auto-dismiss window.
   it("should keep the update toast past the 2500ms auto-dismiss", async () => {
     vi.useFakeTimers();
@@ -164,8 +159,8 @@ describe("UpdateChecker startup bridge", () => {
     expect(screen.getByText(/v0\.2\.0/)).toBeInTheDocument();
   });
 
-  // TC-006 behavior/side-effect-contract: clicking × removes the toast and does
-  // NOT invoke the install path
+  // TC-014 behavior/side-effect-contract: clicking × removes the toast and does
+  // NOT invoke the install path.
   it("should remove the toast and not install when dismiss is clicked", async () => {
     const downloadAndInstall = vi.fn(() => Promise.resolve());
     const controller = controllerWith(fakeUpdateInfo({ downloadAndInstall }));

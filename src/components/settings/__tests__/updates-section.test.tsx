@@ -1,12 +1,9 @@
+import type { UpdateController, UpdateInfo } from "@pziel/pureui";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { UpdatesSection } from "@/components/settings/updates-section";
 import { ToastProvider } from "@/components/ui/toast";
-import type {
-  UpdateController,
-  UpdateInfo,
-} from "@/lib/updater/update-controller";
 
 // UpdatesSection takes the controller + version source as props (built per-env in
 // providers), with toast from the surrounding ToastProvider. The observable
