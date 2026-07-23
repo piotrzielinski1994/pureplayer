@@ -1,3 +1,5 @@
+import type { SettingsStore as GenericSettingsStore } from "@pziel/pureui";
+
 import {
   SHORTCUT_ACTIONS,
   type ShortcutOverrides,
@@ -65,10 +67,7 @@ export type Settings = {
   theme: ThemeSettings;
 };
 
-export type SettingsStore = {
-  load: () => Promise<Settings>;
-  save: (settings: Settings) => Promise<void>;
-};
+export type SettingsStore = GenericSettingsStore<Settings>;
 
 const THEME_MODES: ThemeMode[] = ["light", "dark", "system"];
 
