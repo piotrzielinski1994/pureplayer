@@ -1,15 +1,24 @@
-import { Button, useActionHotkeys, useUpdater } from "@pziel/pureui";
+import {
+  Button,
+  UpdatesSection,
+  useActionHotkeys,
+  useUpdater,
+} from "@pziel/pureui";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { PlaybackSection } from "@/components/settings/playback-section";
 import { ShortcutsSection } from "@/components/settings/shortcuts-section";
 import { ThemeSection } from "@/components/settings/theme-section";
-import { UpdatesSection } from "@/components/settings/updates-section";
+import { useToast } from "@/components/ui/toast";
 import { useEffectiveShortcuts } from "@/lib/shortcuts/use-effective-shortcuts";
+import { createPlayerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 import { rootRoute } from "@/routes/__root";
 
 function SettingsPage() {
   const navigate = useNavigate();
   const { controller, getVersion } = useUpdater();
+  const { show } = useToast();
+  const [sink] = useState(() => createPlayerUpdateToastSink(show));
 
   useActionHotkeys(
     {
@@ -31,7 +40,12 @@ function SettingsPage() {
         <PlaybackSection />
         <ThemeSection />
         <ShortcutsSection />
-        <UpdatesSection controller={controller} getVersion={getVersion} />
+        <UpdatesSection
+          controller={controller}
+          getVersion={getVersion}
+          sink={sink}
+          notify={{ info: show, error: show }}
+        />
       </div>
     </div>
   );
