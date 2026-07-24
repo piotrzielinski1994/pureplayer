@@ -2,6 +2,7 @@ import {
   createAppVersionGetter,
   createNoopUpdateController,
   createUpdateController,
+  installBrowserDefaultGuards,
   UpdateChecker,
   UpdaterProvider,
 } from "@pziel/pureui";
@@ -13,7 +14,6 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { type ReactNode, useEffect, useState } from "react";
 import { ToastProvider, useToast } from "@/components/ui/toast";
-import { installBrowserDefaultGuards } from "@/lib/browser-defaults";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createTauriSettingsStore } from "@/lib/settings/tauri-store";
 import { ThemeProvider } from "@/lib/theme/theme-context";
