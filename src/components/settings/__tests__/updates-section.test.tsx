@@ -1,13 +1,22 @@
-import type { UpdateController, UpdateInfo } from "@pziel/pureui";
+import {
+  type UpdateController,
+  type UpdateInfo,
+  UpdatesSection,
+} from "@pziel/pureui";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { UpdatesSection } from "@/components/settings/updates-section";
-import { ToastProvider } from "@/components/ui/toast";
+import { ToastProvider, useToast } from "@/components/ui/toast";
+import { createPlayerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 
-// UpdatesSection takes the controller + version source as props (built per-env in
-// providers), with toast from the surrounding ToastProvider. The observable
-// behaviour asserted is the contract.
+// R18 consume-integration: pureplayer no longer owns UpdatesSection - it renders
+// the hoisted pureui section wired with its REAL toast seam (the untouched
+// createPlayerUpdateToastSink over the ToastProvider's `show`, and both one-shot
+// messages routed through `show`). pureplayer renders toasts to the DOM, so the
+// observable contract is asserted on rendered text, proving its styling is
+// preserved end-to-end.
 
 function fakeUpdateInfo(overrides: Partial<UpdateInfo> = {}): UpdateInfo {
   return {
@@ -18,19 +27,40 @@ function fakeUpdateInfo(overrides: Partial<UpdateInfo> = {}): UpdateInfo {
   };
 }
 
+function Harness({
+  controller,
+  getVersion,
+}: {
+  controller: UpdateController;
+  getVersion: () => Promise<string>;
+}) {
+  const { show } = useToast();
+  const [sink] = useState(() => createPlayerUpdateToastSink(show));
+  return (
+    <UpdatesSection
+      controller={controller}
+      getVersion={getVersion}
+      sink={sink}
+      notify={{ info: show, error: show }}
+    />
+  );
+}
+
+function withToasts(node: ReactNode) {
+  return <ToastProvider>{node}</ToastProvider>;
+}
+
 function renderSection(
   controller: UpdateController,
   getVersion: () => Promise<string> = () => Promise.resolve("0.1.0"),
 ) {
   return render(
-    <ToastProvider>
-      <UpdatesSection controller={controller} getVersion={getVersion} />
-    </ToastProvider>,
+    withToasts(<Harness controller={controller} getVersion={getVersion} />),
   );
 }
 
-describe("UpdatesSection", () => {
-  // TC-011 behavior: renders the current version string from the injected source
+describe("UpdatesSection (pureplayer consume)", () => {
+  // TC-010 behavior: renders the current version string from the injected source
   it("should render the current version from the injected version source", async () => {
     renderSection({ check: () => Promise.resolve(null) }, () =>
       Promise.resolve("1.2.3"),
@@ -39,7 +69,7 @@ describe("UpdatesSection", () => {
     expect(await screen.findByText(/1\.2\.3/)).toBeInTheDocument();
   });
 
-  // TC-007 behavior: check reports no update -> "latest" toast + button idle again
+  // TC-010 behavior: check reports no update -> "latest" toast via `show` + button idle
   it("should show an up-to-date toast and re-enable the button if no update is found", async () => {
     const user = userEvent.setup();
     renderSection({ check: () => Promise.resolve(null) });
@@ -59,7 +89,7 @@ describe("UpdatesSection", () => {
     });
   });
 
-  // TC-008 behavior: update found -> update toast (version + Update now)
+  // TC-010 behavior: update found -> update toast (version + Update now) via the sink
   it("should show the update toast if an update is found", async () => {
     const user = userEvent.setup();
     renderSection({
@@ -76,7 +106,7 @@ describe("UpdatesSection", () => {
     ).toBeInTheDocument();
   });
 
-  // TC-009 behavior: check rejects -> "check failed" toast + button not stuck
+  // TC-010 behavior: check rejects -> "check failed" toast via `show` + button not stuck
   it("should show a check-failed toast and re-enable the button if the check rejects", async () => {
     const user = userEvent.setup();
     renderSection({
