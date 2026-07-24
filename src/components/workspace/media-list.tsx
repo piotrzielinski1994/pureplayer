@@ -1,5 +1,4 @@
-import { cn } from "@pziel/pureui";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn, ScrollArea } from "@pziel/pureui";
 import { FORMAT_COLOR } from "@/components/workspace/format-color";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 
