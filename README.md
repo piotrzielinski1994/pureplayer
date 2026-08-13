@@ -26,8 +26,8 @@ scripts/fetch-ffmpeg.sh   # download the bundled ffmpeg/ffprobe sidecars (requir
 
 `scripts/fetch-ffmpeg.sh` downloads statically-linked `ffmpeg`+`ffprobe` for all
 supported targets (macOS arm64/x64, Windows x64, Linux x64) into `src-tauri/binaries/`
-(gitignored, SHA-256 pinned). `cargo` fails to build without the binary for your host triple
-present. macOS binaries are GPLv3, Windows and Linux are LGPLv3 - see [docs/adr.md](docs/adr.md).
+(gitignored, SHA-256 pinned). `cargo` fails to build without the binary for your host
+triple present. macOS binaries are GPLv3, Windows and Linux are LGPLv3 - see [docs/adr.md](docs/adr.md).
 
 ## Commands
 
@@ -45,6 +45,28 @@ present. macOS binaries are GPLv3, Windows and Linux are LGPLv3 - see [docs/adr.
 | `npm run test:watch` | Vitest in watch mode. |
 
 Rust backend tests: `cd src-tauri && cargo test`.
+
+## Features
+
+- **Playlist** - flat sidebar of the open files; `Open files` (`Mod+O`) replaces it, drag & drop
+  appends (folders recursed, deduped, sorted). Audio files are first-class playlist items.
+- **Universal playback** - every file is probed (ffprobe) and a playback strategy is chosen so the
+  picture is instant and seeking is native: native-codec files play directly, others are stream-copied
+  into a finished MP4, play with a background audio re-encode, or fall back to play-while-encode HLS.
+  `ffmpeg`/`ffprobe` are bundled as Tauri sidecars - the app is standalone.
+- **Transport** - prev/play-pause/next, seekable progress bar (click or drag), arrows seek ±5s
+  (Shift ±1s), `Up`/`Down`/`M` volume + mute, `[`/`]` speed 0.5x-2x, auto-advance with repeat (`R`)
+  and shuffle (`S`).
+- **Viewport** - single-click play/pause, double-click / F11 / green button fullscreen, rotate
+  (`Mod+Shift+R`), fit modes (`F`), zoom (`=`/`-`), reset (`Mod+0`). Transforms are session-sticky.
+- **Command palette** (`Mod+K`) - every runnable action, each with its own global hotkey.
+- **Mini player** (`Mod+Shift+M`) - hide the viewport and shrink the window to just the playlist +
+  transport bar.
+- **Settings** (`Mod+,`) - rebind any hotkey (conflicts rejected), playback/UI defaults, theme
+  (light/dark/system + per-token color customization), reveal-transport-on-hover toggle.
+- **Auto-update** - see below.
+
+Not yet: subtitles, playlist persistence.
 
 ## Releasing installers
 
@@ -68,107 +90,17 @@ public key is baked into `src-tauri/tauri.conf.json`). **Caveat:** a build can o
 releases published *after* it - the first updater-enabled release is still a manual download, and
 the pre-updater v0.1.0 cannot retro-update.
 
-> The home route renders the **player workspace shell**: a resizable layout with a flat
-> playlist sidebar (the open video files, one row each, with a sort toggle in the header),
-> a video viewport, and a transport bar (prev / play-pause / next + a live time readout, with
-> a seekable progress bar across the bar's top edge - click or drag to scrub). It boots with an empty playlist:
-> `Open files` (`Mod+O`, or the command palette) opens the native picker (filtered to video
-> `mp4/mkv/mov/webm/avi` and audio `mp3/m4a/aac/flac/wav/ogg/opus/wma`) and **replaces** the
-> playlist with the chosen files, auto-playing the
-> first. **Drag & drop:** dropping media files (or folders, recursed) from Finder/Explorer onto
-> the window **appends** them to the playlist - a Rust `expand_dropped_paths` command walks the
-> dropped paths, recurses folders, keeps only known video extensions, dedupes and sorts; a
-> full-window overlay shows while a drag hovers. Dropping onto an empty list activates+plays the
-> first imported video (drop never disturbs an already-playing video). The viewport renders a real `<video>`; play/pause, prev/next, and clicking a row all
-> drive playback. Spacebar toggles play/pause. **Audio files** are first-class playlist items:
-> they queue, seek, shuffle, and drive the transport exactly like a video, just with a black
-> viewport (no picture, since there is no video track) - no audio-specific UI. **Universal playback:**
-> every opened file is probed
-> by a Rust `prepare_media` command (ffprobe reads container + codecs); H.264/AAC already in an
-> MP4/MOV plays directly via the asset protocol. An audio-only file plays untouched when its codec is
-> webview-native (mp3/aac/flac/wav) or is remuxed to a complete AAC-in-MP4 otherwise (opus/vorbis/wma);
-> embedded cover-art streams are ignored so they aren't mistaken for video. For anything else the strategy is chosen so the
-> picture is instant **and** seeking is native (the `<video>` gets a complete file on disk, not a
-> growing stream): when the video is H.264 it's stream-copied (`-c:v copy`) into a finished MP4 in
-> ~0.3s. If the audio is also fine (or absent) that single remux is the whole job. If only the
-> audio is unplayable (e.g. Opus), the silent video shows instantly while the audio re-encodes in
-> the background (ALAC on macOS - lossless, so it muxes back at a perfect 0ms A/V offset) and swaps
-> in via a `media://audio-ready` event, preserving position + play state. Only a file whose **video**
-> itself can't be decoded (VP9/AV1/HEVC) falls back to play-while-encode HLS: ffmpeg writes a
-> progressive playlist + segments into a temp dir, a tiny loopback HTTP server (127.0.0.1) serves
-> them, and the webview's native HLS player starts on the first segment (~0.1s) while the encoder
-> races ahead. There is no persistent cache: temp files are cleaned up when the file changes or the
-> app exits. Single-clicking the viewport toggles
-> play/pause; double-clicking it (or the green button /
-> F11) enters fullscreen, which hides the chrome (sidebar, transport, overlay) and restores the
-> pre-fullscreen visibility on exit. **ffmpeg/ffprobe are bundled** as Tauri sidecars
-> (fetched by `scripts/fetch-ffmpeg.sh`) - the app is standalone, no system PATH install needed
-> (see [docs/features/20260620173011-bundle-ffmpeg-sidecar](docs/features/20260620173011-bundle-ffmpeg-sidecar/)).
-> The sort control toggles ascending/descending with natural numeric ordering (a
-> numeric filename prefix sorts by value, so `3` precedes `21`). All UI + playback state (selection,
-> active video, play/pause, live current/duration, sort direction, fullscreen) is shared via a
-> `WorkspaceProvider` context (no prop drilling). The `greet` Tauri command stays wired as the IPC proof for later use. A `Mod+K` command
-> palette (cmdk) lists the workspace actions (open files, play/pause, next, prev, relative seek,
-> volume up/down, mute, speed up/down, toggle shuffle, cycle repeat, toggle sort, toggle sidebar,
-> toggle transport bar, toggle mini player, toggle fullscreen, toggle reveal-on-hover, rotate, cycle fit mode, zoom
-> in/out, reset viewport, open settings) - every runnable
-> action is in the palette, and entries carry search keywords (e.g. "bottom bar" finds the transport
-> toggle); each action also has its own global hotkey (fullscreen `Mod+Shift+F`, reveal toggle `Mod+Shift+H`). **Extended transport:** arrows seek the active video
-> (Left/Right ±5s, Shift+Left/Right ±1s), Up/Down adjust volume (±5%) and `M` mutes (mute button +
-> volume slider in the transport bar), `[`/`]` step playback speed by 0.1x within 0.5x-2x (a rate
-> readout shows in the bar only when off 1x). **Queue playback:** when a video ends it auto-advances
-> to the next; a repeat control (`R`, off -> all -> one) loops the list or replays one, and a shuffle
-> toggle (`S`) plays a stable shuffled order that drives both auto-advance and next/prev. With repeat
-> off, the last video's end stops playback (no wrap); repeat-all wraps. Both are buttons in the
-> transport bar. **Viewport transforms:** `Mod+Shift+R` rotates the video 90° (cycles back to 0),
-`F` cycles how it fits its frame (contain -> cover -> fill), `=`/`-` zoom in/out by 0.1x within
-1x-4x (centered), and `Mod+0` resets all three; a transform readout shows in the bar only when
-off-default. They are session-sticky (persist across video switches, reset on app restart).
-**Mini player:** `Mod+Shift+M` (or the palette) hides the content viewport and shrinks the window to
-just the sidebar and transport bar - the playlist sidebar reflows into a "top bar" above the transport
-bar (drive a music playlist from a compact window). Toggle the sidebar too (`Mod+B`) for a bar-only
-mini: with content hidden the window auto-resizes between the sidebar+bar and bar-only sizes. The
-`<video>` stays mounted the whole time so playback is uninterrupted; showing content again restores
-the previous window size. Sidebar / content / transport-bar are three independent toggles; the mini
-window sizing is session-only, like fullscreen (not persisted).
-**User settings:** a `/settings` screen (`Mod+,`, or the palette; `Escape`/Back
-> returns) lists every action with its binding and lets you **rebind any hotkey** by recording a
-> new combination (conflicts are rejected and named, Reset reverts to default). Settings persist to
-> disk via `tauri-plugin-store` and restore on next launch: the remapped hotkeys plus playback
-> defaults (volume, mute, speed), UI defaults (sidebar/transport visibility, sort direction), and
-> the resizable sidebar/content split sizes. A **reveal-transport-on-hover** toggle (on by default)
-> shows a hidden transport bar as a bottom-edge overlay while the mouse moves over the video; it
-> auto-hides after ~3s of no movement (but stays put while the cursor is on the bar) and reappears
-> on the next move. The playlist and queue modes still reset on reload. A **Theme** section picks the
-> appearance mode - **light / dark / system** (system follows the OS `prefers-color-scheme` live) -
-> and lets you **customize any of the 18 app-color tokens per mode** in a CodeMirror JSON editor
-> (seeded with the full color set; edit an `oklch(...)` value to override, set it back to the default
-> to clear it; malformed JSON disables Save). The mode persists in `settings.json`; the custom colors
-> live in a separate **`theme.json`** (only tokens differing from the built-in default are stored).
-> **Logging:** each launch writes a fresh `pureplayer-<YYYYMMDDHHMMSS>.log` to the OS app-log dir
-> (macOS `~/Library/Logs/com.pzielinski.pureplayer/`); `prepare_media` records each file's container,
-> codecs, chosen plan, cache HIT/MISS and elapsed ms there (see
-> [docs/features/20260621115143-file-logging](docs/features/20260621115143-file-logging/)).
-> Not yet: subtitles, playlist persistence.
-
 ## Repo layout
 
 ```
-index.html              Vite entry HTML
-src/
-  main.tsx              React entry: providers + RouterProvider
-  router.tsx            Code-based TanStack Router assembly
-  app/providers.tsx     QueryClientProvider + HotkeysProvider
-  routes/               __root (layout + 404), index (player workspace + settings-persistence bridge), settings (hotkeys + theme + playback + updates screen)
-  components/
-    workspace/          player shell: context, flat media-list, sort-natural, viewport (real video, black for audio), transport bar, media-from-paths, command palette, drop-overlay (drag-drop import)
-    settings/           settings screen: shortcuts-section + shortcut-row (capture-keystroke rebind), playback-section (reveal-transport-on-hover toggle), theme-section (mode selector + CodeMirror JSON color editor)
-    ui/                 shadcn primitives (button, badge, scroll-area, resizable, command, dialog, switch) + code-editor (CodeMirror wrapper)
-  lib/                  tauri.ts (typed invoke wrappers), utils.ts (cn), shortcuts/ (action registry + resolve overrides + global hotkeys), settings/ (Settings ADT + merge, tauri-plugin-store persistence split across settings.json + theme.json, SettingsProvider), theme/ (mode resolve + ThemeProvider + inline-var apply + sparse override diff + built-in editor scheme)
-  index.css             Tailwind v4 + theme tokens
-  test/setup.ts         Vitest + Testing Library setup
-src-tauri/              Rust desktop shell: greet, media.rs (ffprobe/ffmpeg prepare_media via bundled sidecars - plays audio-only files, HLS-streams unplayable video, ignores cover-art streams, logs plan/timing), hls_server.rs (loopback HTTP server serving the HLS temp dir to the webview's native player), import.rs (expand_dropped_paths - folder-walk + video/audio ext filter for drag-drop), focus.rs (WKWebView first-responder fix), logging.rs (per-launch log filename), binaries/ (gitignored ffmpeg sidecars), tauri.conf.json
+src/                    React app: main entry, router, routes, components, lib
+src-tauri/              Rust desktop shell: media.rs (ffprobe/ffmpeg prepare_media via bundled
+                        sidecars), hls_server.rs (loopback HTTP server), import.rs (drag-drop),
+                        focus.rs, logging.rs (per-launch log file), binaries/ (gitignored sidecars)
 scripts/                fetch-ffmpeg.sh (download bundled ffmpeg/ffprobe sidecars)
 tests/e2e/              Behavior smoke tests
 docs/                   spec/plan per feature, ADR, learnings
 ```
+
+Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
+`~/Library/Logs/com.pzielinski.pureplayer/`).
