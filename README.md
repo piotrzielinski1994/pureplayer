@@ -33,18 +33,11 @@ triple present. macOS binaries are GPLv3, Windows and Linux are LGPLv3 - see [do
 
 | Command | Description |
 | --- | --- |
-| `npm start` | Launch the desktop app (`tauri dev`) - native window + Vite dev server. |
-| `npm run dev` | Frontend-only Vite dev server (browser, no native shell). |
-| `npm run build` | Typecheck + production frontend build (`dist/`). |
-| `npm run tauri build` | Produce a native desktop bundle. |
-| `npm run lint` | Biome check (lint + format + import sort). |
-| `npm run lint:fix` | Biome check with safe autofixes applied. |
-| `npm run typecheck` | `tsc --noEmit`. |
-| `npm run format` | Biome format write. |
-| `npm test` | Frontend behavior tests (Vitest, run once). |
-| `npm run test:watch` | Vitest in watch mode. |
+| `npm start` | Run the app in development (`tauri dev`). |
+| `npm run tauri build` | Build the distributable desktop bundle. |
 
-Rust backend tests: `cd src-tauri && cargo test`.
+Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
+`~/Library/Logs/com.pzielinski.pureplayer/`).
 
 ## Features
 
@@ -89,18 +82,3 @@ repo secrets: `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWOR
 public key is baked into `src-tauri/tauri.conf.json`). **Caveat:** a build can only auto-update to
 releases published *after* it - the first updater-enabled release is still a manual download, and
 the pre-updater v0.1.0 cannot retro-update.
-
-## Repo layout
-
-```
-src/                    React app: main entry, router, routes, components, lib
-src-tauri/              Rust desktop shell: media.rs (ffprobe/ffmpeg prepare_media via bundled
-                        sidecars), hls_server.rs (loopback HTTP server), import.rs (drag-drop),
-                        focus.rs, logging.rs (per-launch log file), binaries/ (gitignored sidecars)
-scripts/                fetch-ffmpeg.sh (download bundled ffmpeg/ffprobe sidecars)
-tests/e2e/              Behavior smoke tests
-docs/                   spec/plan per feature, ADR, learnings
-```
-
-Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
-`~/Library/Logs/com.pzielinski.pureplayer/`).
