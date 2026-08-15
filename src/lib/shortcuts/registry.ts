@@ -22,6 +22,7 @@ export type ShortcutActionId =
   | "toggle-sort-direction"
   | "toggle-sidebar"
   | "toggle-transport"
+  | "toggle-logs"
   | "toggle-mini-player"
   | "toggle-fullscreen"
   | "toggle-reveal-transport"
@@ -183,6 +184,13 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     description: "Show or hide the transport bar.",
     defaultHotkey: "Mod+J",
     keywords: ["bottom bar", "controls", "playback bar"],
+  },
+  {
+    id: "toggle-logs",
+    name: "Toggle logs panel",
+    description: "Show or hide the application logs panel.",
+    defaultHotkey: "Mod+Shift+J",
+    keywords: ["log", "logs", "application log", "console", "debug", "panel"],
   },
   {
     id: "toggle-mini-player",

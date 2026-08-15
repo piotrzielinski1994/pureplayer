@@ -282,4 +282,34 @@ describe("Workspace command palette integration", () => {
       screen.getByRole("option", { name: /toggle transport bar/i }),
     ).toBeInTheDocument();
   });
+
+  // side-effect-contract: Mod+Shift+J toggles the Logs panel without opening the palette (AC-007)
+  it("should show the Logs panel if the toggle-logs hotkey is pressed without the palette open", async () => {
+    const user = userEvent.setup();
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
+
+    expect(screen.queryByRole("region", { name: "Logs" })).toBeNull();
+
+    await user.keyboard("{Control>}{Shift>}j{/Shift}{/Control}");
+
+    expect(searchInput()).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("region", { name: "Logs" })).toBeInTheDocument(),
+    );
+  });
+
+  // side-effect-contract: selecting "Toggle logs panel" shows the Logs panel and closes the palette (AC-007)
+  it("should show the Logs panel and close the palette if 'Toggle logs panel' is selected", async () => {
+    const user = userEvent.setup();
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-1" });
+
+    await user.keyboard("{Control>}k{/Control}");
+    await waitFor(() => expect(searchInput()).toBeInTheDocument());
+    await user.click(
+      screen.getByRole("option", { name: /toggle logs panel/i }),
+    );
+
+    await waitFor(() => expect(searchInput()).not.toBeInTheDocument());
+    expect(screen.getByRole("region", { name: "Logs" })).toBeInTheDocument();
+  });
 });

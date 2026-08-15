@@ -45,6 +45,7 @@ export function Workspace() {
     toggleContent,
     isContentVisible,
     toggleTransport,
+    toggleLogs,
     setFullscreen,
     rotateClockwise,
     cycleFitMode,
@@ -128,6 +129,7 @@ export function Workspace() {
       }
     },
     "toggle-transport": toggleTransport,
+    "toggle-logs": toggleLogs,
     "toggle-mini-player": () => {
       toggleContent();
       void setMiniWindow({

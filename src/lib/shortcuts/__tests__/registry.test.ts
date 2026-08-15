@@ -91,6 +91,27 @@ describe("shortcut registry", () => {
     ).toBe(false);
   });
 
+  // behavior: the Logs panel toggle is registered on Mod+Shift+J (Mod+J stays
+  // toggle-transport's default - no binding collision) (AC-007)
+  it("should register 'toggle-logs' on Mod+Shift+J while 'toggle-transport' owns Mod+J", () => {
+    const logs = SHORTCUT_ACTIONS.find((action) => action.id === "toggle-logs");
+
+    expect(logs).toBeDefined();
+    expect(logs?.defaultHotkey).toBe("Mod+Shift+J");
+    expect(logs?.name.trim().length).toBeGreaterThan(0);
+
+    const transport = SHORTCUT_ACTIONS.find(
+      (action) => action.id === "toggle-transport",
+    );
+    expect(transport?.defaultHotkey).toBe("Mod+J");
+
+    expect(
+      SHORTCUT_ACTIONS.filter(
+        (action) => action.defaultHotkey === "Mod+Shift+J",
+      ),
+    ).toHaveLength(1);
+  });
+
   // behavior: action ids must be unique so each maps to exactly one handler/binding (AC-003)
   it("should expose a unique id for every registered action if enumerated", () => {
     const ids = SHORTCUT_ACTIONS.map((action) => action.id);
