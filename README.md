@@ -55,6 +55,9 @@ Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
 - **Command palette** (`Mod+K`) - every runnable action, each with its own global hotkey.
 - **Mini player** (`Mod+Shift+M`) - hide the viewport and shrink the window to just the playlist +
   transport bar.
+- **Logs panel** (`Mod+Shift+J`) - bottom-docked view of the app logs as they stream in: key=value
+  runs are searchable with field filters like `level:error path:/tmp/x.mkv`; Clear in its header.
+  Hidden by default, hidden on fullscreen, hidden in mini player.
 - **Settings** (`Mod+,`) - rebind any hotkey (conflicts rejected), playback/UI defaults, theme
   (light/dark/system + per-token color customization), reveal-transport-on-hover toggle.
 - **Auto-update** - see below.
