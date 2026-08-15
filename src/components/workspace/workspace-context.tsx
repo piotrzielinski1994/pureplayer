@@ -29,6 +29,8 @@ import {
   nextRotation,
   type ViewportTransform,
 } from "@/components/workspace/viewport-transform";
+import { type LogLine, parseLogLine } from "@/lib/logging/log-line";
+import { createNoopLogStream, type LogStream } from "@/lib/logging/log-stream";
 
 type SortDirection = "asc" | "desc";
 
@@ -87,9 +89,18 @@ type WorkspaceContextValue = {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
+type LogLinesContextValue = {
+  logLines: LogLine[];
+  appendLogLine: (raw: string, level?: number) => void;
+  clearLogLines: () => void;
+};
+
+const LogLinesContext = createContext<LogLinesContextValue | null>(null);
+
 type WorkspaceProviderProps = {
   children: ReactNode;
   media?: MediaNode[];
+  logStream?: LogStream;
   initialActiveMediaId?: string;
   initialSortKeys?: SortField[];
   initialSortDirection?: SortDirection;
@@ -111,6 +122,7 @@ type WorkspaceProviderProps = {
 export function WorkspaceProvider({
   children,
   media = [],
+  logStream,
   initialActiveMediaId,
   initialSortKeys = [],
   initialSortDirection = "asc",
@@ -160,6 +172,7 @@ export function WorkspaceProvider({
   const [isTransportVisible, setIsTransportVisible] = useState(
     !initialTransportHidden,
   );
+  const [logLines, setLogLines] = useState<LogLine[]>([]);
   const wasFullscreen = useRef(false);
   const initialChrome = {
     sidebar: !initialSidebarHidden,
@@ -237,6 +250,15 @@ export function WorkspaceProvider({
     setIsSidebarVisible(preFullscreenChrome.current.sidebar);
     setIsTransportVisible(preFullscreenChrome.current.transport);
   }, []);
+
+  // Stable identity so the stream-subscribe effect below subscribes once per stream. Lines parse
+  // via parseLogLine (numeric plugin level first, [LEVEL] token fallback, never throws).
+  const appendLogLine = useCallback(
+    (raw: string, level?: number) =>
+      setLogLines((current) => [...current, parseLogLine(raw, level)]),
+    [],
+  );
+  const clearLogLines = useCallback(() => setLogLines([]), []);
 
   const playlist = useMemo(
     () => sortMedia(sourceMedia, sortKeys, sortDirection),
@@ -513,9 +535,38 @@ export function WorkspaceProvider({
     onSortDirectionChange,
   ]);
 
+  const logLinesValue = useMemo<LogLinesContextValue>(
+    () => ({ logLines, appendLogLine, clearLogLines }),
+    [logLines, appendLogLine, clearLogLines],
+  );
+
+  // Subscribe the injected log stream to appendLogLine once on mount (appendLogLine has stable
+  // identity). The subscribe resolves async, so an unsubscribe that lands after unmount is called
+  // immediately via the disposed flag. Defaults to the noop stream (browser/test).
+  useEffect(() => {
+    const stream = logStream ?? createNoopLogStream();
+    let disposed = false;
+    let unsubscribe: (() => void) | null = null;
+    stream.subscribe(appendLogLine).then((fn) => {
+      if (disposed) {
+        fn();
+        return;
+      }
+      unsubscribe = fn;
+    });
+    return () => {
+      disposed = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [logStream, appendLogLine]);
+
   return (
     <WorkspaceContext.Provider value={value}>
-      {children}
+      <LogLinesContext.Provider value={logLinesValue}>
+        {children}
+      </LogLinesContext.Provider>
     </WorkspaceContext.Provider>
   );
 }
@@ -526,4 +577,16 @@ export function useWorkspace(): WorkspaceContextValue {
     throw new Error("useWorkspace must be used within a WorkspaceProvider");
   }
   return value;
+}
+
+// Optional (like the other isolated hooks) so a component rendered outside the provider still
+// works; the application log stream is only meaningful inside the workspace.
+export function useLogLines(): LogLinesContextValue {
+  return (
+    useContext(LogLinesContext) ?? {
+      logLines: [],
+      appendLogLine: () => {},
+      clearLogLines: () => {},
+    }
+  );
 }
