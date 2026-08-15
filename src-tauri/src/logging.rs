@@ -47,6 +47,7 @@ pub fn init<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
             Target::new(TargetKind::LogDir {
                 file_name: Some(log_name.clone()),
             }),
+            Target::new(TargetKind::Webview),
         ])
         .level(log::LevelFilter::Info)
         .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
