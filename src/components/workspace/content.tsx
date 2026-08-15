@@ -1,4 +1,10 @@
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@pziel/pureui";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LogsPanel } from "@/components/workspace/logs-panel";
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -7,7 +13,7 @@ import { useSettings } from "@/lib/settings/settings-context";
 const IDLE_HIDE_MS = 3000;
 
 export function Content() {
-  const { isTransportVisible } = useWorkspace();
+  const { isTransportVisible, isLogsVisible } = useWorkspace();
   const { settings } = useSettings();
   const [isPeeking, setIsPeeking] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,25 +69,37 @@ export function Content() {
 
   return (
     <div className="flex h-full flex-col">
-      <div
-        className="relative flex-1 overflow-hidden"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-      >
-        <Viewport />
-        {isRevealed && (
+      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+        <ResizablePanel id="viewport" defaultSize="75%">
           <div
-            data-testid="transport-overlay"
-            // Pointer resting ON the bar must keep it open: freeze the idle timer
-            // while hovered, restart the countdown when the cursor returns to video.
-            onMouseEnter={handleBarEnter}
-            onMouseLeave={handleBarLeave}
-            className="absolute inset-x-0 bottom-0 bg-background/80 backdrop-blur-sm"
+            className="relative h-full overflow-hidden"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
           >
-            <TransportBar />
+            <Viewport />
+            {isRevealed && (
+              <div
+                data-testid="transport-overlay"
+                // Pointer resting ON the bar must keep it open: freeze the idle timer
+                // while hovered, restart the countdown when the cursor returns to video.
+                onMouseEnter={handleBarEnter}
+                onMouseLeave={handleBarLeave}
+                className="absolute inset-x-0 bottom-0 bg-background/80 backdrop-blur-sm"
+              >
+                <TransportBar />
+              </div>
+            )}
           </div>
+        </ResizablePanel>
+        {isLogsVisible && (
+          <>
+            <ResizableHandle />
+            <ResizablePanel id="logs" defaultSize="25%" minSize="10%">
+              <LogsPanel />
+            </ResizablePanel>
+          </>
         )}
-      </div>
+      </ResizablePanelGroup>
       {isTransportVisible && <TransportBar />}
     </div>
   );

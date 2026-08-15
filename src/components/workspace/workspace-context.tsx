@@ -58,6 +58,7 @@ type WorkspaceContextValue = {
   isSidebarVisible: boolean;
   isContentVisible: boolean;
   isTransportVisible: boolean;
+  isLogsVisible: boolean;
   selectNode: (id: string) => void;
   loadMedia: (media: MediaNode[]) => void;
   addMedia: (media: MediaNode[]) => void;
@@ -85,6 +86,7 @@ type WorkspaceContextValue = {
   toggleSidebar: () => void;
   toggleContent: () => void;
   toggleTransport: () => void;
+  toggleLogs: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -172,11 +174,13 @@ export function WorkspaceProvider({
   const [isTransportVisible, setIsTransportVisible] = useState(
     !initialTransportHidden,
   );
+  const [isLogsVisible, setIsLogsVisible] = useState(false);
   const [logLines, setLogLines] = useState<LogLine[]>([]);
   const wasFullscreen = useRef(false);
   const initialChrome = {
     sidebar: !initialSidebarHidden,
     transport: !initialTransportHidden,
+    logs: false,
   };
   const chromeRef = useRef(initialChrome);
   const preFullscreenChrome = useRef(initialChrome);
@@ -227,8 +231,9 @@ export function WorkspaceProvider({
     chromeRef.current = {
       sidebar: isSidebarVisible,
       transport: isTransportVisible,
+      logs: isLogsVisible,
     };
-  }, [isSidebarVisible, isTransportVisible]);
+  }, [isSidebarVisible, isTransportVisible, isLogsVisible]);
 
   // Stable identity (the Workspace subscribes with this in a dep array, so it
   // must not change every render). On a real fullscreen TRANSITION it hides
@@ -245,10 +250,12 @@ export function WorkspaceProvider({
       preFullscreenChrome.current = chromeRef.current;
       setIsSidebarVisible(false);
       setIsTransportVisible(false);
+      setIsLogsVisible(false);
       return;
     }
     setIsSidebarVisible(preFullscreenChrome.current.sidebar);
     setIsTransportVisible(preFullscreenChrome.current.transport);
+    setIsLogsVisible(preFullscreenChrome.current.logs);
   }, []);
 
   // Stable identity so the stream-subscribe effect below subscribes once per stream. Lines parse
@@ -259,6 +266,10 @@ export function WorkspaceProvider({
     [],
   );
   const clearLogLines = useCallback(() => setLogLines([]), []);
+  const toggleLogs = useCallback(
+    () => setIsLogsVisible((visible) => !visible),
+    [],
+  );
 
   const playlist = useMemo(
     () => sortMedia(sourceMedia, sortKeys, sortDirection),
@@ -317,6 +328,7 @@ export function WorkspaceProvider({
       isSidebarVisible,
       isContentVisible,
       isTransportVisible,
+      isLogsVisible,
       selectNode: (id) => activate(id),
       loadMedia: (next) => {
         setSourceMedia(next);
@@ -501,6 +513,7 @@ export function WorkspaceProvider({
         setIsTransportVisible(next);
         onTransportHiddenChange?.(!next);
       },
+      toggleLogs,
     };
   }, [
     playlist,
@@ -527,6 +540,8 @@ export function WorkspaceProvider({
     isSidebarVisible,
     isContentVisible,
     isTransportVisible,
+    isLogsVisible,
+    toggleLogs,
     onVolumeChange,
     onMutedChange,
     onPlaybackRateChange,

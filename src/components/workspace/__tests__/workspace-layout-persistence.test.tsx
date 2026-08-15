@@ -13,7 +13,9 @@ import { SettingsProvider } from "@/lib/settings/settings-context";
 // Capture the props react-resizable-panels' Group receives so the test can read
 // the wired defaultLayout and fire onLayoutChanged without a real pointer drag
 // (jsdom has no layout engine). Only the Group is stubbed; the SUT is the
-// WorkspaceLayout wiring + SettingsProvider persistence.
+// WorkspaceLayout wiring + SettingsProvider persistence. Content now renders a
+// SECOND (vertical) ResizablePanelGroup for the Logs panel - the persisted,
+// horizontal layout group is uniquely the one carrying a defaultLayout prop.
 let groupProps: {
   defaultLayout?: Record<string, number>;
   onLayoutChanged?: (layout: Record<string, number>) => void;
@@ -22,8 +24,15 @@ let groupProps: {
 vi.mock("@pziel/pureui", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@pziel/pureui")>()),
   ResizablePanelGroup: (props: Record<string, unknown>) => {
-    groupProps = props as typeof groupProps;
-    return <div data-testid="group">{props.children as React.ReactNode}</div>;
+    if (props.defaultLayout !== undefined) {
+      groupProps = props as typeof groupProps;
+      return <div data-testid="group">{props.children as React.ReactNode}</div>;
+    }
+    return (
+      <div data-testid="group-vertical">
+        {props.children as React.ReactNode}
+      </div>
+    );
   },
   ResizablePanel: (props: { children?: React.ReactNode }) => (
     <div>{props.children}</div>
