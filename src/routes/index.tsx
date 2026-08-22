@@ -7,6 +7,8 @@ import {
   createNoopLogStream,
   createTauriLogStream,
 } from "@/lib/logging/log-stream";
+import { demoMedia } from "@/lib/playlist/demo-seed";
+import { isDevBrowser } from "@/lib/runtime/environment";
 import { useSettings } from "@/lib/settings/settings-context";
 import { rootRoute } from "@/routes/__root";
 
@@ -30,6 +32,7 @@ function HomePage() {
 
   return (
     <WorkspaceProvider
+      media={isDevBrowser() ? demoMedia() : undefined}
       logStream={logStream}
       initialSortKeys={["title"]}
       initialSortDirection={settings.sortDirection}
