@@ -29,3 +29,7 @@ CLAUDE.local.md
 
 # Bundled ffmpeg sidecars (fetched via scripts/fetch-ffmpeg.sh, not committed)
 src-tauri/binaries/
+
+# Playwright
+test-results
+playwright-report
