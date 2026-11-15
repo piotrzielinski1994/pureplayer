@@ -1,6 +1,6 @@
 [package]
 name = "pureplayer"
-version = "0.1.0"
+version = "0.2.0"
 description = "pureplayer - a minimal, keyboard-driven desktop video player"
 authors = ["Piotr Zieliński"]
 edition = "2021"

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "pureplayer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.pzielinski.pureplayer",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -40,6 +40,141 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "externalBin": ["binaries/ffmpeg", "binaries/ffprobe"],
+    "fileAssociations": [
+      {
+        "ext": ["mp4", "m4v"],
+        "name": "Video file",
+        "description": "Video file",
+        "role": "Viewer",
+        "mimeType": "video/mp4"
+      },
+      {
+        "ext": ["mkv"],
+        "name": "Matroska video",
+        "description": "Matroska video",
+        "role": "Viewer",
+        "mimeType": "video/x-matroska"
+      },
+      {
+        "ext": ["webm"],
+        "name": "WebM video",
+        "description": "WebM video",
+        "role": "Viewer",
+        "mimeType": "video/webm"
+      },
+      {
+        "ext": ["mov"],
+        "name": "QuickTime video",
+        "description": "QuickTime video",
+        "role": "Viewer",
+        "mimeType": "video/quicktime"
+      },
+      {
+        "ext": ["avi"],
+        "name": "AVI video",
+        "description": "AVI video",
+        "role": "Viewer",
+        "mimeType": "video/x-msvideo"
+      },
+      {
+        "ext": ["mpg", "mpeg"],
+        "name": "MPEG video",
+        "description": "MPEG video",
+        "role": "Viewer",
+        "mimeType": "video/mpeg"
+      },
+      {
+        "ext": ["ts", "m2ts"],
+        "name": "MPEG transport stream",
+        "description": "MPEG transport stream",
+        "role": "Viewer",
+        "mimeType": "video/mp2t"
+      },
+      {
+        "ext": ["wmv"],
+        "name": "Windows Media video",
+        "description": "Windows Media video",
+        "role": "Viewer",
+        "mimeType": "video/x-ms-wmv"
+      },
+      {
+        "ext": ["flv"],
+        "name": "Flash video",
+        "description": "Flash video",
+        "role": "Viewer",
+        "mimeType": "video/x-flv"
+      },
+      {
+        "ext": ["ogv"],
+        "name": "Ogg video",
+        "description": "Ogg video",
+        "role": "Viewer",
+        "mimeType": "video/ogg"
+      },
+      {
+        "ext": ["3gp"],
+        "name": "3GPP video",
+        "description": "3GPP video",
+        "role": "Viewer",
+        "mimeType": "video/3gpp"
+      },
+      {
+        "ext": ["mp3"],
+        "name": "MP3 audio",
+        "description": "MP3 audio",
+        "role": "Viewer",
+        "mimeType": "audio/mpeg"
+      },
+      {
+        "ext": ["m4a", "alac"],
+        "name": "MPEG-4 audio",
+        "description": "MPEG-4 audio",
+        "role": "Viewer",
+        "mimeType": "audio/mp4"
+      },
+      {
+        "ext": ["aac"],
+        "name": "AAC audio",
+        "description": "AAC audio",
+        "role": "Viewer",
+        "mimeType": "audio/aac"
+      },
+      {
+        "ext": ["flac"],
+        "name": "FLAC audio",
+        "description": "FLAC audio",
+        "role": "Viewer",
+        "mimeType": "audio/flac"
+      },
+      {
+        "ext": ["wav"],
+        "name": "WAV audio",
+        "description": "WAV audio",
+        "role": "Viewer",
+        "mimeType": "audio/wav"
+      },
+      {
+        "ext": ["ogg", "oga", "opus"],
+        "name": "Ogg audio",
+        "description": "Ogg audio",
+        "role": "Viewer",
+        "mimeType": "audio/ogg"
+      },
+      {
+        "ext": ["wma"],
+        "name": "Windows Media audio",
+        "description": "Windows Media audio",
+        "role": "Viewer",
+        "mimeType": "audio/x-ms-wma"
+      },
+      {
+        "ext": ["aiff"],
+        "name": "AIFF audio",
+        "description": "AIFF audio",
+        "role": "Viewer",
+        "mimeType": "audio/aiff"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
