@@ -153,6 +153,18 @@ export function expandDroppedPaths(paths: string[]): Promise<string[]> {
   return invoke<string[]>("expand_dropped_paths", { paths });
 }
 
+// Files the OS asked us to open (double-clicked via a file association, or a
+// second launch forwarded by the single-instance plugin). The Rust side queues
+// them and emits `app://open-paths`; both the cold start (queue drained on
+// mount) and the warm start (event -> drain) end up calling this one drain.
+export function takePendingOpenPaths(): Promise<string[]> {
+  return invoke<string[]>("take_pending_open_paths").catch(() => []);
+}
+
+export function watchOpenPaths(handler: () => void): Promise<() => void> {
+  return listen("app://open-paths", () => handler()).catch(() => NO_UNLISTEN);
+}
+
 export type FileDropEvent =
   | { type: "enter"; paths: string[] }
   | { type: "leave" }

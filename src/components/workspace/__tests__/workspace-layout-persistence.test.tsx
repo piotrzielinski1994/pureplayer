@@ -42,6 +42,8 @@ vi.mock("@pziel/pureui", async (importOriginal) => ({
 
 // The viewport inside Content reaches the Tauri IPC boundary; mock the seam.
 vi.mock("@/lib/tauri", () => ({
+  takePendingOpenPaths: vi.fn(() => Promise.resolve([])),
+  watchOpenPaths: vi.fn(() => Promise.resolve(() => {})),
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   prepareMediaUrl: (path: string) =>

@@ -12,6 +12,8 @@ import { SettingsProvider } from "@/lib/settings/settings-context";
 const openMediaFiles = vi.fn();
 
 vi.mock("@/lib/tauri", () => ({
+  takePendingOpenPaths: vi.fn(() => Promise.resolve([])),
+  watchOpenPaths: vi.fn(() => Promise.resolve(() => {})),
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   openMediaFiles: () => openMediaFiles(),

@@ -1,7 +1,12 @@
 use std::path::Path;
 
-const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mkv", "mov", "webm", "avi"];
-const AUDIO_EXTENSIONS: &[&str] = &["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma"];
+const VIDEO_EXTENSIONS: &[&str] = &[
+    "mp4", "m4v", "mkv", "webm", "mov", "avi", "mpg", "mpeg", "ts", "m2ts", "wmv", "flv", "ogv",
+    "3gp",
+];
+const AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "m4a", "aac", "flac", "wav", "ogg", "oga", "opus", "wma", "aiff", "alac",
+];
 
 fn has_media_extension(name: &str) -> bool {
     Path::new(name)
@@ -41,7 +46,7 @@ fn collect_into(path: &Path, out: &mut Vec<String>) {
     }
 }
 
-fn collect_media_paths(roots: &[String]) -> Vec<String> {
+pub(crate) fn collect_media_paths(roots: &[String]) -> Vec<String> {
     let mut out = Vec::new();
     for root in roots {
         collect_into(Path::new(root), &mut out);

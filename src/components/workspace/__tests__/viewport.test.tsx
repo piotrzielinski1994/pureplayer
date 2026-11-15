@@ -37,6 +37,8 @@ const logPlayback = vi.fn((message: string) => {
 const watchAudioReady = vi.fn(() => Promise.resolve(() => {}));
 
 vi.mock("@/lib/tauri", () => ({
+  takePendingOpenPaths: vi.fn(() => Promise.resolve([])),
+  watchOpenPaths: vi.fn(() => Promise.resolve(() => {})),
   prepareMediaUrl: (path: string) => prepareMediaUrl(path),
   openMediaFiles: vi.fn(() => Promise.resolve([])),
   toggleFullscreen: () => toggleFullscreen(),

@@ -27,6 +27,8 @@ const watchFileDrop = vi.fn((handler: (event: FileDropEvent) => void) => {
 });
 
 vi.mock("@/lib/tauri", () => ({
+  takePendingOpenPaths: vi.fn(() => Promise.resolve([])),
+  watchOpenPaths: vi.fn(() => Promise.resolve(() => {})),
   watchAudioReady: vi.fn(() => Promise.resolve(() => {})),
   logPlayback: vi.fn(() => Promise.resolve()),
   openMediaFiles: vi.fn(() => Promise.resolve([])),

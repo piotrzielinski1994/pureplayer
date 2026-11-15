@@ -4,7 +4,7 @@ import {
   useActionHotkeys,
 } from "@pziel/pureui";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DropOverlay } from "@/components/workspace/drop-overlay";
 import { mediaFromPaths } from "@/components/workspace/media-from-paths";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -19,9 +19,11 @@ import {
   expandDroppedPaths,
   openMediaFiles,
   setMiniWindow,
+  takePendingOpenPaths,
   toggleFullscreen,
   watchFileDrop,
   watchFullscreen,
+  watchOpenPaths,
   watchWindowFocus,
 } from "@/lib/tauri";
 
@@ -89,6 +91,32 @@ export function Workspace() {
       void dropPromise.then((unlisten) => unlisten());
     };
   }, [addMedia]);
+
+  // Files handed to us by the OS (file association double-click, or a second
+  // launch forwarded by the single-instance plugin): drain the queue on mount
+  // for the cold start, then drain again on every `app://open-paths` poke.
+  // Opening a file REPLACES the playlist, same as the Open dialog.
+  // `loadMedia` has no stable identity, so it is read through a ref - otherwise
+  // the effect would re-subscribe on every render.
+  const loadMediaRef = useRef(loadMedia);
+  useEffect(() => {
+    loadMediaRef.current = loadMedia;
+  }, [loadMedia]);
+  useEffect(() => {
+    const drain = async () => {
+      const paths = await takePendingOpenPaths();
+      if (paths.length > 0) {
+        loadMediaRef.current(mediaFromPaths(paths));
+      }
+    };
+    void drain();
+    const openPromise = watchOpenPaths(() => {
+      void drain();
+    });
+    return () => {
+      void openPromise.then((unlisten) => unlisten());
+    };
+  }, []);
 
   const openFiles = async () => {
     const paths = await openMediaFiles();

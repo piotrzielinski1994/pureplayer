@@ -1,6 +1,6 @@
 [package]
 name = "pureplayer"
-version = "0.2.0"
+version = "0.2.1"
 description = "pureplayer - a minimal, keyboard-driven desktop video player"
 authors = ["Piotr Zieliński"]
 edition = "2021"
@@ -25,6 +25,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-store = "2"
 tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls"] }
 tauri-plugin-process = "2"
+tauri-plugin-single-instance = "2"
 tauri-plugin-log = "2"
 log = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

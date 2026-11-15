@@ -3,6 +3,7 @@ mod hls_server;
 mod import;
 mod logging;
 mod media;
+mod open_files;
 
 use tauri::Manager;
 
@@ -14,7 +15,12 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        // First, so a second launch (Explorer "Open with", double-clicked file)
+        // forwards its argv to the running window instead of opening a new one.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            open_files::deliver(app, open_files::paths_from_args(argv));
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -23,6 +29,11 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             logging::init(app.handle());
+            // Files named on this launch's command line (file association).
+            open_files::deliver(
+                app.handle(),
+                open_files::paths_from_args(std::env::args()),
+            );
             // Fresh temp roots each launch (wipe any leftovers): one for the rare
             // HLS re-encode stream, one for the complete-MP4 remuxes that back the
             // common copy path. Then start the loopback server for the HLS player.
@@ -51,10 +62,27 @@ pub fn run() {
             media::prepare_media,
             media::log_playback,
             focus::focus_webview,
-            import::expand_dropped_paths
+            import::expand_dropped_paths,
+            open_files::take_pending_open_paths
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app, event| {
+        // macOS delivers a double-clicked file as an "open document" event, not
+        // as argv, so it needs its own path into the queue.
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Opened { urls } = event {
+            let paths = urls
+                .iter()
+                .filter_map(|url| url.to_file_path().ok())
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect();
+            open_files::deliver(app, paths);
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (app, event);
+    });
 }
 
 #[cfg(test)]
