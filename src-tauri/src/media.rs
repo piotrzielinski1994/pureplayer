@@ -113,9 +113,50 @@ pub enum MediaStrategy {
     // MP4 instantly (perfect seek, no sound), then re-encode audio in the
     // background and swap to the full file when it's ready.
     VideoThenAudio,
-    // Video itself must be re-encoded (VP9/AV1/...): no instant copy is possible,
-    // so keep the HLS decode-ahead stream that starts in ~0.2s.
+    // Video itself must be re-encoded (VP9/AV1/...): no instant copy is possible.
+    // macOS keeps the HLS decode-ahead stream that starts in ~0.2s; Chromium
+    // webviews (WebView2/WebKitGTK) cannot play HLS, so they take CompleteRemux.
     HlsStream { video: VideoAction, audio: AudioAction },
+}
+
+// Pure platform-aware plan: on Chromium a native WebM needs no work at all;
+// everything else defers to `plan_media`.
+fn plan_media_for_webview(
+    container: &str,
+    vcodec: &str,
+    acodec: &str,
+    is_webm_file: bool,
+    chromium_like: bool,
+) -> MediaPlan {
+    // Chromium (WebView2, WebKitGTK) decodes VP8/VP9/AV1 + Opus/Vorbis in a WebM
+    // file natively; WKWebView cannot play file-based WebM at all. Only the real
+    // .webm extension qualifies: ffprobe reports "matroska,webm" for full .mkv
+    // files too, and Chromium does not demux those.
+    if chromium_like
+        && is_webm_file
+        && container.contains("webm")
+        && matches!(vcodec, "vp8" | "vp9" | "av1")
+        && matches!(acodec, "" | "opus" | "vorbis")
+    {
+        return MediaPlan::Passthrough;
+    }
+    plan_media(container, vcodec, acodec)
+}
+
+// Chromium has no native HLS support (the playlist loads but never plays), so
+// only macOS may use the decode-ahead stream. Elsewhere a video re-encode goes
+// through the complete-MP4 path instead.
+fn strategy_for_webview(plan: MediaPlan, supports_hls: bool) -> Option<MediaStrategy> {
+    match plan {
+        MediaPlan::Convert {
+            video: VideoAction::Reencode,
+            audio,
+        } if !supports_hls => Some(MediaStrategy::CompleteRemux {
+            video: VideoAction::Reencode,
+            audio,
+        }),
+        other => strategy_for(other),
+    }
 }
 
 // Pure mapping plan -> strategy. Passthrough (already a complete playable file)
@@ -301,7 +342,11 @@ fn video_convert_args(action: VideoAction) -> Vec<&'static str> {
             vec!["-c:v", "h264_videotoolbox", "-b:v", "6M"]
         }
         VideoAction::Reencode => {
-            vec!["-c:v", "libx264", "-preset", "veryfast", "-crf", "23"]
+            // The bundled LGPL ffmpeg is built with --disable-libx264 (x264 is
+            // GPL); libopenh264 is the H.264 encoder it ships instead. AV1/VP9
+            // sources are often 10-bit, which libopenh264 cannot take, so pin
+            // the 8-bit format the encoder accepts.
+            vec!["-c:v", "libopenh264", "-b:v", "6M", "-pix_fmt", "yuv420p"]
         }
     }
 }
@@ -392,7 +437,13 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
     }
     log::info!("prepare_media path={path} container={container} v={vcodec} a={acodec}");
 
-    let plan = plan_media(&container, &vcodec, &acodec);
+    let plan = plan_media_for_webview(
+        &container,
+        &vcodec,
+        &acodec,
+        path.to_ascii_lowercase().ends_with(".webm"),
+        cfg!(not(target_os = "macos")),
+    );
     log::info!("prepare_media plan={plan:?}");
 
     // A new activation supersedes any in-flight work of either kind.
@@ -401,7 +452,7 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
         stop_current_bg(&state);
     }
 
-    let strategy = match strategy_for(plan) {
+    let strategy = match strategy_for_webview(plan, cfg!(target_os = "macos")) {
         // Already webview-playable: serve the file untouched via the asset
         // protocol. No remux, no HLS, no encode.
         None => {
@@ -433,7 +484,8 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
 }
 
 // One synchronous remux to a COMPLETE MP4 on disk. The video track is copied for a
-// real video file or dropped (`-vn`) for an audio-only file; audio is copied or
+// real video file or dropped (`-vn`) for an audio-only file; on Chromium hosts a
+// non-native video is re-encoded here too (no HLS alternative). Audio is copied or
 // re-encoded. Because the file is whole when `<video>` loads it, the element gets a
 // finite duration and native random-access seeking - the HLS progressive stream
 // (seekable.end == Infinity mid-encode) was what broke seeking. For h264+aac this
@@ -750,9 +802,23 @@ fn poll_first_segment(
 #[cfg(test)]
 mod tests {
     use super::{
-        audio_convert_args, bg_audio_args, parse_probe_json, plan_media, strategy_for, AudioAction,
-        MediaPlan, MediaStrategy, ProbeResult, VideoAction,
+        audio_convert_args, bg_audio_args, parse_probe_json, plan_media, plan_media_for_webview,
+        strategy_for, strategy_for_webview, video_convert_args, AudioAction, MediaPlan,
+        MediaStrategy, ProbeResult, VideoAction,
     };
+
+    // The bundled ffmpeg builds are LGPL (BtbN) and are compiled with
+    // `--disable-libx264`, so the re-encode path must name an encoder that is
+    // actually present or every VP9/AV1 file fails at startup.
+    #[test]
+    fn reencode_video_uses_an_encoder_in_the_bundled_build() {
+        let args = video_convert_args(VideoAction::Reencode);
+        if cfg!(target_os = "macos") {
+            assert!(args.contains(&"h264_videotoolbox"), "args: {args:?}");
+        } else {
+            assert!(args.contains(&"libopenh264"), "args: {args:?}");
+        }
+    }
 
     const MP4: &str = "mov,mp4,m4a,3gp,3g2,mj2";
     const MKV: &str = "matroska,webm";
@@ -806,6 +872,54 @@ mod tests {
     fn should_reencode_both_when_mkv_vp9_opus() {
         assert_eq!(
             plan_media(MKV, "vp9", "opus"),
+            MediaPlan::Convert {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            }
+        );
+    }
+
+    // Chromium (WebView2/WebKitGTK) decodes AV1+Opus in a .webm natively, so the
+    // original file can be served untouched - no transcode, instant start.
+    #[test]
+    fn should_passthrough_when_webm_av1_opus_and_webview_is_chromium() {
+        assert_eq!(
+            plan_media_for_webview(MKV, "av1", "opus", true, true),
+            MediaPlan::Passthrough
+        );
+    }
+
+    // WKWebView cannot play file-based WebM at all, so the same file still needs
+    // the re-encode path on macOS.
+    #[test]
+    fn should_reencode_when_webm_av1_opus_and_webview_is_wkwebview() {
+        assert_eq!(
+            plan_media_for_webview(MKV, "av1", "opus", true, false),
+            MediaPlan::Convert {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            }
+        );
+    }
+
+    // ffprobe reports "matroska,webm" for BOTH .mkv and .webm; Chromium does not
+    // demux full Matroska, so only the .webm extension may take the fast path.
+    #[test]
+    fn should_reencode_when_matroska_file_is_not_a_webm() {
+        assert_eq!(
+            plan_media_for_webview(MKV, "vp9", "opus", false, true),
+            MediaPlan::Convert {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            }
+        );
+    }
+
+    // Codecs outside Chromium's native set stay on the re-encode path.
+    #[test]
+    fn should_reencode_when_webm_video_codec_is_not_chromium_native() {
+        assert_eq!(
+            plan_media_for_webview(MKV, "hevc", "opus", true, true),
             MediaPlan::Convert {
                 video: VideoAction::Reencode,
                 audio: AudioAction::Reencode,
@@ -1035,6 +1149,43 @@ mod tests {
                 video: VideoAction::Reencode,
                 audio: AudioAction::Reencode,
             }),
+            Some(MediaStrategy::HlsStream {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            })
+        );
+    }
+
+    // Chromium (WebView2) has no native HLS: the playlist loads but never plays,
+    // so off macOS a video re-encode must produce a complete MP4 instead.
+    #[test]
+    fn should_complete_remux_when_video_reencode_and_no_hls_support() {
+        assert_eq!(
+            strategy_for_webview(
+                MediaPlan::Convert {
+                    video: VideoAction::Reencode,
+                    audio: AudioAction::Reencode,
+                },
+                false
+            ),
+            Some(MediaStrategy::CompleteRemux {
+                video: VideoAction::Reencode,
+                audio: AudioAction::Reencode,
+            })
+        );
+    }
+
+    // macOS keeps the HLS decode-ahead stream for a video re-encode.
+    #[test]
+    fn should_hls_stream_when_video_reencode_and_hls_supported() {
+        assert_eq!(
+            strategy_for_webview(
+                MediaPlan::Convert {
+                    video: VideoAction::Reencode,
+                    audio: AudioAction::Reencode,
+                },
+                true
+            ),
             Some(MediaStrategy::HlsStream {
                 video: VideoAction::Reencode,
                 audio: AudioAction::Reencode,
