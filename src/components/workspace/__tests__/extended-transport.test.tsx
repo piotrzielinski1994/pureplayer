@@ -527,6 +527,24 @@ describe("extended transport: hotkeys drive the element (AC-001..AC-006)", () =>
   });
 });
 
+describe("extended transport: seeded preferences on a freshly mounted element (E-8)", () => {
+  // side-effect-contract: a rate seeded at boot is applied to the <video> that mounts once the source resolves (E-8)
+  it("should apply the seeded playbackRate to the element if it mounts after boot", async () => {
+    render(
+      <WorkspaceProvider
+        media={fixtureMedia}
+        initialActiveMediaId="v-1"
+        initialPlaybackRate={2}
+      >
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    const video = await findVideo();
+    await waitFor(() => expect(video.playbackRate).toBe(2));
+  });
+});
+
 describe("extended transport: edge cases (E-2, E-8)", () => {
   // side-effect-contract: with an active video but unknown duration (0), seekBy lower-clamps only - it does NOT force the playhead back to 0 (E-2)
   it("should lower-clamp only and seek forward if seekBy runs with an unknown duration", async () => {

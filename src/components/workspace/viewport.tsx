@@ -199,6 +199,12 @@ export function Viewport() {
     }
   }, [seekToSec, isPlaying]);
 
+  // The <video> only mounts once the source resolves (and remounts when an
+  // audio swap points it at a new url), so the url is a dependency: without it
+  // an element that appears after boot would keep the browser defaults instead
+  // of the seeded volume/mute/rate.
+  const sourceUrl =
+    sourceForActive?.status === "ready" ? sourceForActive.url : null;
   useEffect(() => {
     const element = videoRef.current;
     if (!element) {
@@ -207,7 +213,7 @@ export function Viewport() {
     element.volume = volume;
     element.muted = isMuted;
     element.playbackRate = playbackRate;
-  }, [volume, isMuted, playbackRate]);
+  }, [volume, isMuted, playbackRate, sourceUrl]);
 
   return (
     <div
