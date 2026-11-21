@@ -10,7 +10,7 @@ import { Viewport } from "@/components/workspace/viewport";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useSettings } from "@/lib/settings/settings-context";
 
-const IDLE_HIDE_MS = 3000;
+const IDLE_HIDE_MS = 1500;
 
 export function Content() {
   const { isTransportVisible, isLogsVisible } = useWorkspace();

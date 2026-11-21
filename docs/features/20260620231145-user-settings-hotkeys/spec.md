@@ -65,8 +65,8 @@ fits my workflow instead of resetting to defaults every launch.
 | AC-013 | The resizable panel layout (sidebar/content split) persists on resize and restores on boot via `settings.layout` (a `{panelId -> size}` map); a corrupt/non-numeric layout falls back to an empty map (defaults). | Must |
 | AC-014 | A persisted `revealTransportOnHover` flag (default `true`): when the transport bar is HIDDEN and the flag is on, hovering the video content reveals the bar as a bottom-edge overlay (no layout shift). Flag off = hidden stays hidden. A toggle in the settings screen flips and persists it. A visible (docked) transport is unaffected. | Must |
 | AC-015 | The command palette lists EVERY runnable action (incl. fullscreen + reveal-transport toggle); `toggle-fullscreen` (`Mod+Shift+F`) and `toggle-reveal-transport` (`Mod+Shift+H`) are registered actions with hotkeys + palette entries. Actions carry optional search `keywords` so e.g. "bottom bar" matches "Toggle transport bar". | Must |
-| AC-016 | While the reveal overlay is shown, it AUTO-HIDES after 3000ms with no mouse movement; any mouse move re-reveals it instantly and restarts the 3000ms idle timer; leaving the video hides it immediately. | Must |
-| AC-017 | The reveal overlay does NOT auto-hide while the cursor is over the bar itself (idle timer frozen on bar-enter, even as moves bubble up); the 3000ms countdown restarts when the cursor leaves the bar back onto the video. | Must |
+| AC-016 | While the reveal overlay is shown, it AUTO-HIDES after 1500ms with no mouse movement; any mouse move re-reveals it instantly and restarts the 1500ms idle timer; leaving the video hides it immediately. | Must |
+| AC-017 | The reveal overlay does NOT auto-hide while the cursor is over the bar itself (idle timer frozen on bar-enter, even as moves bubble up); the 1500ms countdown restarts when the cursor leaves the bar back onto the video. | Must |
 | AC-018 | The video title overlay is a brief intro card, not a permanent watermark: it shows for 5s after the active video changes, then hides; switching to another video re-shows it for that file. (Still suppressed entirely in fullscreen.) | Must |
 
 ## 3. User Test Cases
@@ -121,7 +121,7 @@ non-numeric layout value merges to `{}`. Maps to: AC-013.
 
 ### TC-016: Reveal transport on hover + idle auto-hide (AC-014, AC-016)
 Transport hidden + `revealTransportOnHover: true`: the bar is absent until a mouse MOVE over the
-video reveals it (overlay). With no movement for 3000ms it auto-hides; a fresh move re-reveals and
+video reveals it (overlay). With no movement for 1500ms it auto-hides; a fresh move re-reveals and
 restarts the timer; leaving the video hides immediately. With the flag `false` it never appears.
 The settings toggle flips + persists the flag; a docked (visible) transport is unaffected. Maps to: AC-014, AC-016.
 
@@ -131,7 +131,7 @@ timeout) re-shows that file's name. Maps to: AC-018.
 
 ### TC-018: Bar-hover freezes auto-hide (AC-017)
 Reveal overlay shown; mouse enters the bar -> advancing 1000ms does NOT hide it (idle timer frozen);
-a move bubbling up from the bar also doesn't re-arm; leaving the bar restarts the 3000ms countdown,
+a move bubbling up from the bar also doesn't re-arm; leaving the bar restarts the 1500ms countdown,
 after which it hides. Maps to: AC-017.
 
 ### TC-017: Palette completeness + keyword search (AC-015)
@@ -276,3 +276,4 @@ import/export, profiles, cloud sync.
 | 0.5.0 | 2026-06-21 | AC-017: the reveal overlay no longer auto-hides while the cursor rests on the bar - bar-enter freezes the idle timer (and a bubbling move from the bar doesn't re-arm it via an `isOverBar` ref), bar-leave restarts the 500ms countdown. |
 | 0.6.0 | 2026-06-21 | AC-018: the video title overlay now auto-hides 5s after the active video changes (was shown permanently while windowed); switching files re-shows it. Implemented in `viewport.tsx` via a `titleHiddenForId` state set by a per-id 5s timer (no synchronous setState-in-effect, lint-clean). |
 | 0.7.0 | 2026-06-21 | Tuned the reveal-overlay idle timeout 500ms -> 3000ms (`IDLE_HIDE_MS` in `content.tsx`) per user; AC-016/AC-017 + tests rescaled accordingly. |
+| 0.8.0 | 2026-11-21 | Tuned the reveal-overlay idle timeout 3000ms -> 1500ms (`IDLE_HIDE_MS` in `content.tsx`) per user; AC-016/AC-017 + tests rescaled accordingly. |

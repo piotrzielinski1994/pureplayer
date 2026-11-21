@@ -204,7 +204,7 @@ Gates: `npm test` 348 passed (30 files, 0 skipped), `npm run typecheck` clean, `
 | AC-013 | `settings.test.ts` mergeSettings layout matrix; `settings-context.test.tsx` "persist via store.save if saveLayout is called"; `workspace-layout-persistence.test.tsx` "pass the persisted layout ... as defaultLayout" + "persist the new layout ... if the panels are resized" |
 | AC-014 | `settings.test.ts` revealTransportOnHover merge/default; `settings-context.test.tsx` "persist via store.save if saveRevealTransportOnHover is called"; `content-hover-transport.test.tsx` reveal-on-move + flag-off; `playback-section.test.tsx` toggle state + persist |
 | AC-015 | `registry.test.ts` "include 'toggle-fullscreen' and 'toggle-reveal-transport'" + "'bottom bar' keyword"; `workspace-palette.test.tsx` "list a row for every registered action" + "toggle fullscreen ... selected" + "match the transport action by its 'bottom bar' keyword" |
-| AC-016 | `content-hover-transport.test.tsx` "auto-hide ... after 3000ms" + "re-reveal on a new move ... restarting the idle timer" + "hide ... immediately on mouse leave" |
+| AC-016 | `content-hover-transport.test.tsx` "auto-hide ... after 1500ms" + "re-reveal on a new move ... restarting the idle timer" + "hide ... immediately on mouse leave" |
 | AC-017 | `content-hover-transport.test.tsx` "not auto-hide ... while the mouse is over the bar" + "stay open while the mouse moves over the bar itself" |
 | AC-018 | `viewport.test.tsx` "hide the active video's name after 5 seconds" + "re-show the title if the active video switches after the timeout" |
 

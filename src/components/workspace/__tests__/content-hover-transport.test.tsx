@@ -75,8 +75,8 @@ describe("Content transport reveal-on-hover", () => {
     await waitFor(() => expect(transportButton()).toBeInTheDocument());
   });
 
-  // behavior: after 3s without movement the revealed transport auto-hides (AC-016)
-  it("should auto-hide the transport after 3000ms of no mouse movement", async () => {
+  // behavior: after 1.5s without movement the revealed transport auto-hides (AC-016)
+  it("should auto-hide the transport after 1500ms of no mouse movement", async () => {
     vi.useFakeTimers();
     renderContent(
       { ...DEFAULT_SETTINGS, revealTransportOnHover: true },
@@ -92,7 +92,7 @@ describe("Content transport reveal-on-hover", () => {
     expect(transportButton()).toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(2999);
+      vi.advanceTimersByTime(1499);
     });
     expect(transportButton()).toBeInTheDocument();
 
@@ -115,7 +115,7 @@ describe("Content transport reveal-on-hover", () => {
 
     fireEvent.mouseMove(viewport());
     act(() => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(1500);
     });
     expect(transportButton()).not.toBeInTheDocument();
 
@@ -123,18 +123,18 @@ describe("Content transport reveal-on-hover", () => {
     fireEvent.mouseMove(viewport());
     expect(transportButton()).toBeInTheDocument();
 
-    // a move at 2000ms resets the timer, so it survives past the original 3000ms
+    // a move at 1000ms resets the timer, so it survives past the original 1500ms
     act(() => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(1000);
     });
     fireEvent.mouseMove(viewport());
     act(() => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(1000);
     });
     expect(transportButton()).toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(500);
     });
     expect(transportButton()).not.toBeInTheDocument();
   });
@@ -172,7 +172,7 @@ describe("Content transport reveal-on-hover", () => {
     const bar = screen.getByTestId("transport-overlay");
     fireEvent.mouseEnter(bar);
 
-    // idle timer would have fired by now (past the 3s timeout), but cursor is on the bar
+    // idle timer would have fired by now (past the 1.5s timeout), but cursor is on the bar
     act(() => {
       vi.advanceTimersByTime(4000);
     });
@@ -181,7 +181,7 @@ describe("Content transport reveal-on-hover", () => {
     // leaving the bar (back onto the video) restarts the idle countdown
     fireEvent.mouseLeave(bar);
     act(() => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(1500);
     });
     expect(transportButton()).not.toBeInTheDocument();
   });
