@@ -3,6 +3,18 @@ use std::thread::JoinHandle;
 
 use tiny_http::{Header, Response, Server};
 
+// hls.js (used on Chromium webviews, which have no native HLS) fetches the playlist
+// and segments from the app origin, so this loopback server is always cross-origin
+// and must say so on every response - including the 404 for a segment that ffmpeg
+// has not written yet, otherwise the fetch fails as a CORS error instead of a
+// retryable not-found.
+const CORS_ORIGIN: &str = "Access-Control-Allow-Origin: *";
+
+fn cors_header() -> Header {
+    let (name, value) = CORS_ORIGIN.split_once(": ").expect("static header");
+    Header::from_bytes(name.as_bytes(), value.as_bytes()).expect("static header is valid")
+}
+
 // Web-compatible MIME for the two HLS file kinds WKWebView's native player fetches.
 // Unknown names fall back to a generic binary type rather than guessing.
 fn hls_mime(filename: &str) -> &'static str {
@@ -38,17 +50,18 @@ fn resolve_under_root(root: &Path, url_path: &str) -> Option<PathBuf> {
 fn respond(request: tiny_http::Request, root: &Path) {
     let url_path = request.url().split('?').next().unwrap_or("").to_string();
     let Some(path) = resolve_under_root(root, &url_path) else {
-        let _ = request.respond(Response::empty(404));
+        let _ = request.respond(Response::empty(404).with_header(cors_header()));
         return;
     };
     let Ok(file) = std::fs::File::open(&path) else {
-        let _ = request.respond(Response::empty(404));
+        let _ = request.respond(Response::empty(404).with_header(cors_header()));
         return;
     };
     let mime = hls_mime(&path.file_name().unwrap_or_default().to_string_lossy());
     let header = Header::from_bytes(b"Content-Type".as_slice(), mime.as_bytes())
         .expect("static mime header is valid");
-    let _ = request.respond(Response::from_file(file).with_header(header));
+    let _ = request
+        .respond(Response::from_file(file).with_header(header).with_header(cors_header()));
 }
 
 // Loopback-only HTTP server over `root`. Binds 127.0.0.1:0 (OS-assigned port) so it
@@ -221,6 +234,32 @@ mod tests {
         assert!(
             response.contains("#EXTM3U"),
             "expected body, got: {response}"
+        );
+    }
+
+    // hls.js fetches the playlist cross-origin (app origin -> 127.0.0.1), so every
+    // response needs an explicit CORS allow, not just the 200 ones.
+    #[test]
+    fn should_allow_cross_origin_reads_when_serving_a_playlist() {
+        let root = unique_root();
+        std::fs::write(root.join("index.m3u8"), b"#EXTM3U\n").expect("write playlist");
+        let (port, _server) = start(root.to_path_buf()).expect("start server");
+        let response = http_get(port, "/index.m3u8");
+        assert!(
+            response.contains("Access-Control-Allow-Origin: *"),
+            "expected CORS header, got: {response}"
+        );
+    }
+
+    #[test]
+    fn should_allow_cross_origin_reads_when_segment_is_not_written_yet() {
+        let root = unique_root();
+        let (port, _server) = start(root.to_path_buf()).expect("start server");
+        let response = http_get(port, "/1/seg00009.ts");
+        assert!(response.contains("404"), "expected 404, got: {response}");
+        assert!(
+            response.contains("Access-Control-Allow-Origin: *"),
+            "expected CORS header on 404, got: {response}"
         );
     }
 

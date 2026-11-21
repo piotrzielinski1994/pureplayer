@@ -1,16 +1,42 @@
 import { Film, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { formatTimeline } from "@/lib/playback-timing";
+import {
+  attachHlsJs,
+  canPlayNativeHls,
+  needsHlsJs,
+  seekTarget,
+} from "@/lib/hls";
+import {
+  describeElementState,
+  formatTimeline,
+  resolveDuration,
+} from "@/lib/playback-timing";
 import {
   logPlayback,
   prepareMediaUrl,
+  seekMediaUrl,
   toggleFullscreen,
   watchAudioReady,
 } from "@/lib/tauri";
 
 function logPlayError(error: unknown) {
   console.error("video play() rejected", error);
+  void logPlayback(`video play() rejected: ${String(error)}`);
+}
+
+// The fields that explain a silent stall at 00:00: an element that buffered but
+// stayed paused differs from one that never buffered at all.
+function snapshotElement(element: HTMLVideoElement) {
+  return {
+    paused: element.paused,
+    readyState: element.readyState,
+    currentTime: element.currentTime,
+    errorCode: element.error?.code ?? null,
+    bufferedEnds: Array.from({ length: element.buffered.length }, (_, index) =>
+      element.buffered.end(index),
+    ),
+  };
 }
 
 type TimelineMarks = {
@@ -33,19 +59,6 @@ type SourceState =
     }
   | { status: "error"; forId: string; message: string };
 
-// HLS streams report `<video>.duration` as Infinity (and NaN before metadata),
-// so prefer the element's value only when it's a real finite length; otherwise
-// fall back to the duration ffprobe gave us at prepare time.
-function resolveDuration(
-  elementDuration: number,
-  probed: number | null,
-): number {
-  if (Number.isFinite(elementDuration) && elementDuration > 0) {
-    return elementDuration;
-  }
-  return probed ?? 0;
-}
-
 export function Viewport() {
   const {
     activeMedia,
@@ -62,6 +75,11 @@ export function Viewport() {
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [source, setSource] = useState<SourceState | null>(null);
+  // Film time where the current HLS job started. An HLS playlist always begins at
+  // 0, so after a seek-restart the element time is offset from the real position.
+  const hlsBaseRef = useRef(0);
+  // Latest seek-restart request, so a slow one cannot overwrite a newer one.
+  const seekRestartTokenRef = useRef(0);
   const [titleHiddenForId, setTitleHiddenForId] = useState<string | null>(null);
   // Drop->first-frame timeline marks for the active video. Best-effort timing for
   // the log file; never gates render. Emitted once all three marks land.
@@ -132,6 +150,7 @@ export function Viewport() {
         if (marks && marks.forId === forId) {
           marks.prepareResolvedAtMs = performance.now();
         }
+        hlsBaseRef.current = 0;
         if (!cancelled) {
           setSource({ status: "ready", forId, url, durationSec, swapId });
         }
@@ -172,6 +191,10 @@ export function Viewport() {
 
   const sourceForActive =
     activeMedia && source?.forId === activeMedia.id ? source : null;
+  // Read inside the seek effect, which must not re-run (and re-seek) whenever a
+  // new source object appears.
+  const sourceRef = useRef(sourceForActive);
+  sourceRef.current = sourceForActive;
 
   useEffect(() => {
     const element = videoRef.current;
@@ -185,9 +208,93 @@ export function Viewport() {
     element.pause();
   }, [isPlaying]);
 
+  // The <video> only mounts once the source resolves (and remounts when an
+  // audio swap points it at a new url), so the url is a dependency: without it
+  // an element that appears after boot would keep the browser defaults instead
+  // of the seeded volume/mute/rate.
+  const sourceUrl =
+    sourceForActive?.status === "ready" ? sourceForActive.url : null;
+
+  // An HLS playlist on a webview without native HLS (Chromium: WebView2, WebKitGTK)
+  // is fed by hls.js over MSE, so the element must NOT get a src - hls.js owns it.
+  // WKWebView plays the playlist itself, and complete files never take this path.
+  const hlsUrl =
+    sourceUrl !== null && needsHlsJs(sourceUrl, canPlayNativeHls())
+      ? sourceUrl
+      : null;
+
+  // hls.js keeps network/buffer timers and a MediaSource alive; destroy it on every
+  // url change and on unmount. The import is async, so a teardown that arrives after
+  // the effect was already cleaned up is applied immediately.
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element || hlsUrl === null) {
+      return;
+    }
+    let cancelled = false;
+    let teardown: (() => void) | null = null;
+    void logPlayback(`hls attach url=${hlsUrl}`);
+    void attachHlsJs(element, hlsUrl, (message) => {
+      void logPlayback(`hls fatal: ${message}`);
+    }).then((destroy) => {
+      if (cancelled) {
+        destroy?.();
+        return;
+      }
+      if (destroy === null) {
+        void logPlayback("hls unsupported: no MediaSource in this webview");
+      }
+      teardown = destroy;
+    });
+    return () => {
+      cancelled = true;
+      teardown?.();
+    };
+  }, [hlsUrl]);
+
+  // A seek splits two ways on the HLS path: inside the segments ffmpeg already wrote
+  // the element seeks itself, past them the backend restarts the encode at the target
+  // and the new playlist begins there - hlsBaseRef maps element time back to film
+  // time, so the transport keeps showing the real position. Complete files keep the
+  // plain element seek they always had.
   useEffect(() => {
     const element = videoRef.current;
     if (!element || seekToSec === null) {
+      return;
+    }
+    if (hlsUrl !== null) {
+      const base = hlsBaseRef.current;
+      const encoded = Number.isFinite(element.duration) ? element.duration : 0;
+      if (seekTarget(seekToSec - base, encoded) === "native") {
+        element.currentTime = seekToSec - base;
+        if (isPlaying && element.paused) {
+          void element.play().catch(logPlayError);
+        }
+        return;
+      }
+      const current = sourceRef.current;
+      if (current?.status !== "ready") {
+        return;
+      }
+      const token = ++seekRestartTokenRef.current;
+      void logPlayback(`hls seek restart at ${seekToSec.toFixed(2)}s`);
+      void seekMediaUrl(seekToSec)
+        .then((url) => {
+          if (token !== seekRestartTokenRef.current) {
+            return;
+          }
+          hlsBaseRef.current = seekToSec;
+          setSource({
+            status: "ready",
+            forId: current.forId,
+            url,
+            durationSec: current.durationSec,
+            swapId: null,
+          });
+        })
+        .catch((error) => {
+          void logPlayback(`hls seek failed: ${String(error)}`);
+        });
       return;
     }
     element.currentTime = seekToSec;
@@ -197,14 +304,8 @@ export function Viewport() {
     if (isPlaying && element.paused) {
       void element.play().catch(logPlayError);
     }
-  }, [seekToSec, isPlaying]);
+  }, [seekToSec, isPlaying, hlsUrl]);
 
-  // The <video> only mounts once the source resolves (and remounts when an
-  // audio swap points it at a new url), so the url is a dependency: without it
-  // an element that appears after boot would keep the browser defaults instead
-  // of the seeded volume/mute/rate.
-  const sourceUrl =
-    sourceForActive?.status === "ready" ? sourceForActive.url : null;
   useEffect(() => {
     const element = videoRef.current;
     if (!element) {
@@ -248,14 +349,21 @@ export function Viewport() {
         <>
           <video
             ref={videoRef}
-            src={sourceForActive.url}
+            src={hlsUrl === null ? sourceForActive.url : undefined}
             className="h-full w-full"
             style={{
               objectFit: viewportTransform.fitMode,
               transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
               transformOrigin: "center",
             }}
-            onCanPlay={emitTimelineOnFirstFrame}
+            onCanPlay={(event) => {
+              if (hlsUrl !== null) {
+                void logPlayback(
+                  describeElementState(snapshotElement(event.currentTarget)),
+                );
+              }
+              emitTimelineOnFirstFrame();
+            }}
             onLoadedData={(event) => {
               if (isPlaying) {
                 void event.currentTarget.play().catch(logPlayError);
@@ -263,7 +371,7 @@ export function Viewport() {
             }}
             onTimeUpdate={(event) =>
               reportProgress(
-                event.currentTarget.currentTime,
+                hlsBaseRef.current + event.currentTarget.currentTime,
                 resolveDuration(
                   event.currentTarget.duration,
                   sourceForActive.durationSec,
@@ -276,7 +384,7 @@ export function Viewport() {
                 resumeAfterSwapRef.current = null;
               }
               reportProgress(
-                event.currentTarget.currentTime,
+                hlsBaseRef.current + event.currentTarget.currentTime,
                 resolveDuration(
                   event.currentTarget.duration,
                   sourceForActive.durationSec,

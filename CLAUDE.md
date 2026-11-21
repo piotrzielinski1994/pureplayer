@@ -42,6 +42,7 @@ Don't add: one-off task context, debugging notes, things obvious from the code i
 
 ## Before committing
 
+- Rebuild the app after a code change, not just the tests: `npm run tauri build` (or `npm start` for a dev run) so the change is proven to compile and bundle in the real app. Passing `cargo test` / `npm test` is not enough. The build target is the host OS - a Windows `.exe` is built on Windows, a Linux bundle from WSL/Linux; say which one you built rather than implying the other.
 - Check whether the change makes README.md or CLAUDE.md drift:
   - New script / removed dependency / renamed module -> update README.
   - New convention or gotcha that future-you would miss -> add to CLAUDE.md (or docs/learnings.md).

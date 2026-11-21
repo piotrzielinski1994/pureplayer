@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTimeline, type PlaybackMarks } from "@/lib/playback-timing";
+import {
+  describeElementState,
+  formatTimeline,
+  type PlaybackMarks,
+  resolveDuration,
+} from "@/lib/playback-timing";
+
+describe("resolveDuration", () => {
+  // behavior: the probed source length wins over a growing HLS playlist duration
+  it("should prefer the probed duration if one was reported", () => {
+    expect(resolveDuration(52, 13699)).toBe(13699);
+  });
+
+  // behavior: no probe duration -> the element's own finite length
+  it("should fall back to the element duration if no probe duration exists", () => {
+    expect(resolveDuration(52, null)).toBe(52);
+  });
+
+  // behavior: neither value usable -> 0 rather than NaN/Infinity in the transport
+  it("should return 0 if neither duration is usable", () => {
+    expect(resolveDuration(Number.POSITIVE_INFINITY, null)).toBe(0);
+  });
+});
 
 describe("formatTimeline", () => {
   // behavior: AC-011 - the captured marks format to the exact one-line timeline naming prepare/element-load/total ms
@@ -75,5 +97,35 @@ describe("formatTimeline", () => {
     expect(formatTimeline("some weird name.mov", marks)).toContain(
       '"some weird name.mov"',
     );
+  });
+});
+
+describe("describeElementState", () => {
+  // behavior: a stalled-but-buffered element is distinguishable from an empty one
+  it("should report paused, readyState, time, error and buffered ends", () => {
+    expect(
+      describeElementState({
+        paused: true,
+        readyState: 4,
+        currentTime: 0,
+        errorCode: null,
+        bufferedEnds: [4, 8.25],
+      }),
+    ).toBe(
+      "element: paused=true readyState=4 t=0.00s error=none buffered=[4.00,8.25]",
+    );
+  });
+
+  // behavior: no buffer and a media error code are reported as-is
+  it("should report an empty buffer and the media error code", () => {
+    expect(
+      describeElementState({
+        paused: false,
+        readyState: 0,
+        currentTime: 12.5,
+        errorCode: 3,
+        bufferedEnds: [],
+      }),
+    ).toBe("element: paused=false readyState=0 t=12.50s error=3 buffered=[]");
   });
 });

@@ -39,6 +39,13 @@ struct AudioReadyPayload {
 pub struct HlsJob {
     pub dir: PathBuf,
     pub child: CommandChild,
+    // What the encode was started with, so a seek past the written segments can
+    // restart it at the target position without probing the file again.
+    pub source: String,
+    pub video: VideoAction,
+    pub audio: AudioAction,
+    pub channels: Option<u32>,
+    pub duration_sec: Option<f64>,
 }
 
 // A background audio re-encode for the two-phase (video-then-audio) path: the
@@ -113,9 +120,12 @@ pub enum MediaStrategy {
     // MP4 instantly (perfect seek, no sound), then re-encode audio in the
     // background and swap to the full file when it's ready.
     VideoThenAudio,
-    // Video itself must be re-encoded (VP9/AV1/...): no instant copy is possible.
-    // macOS keeps the HLS decode-ahead stream that starts in ~0.2s; Chromium
-    // webviews (WebView2/WebKitGTK) cannot play HLS, so they take CompleteRemux.
+    // Video itself must be re-encoded (HEVC/VP9/AV1/...): no instant copy is
+    // possible, so the picture is streamed as it encodes. macOS plays the HLS
+    // playlist natively; Chromium webviews (WebView2/WebKitGTK) have no native
+    // HLS, so the FE drives the same playlist with hls.js over MSE. Never route a
+    // video re-encode to CompleteRemux: that blocks on encoding the ENTIRE film
+    // before the first frame (a 3h40 4K HEVC source is hours of "Preparing").
     HlsStream { video: VideoAction, audio: AudioAction },
 }
 
@@ -141,22 +151,6 @@ fn plan_media_for_webview(
         return MediaPlan::Passthrough;
     }
     plan_media(container, vcodec, acodec)
-}
-
-// Chromium has no native HLS support (the playlist loads but never plays), so
-// only macOS may use the decode-ahead stream. Elsewhere a video re-encode goes
-// through the complete-MP4 path instead.
-fn strategy_for_webview(plan: MediaPlan, supports_hls: bool) -> Option<MediaStrategy> {
-    match plan {
-        MediaPlan::Convert {
-            video: VideoAction::Reencode,
-            audio,
-        } if !supports_hls => Some(MediaStrategy::CompleteRemux {
-            video: VideoAction::Reencode,
-            audio,
-        }),
-        other => strategy_for(other),
-    }
 }
 
 // Pure mapping plan -> strategy. Passthrough (already a complete playable file)
@@ -249,6 +243,9 @@ pub struct ProbeResult {
     // length until the encode ends, so `<video>.duration` reads Infinity mid-stream
     // - we carry the real duration through to the FE. None if ffprobe omits it.
     pub duration_sec: Option<f64>,
+    // Channel count of the first audio stream. Only the HLS path needs it: ADTS
+    // (AAC in MPEG-TS) cannot carry more than 7 channels.
+    pub channels: Option<u32>,
 }
 
 // Pure parser of one `ffprobe -of json` payload: container = format.format_name,
@@ -284,11 +281,19 @@ fn parse_probe_json(json: &str) -> ProbeResult {
             .unwrap_or("")
             .to_string()
     };
+    let channels = root["streams"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|s| s["codec_type"].as_str() == Some("audio"))
+        .and_then(|s| s["channels"].as_u64())
+        .map(|channels| channels as u32);
     ProbeResult {
         container,
         vcodec: codec_for("video", true),
         acodec: codec_for("audio", false),
         duration_sec,
+        channels,
     }
 }
 
@@ -305,7 +310,7 @@ async fn probe_media(app: &tauri::AppHandle, path: &str) -> ProbeResult {
             "-v",
             "error",
             "-show_entries",
-            "format=format_name,duration:stream=codec_name,codec_type",
+            "format=format_name,duration:stream=codec_name,codec_type,channels",
             "-of",
             "json",
             path,
@@ -334,21 +339,138 @@ pub fn prewarm_sidecars(app: &tauri::AppHandle) {
     }
 }
 
+// The bundled LGPL ffmpeg is built with --disable-libx264 (x264 is GPL), so the
+// software H.264 encoder is libopenh264 - several times slower than realtime on a
+// 4K source (measured: 10s of 4K HEVC -> 8.4s), which is why it is the last resort.
+const SOFTWARE_VIDEO_ENCODER: &str = "libopenh264";
+
 fn video_convert_args(action: VideoAction) -> Vec<&'static str> {
     match action {
         VideoAction::None => vec!["-vn"],
         VideoAction::Copy => vec!["-c:v", "copy"],
-        VideoAction::Reencode if cfg!(target_os = "macos") => {
-            vec!["-c:v", "h264_videotoolbox", "-b:v", "6M"]
-        }
-        VideoAction::Reencode => {
-            // The bundled LGPL ffmpeg is built with --disable-libx264 (x264 is
-            // GPL); libopenh264 is the H.264 encoder it ships instead. AV1/VP9
-            // sources are often 10-bit, which libopenh264 cannot take, so pin
-            // the 8-bit format the encoder accepts.
-            vec!["-c:v", "libopenh264", "-b:v", "6M", "-pix_fmt", "yuv420p"]
+        VideoAction::Reencode => video_encode_args(default_video_encoder()),
+    }
+}
+
+// macOS ships a platform encoder that is always there. Elsewhere prefer hardware,
+// in rough order of how many machines have it: NVENC, QuickSync, AMF, then the
+// vendor-agnostic MediaFoundation encoder, then software. A name the bundled ffmpeg
+// cannot initialise fails fast (a few ms), so probing is cheap.
+fn video_encoder_candidates() -> &'static [&'static str] {
+    if cfg!(target_os = "macos") {
+        return &["h264_videotoolbox"];
+    }
+    &["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", SOFTWARE_VIDEO_ENCODER]
+}
+
+// The platform's always-available encoder: what a re-encode falls back to when no
+// hardware encoder was selected.
+fn default_video_encoder() -> &'static str {
+    if cfg!(target_os = "macos") {
+        return "h264_videotoolbox";
+    }
+    SOFTWARE_VIDEO_ENCODER
+}
+
+// Encoder args for a picture re-encode. Sources are routinely 10-bit (HEVC/AV1),
+// which the 8-bit H.264 encoders here cannot take, so pin the 8-bit format. Only
+// pinned off macOS: VideoToolbox handles 10-bit/HDR itself, and forcing it there
+// would throw that away for no gain.
+fn video_encode_args(encoder: &'static str) -> Vec<&'static str> {
+    if cfg!(target_os = "macos") {
+        return vec!["-c:v", encoder, "-b:v", "6M"];
+    }
+    vec!["-c:v", encoder, "-b:v", "6M", "-pix_fmt", "yuv420p"]
+}
+
+// Whether this machine can actually encode with `encoder`. A 0.2s null encode
+// exercises real hardware initialisation, which a mere `ffmpeg -encoders` listing
+// does not: the binary lists NVENC/QuickSync/AMF regardless of the GPU present.
+async fn encoder_available(app: &tauri::AppHandle, encoder: &str) -> bool {
+    let Ok(command) = app.shell().sidecar("ffmpeg") else {
+        return false;
+    };
+    let output = command
+        .args([
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=320x240:d=0.2",
+            "-c:v",
+            encoder,
+            "-pix_fmt",
+            "yuv420p",
+            "-f",
+            "null",
+            "-",
+        ])
+        .output()
+        .await;
+    matches!(output, Ok(out) if out.status.code() == Some(0))
+}
+
+// First encoder this machine really has, resolved once per app run: probing costs
+// a spawn per candidate and the answer cannot change while the app runs.
+async fn select_video_encoder(app: &tauri::AppHandle) -> &'static str {
+    static SELECTED: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+    if let Some(encoder) = SELECTED.get() {
+        return encoder;
+    }
+    // macOS's encoder is part of the platform, not the hardware: no probe needed.
+    if cfg!(target_os = "macos") {
+        let _ = SELECTED.set(default_video_encoder());
+        return default_video_encoder();
+    }
+    for candidate in video_encoder_candidates() {
+        if encoder_available(app, candidate).await {
+            let _ = SELECTED.set(candidate);
+            return candidate;
         }
     }
+    let _ = SELECTED.set(SOFTWARE_VIDEO_ENCODER);
+    SOFTWARE_VIDEO_ENCODER
+}
+
+// HLS output format flags. `-sn` is not cosmetic: a subtitle track would be mapped
+// to webvtt, which the MPEG-TS muxer behind HLS rejects outright, killing the whole
+// job before the first segment (any MKV with SRT did this).
+// Input args for the HLS encode. `-ss` goes BEFORE `-i` (input seek): ffmpeg jumps
+// to the keyframe before the target instead of decoding the film from 0, so a seek
+// to the second hour costs a fraction of a second. Only a restart-at-offset sets it.
+fn hls_input_args(offset_sec: f64) -> Vec<String> {
+    let mut args = vec!["-y".to_string(), "-v".to_string(), "error".to_string()];
+    if offset_sec > 0.0 {
+        args.push("-ss".to_string());
+        args.push(format!("{offset_sec:.3}"));
+    }
+    args
+}
+
+fn hls_format_args() -> Vec<&'static str> {
+    vec![
+        "-sn",
+        "-f",
+        "hls",
+        "-hls_time",
+        "4",
+        "-hls_playlist_type",
+        "event",
+    ]
+}
+
+// Audio args for the HLS path only. ADTS, the AAC framing MPEG-TS uses, allows at
+// most 7 channels: a 7.1 (8-channel) TrueHD/Atmos source makes ffmpeg refuse the
+// whole job at header write ("channelConfiguration > 7 is not supported in ADTS"),
+// so anything wider than 5.1 is downmixed to 6 channels. A source that already fits
+// is left alone - `-ac` would upmix stereo.
+fn hls_audio_args(action: AudioAction, channels: Option<u32>) -> Vec<&'static str> {
+    let mut args = audio_convert_args(action);
+    if action == AudioAction::Reencode && channels.is_some_and(|channels| channels > 6) {
+        args.extend(["-ac", "6"]);
+    }
+    args
 }
 
 fn audio_convert_args(action: AudioAction) -> Vec<&'static str> {
@@ -428,6 +550,7 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
         vcodec,
         acodec,
         duration_sec,
+        channels,
     } = probe_media(&app, &path).await;
     if !has_playable_stream(&vcodec, &acodec) {
         log::error!("prepare_media failed: no audio or video stream (or bundled ffmpeg failed) path={path}");
@@ -452,7 +575,7 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
         stop_current_bg(&state);
     }
 
-    let strategy = match strategy_for_webview(plan, cfg!(target_os = "macos")) {
+    let strategy = match strategy_for(plan) {
         // Already webview-playable: serve the file untouched via the asset
         // protocol. No remux, no HLS, no encode.
         None => {
@@ -478,14 +601,56 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
             video_then_audio(&app, &path, duration_sec, started).await
         }
         MediaStrategy::HlsStream { video, audio } => {
-            stream_hls(&app, &path, video, audio, duration_sec, started).await
+            stream_hls(&app, &path, video, audio, channels, duration_sec, started, 0.0).await
         }
     }
 }
 
+// Restart the running HLS encode at `offset_sec` of the same source and return the
+// new playlist URL. HLS cannot seek past the segments ffmpeg has already written,
+// so a jump beyond them re-encodes from the target keyframe - the VLC model: the
+// picture continues from there instead of the seek being refused or clamped.
+#[tauri::command]
+pub async fn seek_media(app: tauri::AppHandle, offset_sec: f64) -> Result<PreparedMedia, String> {
+    let state = app
+        .try_state::<MediaState>()
+        .ok_or_else(|| "media state not initialised".to_string())?;
+    let job = {
+        let guard = state
+            .current_hls
+            .lock()
+            .map_err(|_| "HLS state poisoned".to_string())?;
+        guard.as_ref().map(|job| {
+            (
+                job.source.clone(),
+                job.video,
+                job.audio,
+                job.channels,
+                job.duration_sec,
+            )
+        })
+    };
+    let Some((source, video, audio, channels, duration_sec)) = job else {
+        return Err("no HLS stream to seek".to_string());
+    };
+
+    stop_current_hls(&state);
+    log::info!("seek_media offset={offset_sec:.3}s source={source}");
+    stream_hls(
+        &app,
+        &source,
+        video,
+        audio,
+        channels,
+        duration_sec,
+        Instant::now(),
+        offset_sec,
+    )
+    .await
+}
+
 // One synchronous remux to a COMPLETE MP4 on disk. The video track is copied for a
-// real video file or dropped (`-vn`) for an audio-only file; on Chromium hosts a
-// non-native video is re-encoded here too (no HLS alternative). Audio is copied or
+// real video file or dropped (`-vn`) for an audio-only file. Audio is copied or
 // re-encoded. Because the file is whole when `<video>` loads it, the element gets a
 // finite duration and native random-access seeking - the HLS progressive stream
 // (seekable.end == Infinity mid-encode) was what broke seeking. For h264+aac this
@@ -683,8 +848,10 @@ async fn stream_hls(
     path: &str,
     video: VideoAction,
     audio: AudioAction,
+    channels: Option<u32>,
     duration_sec: Option<f64>,
     started: Instant,
+    offset_sec: f64,
 ) -> Result<PreparedMedia, String> {
     let state = app
         .try_state::<MediaState>()
@@ -696,14 +863,23 @@ async fn stream_hls(
     let playlist = dir.join("index.m3u8");
     let segment_pattern = dir.join("seg%05d.ts");
 
+    // A re-encode takes whichever encoder actually initialises here (hardware when
+    // there is one); copies and drops don't care.
+    let video_args = match video {
+        VideoAction::Reencode => video_encode_args(select_video_encoder(app).await),
+        other => video_convert_args(other),
+    };
+
     let command = app
         .shell()
         .sidecar("ffmpeg")
         .map_err(|e| format!("failed to resolve bundled ffmpeg: {e}"))?
-        .args(["-y", "-v", "error", "-i", path])
-        .args(video_convert_args(video))
-        .args(audio_convert_args(audio))
-        .args(["-f", "hls", "-hls_time", "4", "-hls_playlist_type", "event"])
+        .args(hls_input_args(offset_sec))
+        .arg("-i")
+        .arg(path)
+        .args(video_args)
+        .args(hls_audio_args(audio, channels))
+        .args(hls_format_args())
         .arg("-hls_segment_filename")
         .arg(segment_pattern.to_string_lossy().into_owned())
         .arg(playlist.to_string_lossy().into_owned());
@@ -745,7 +921,15 @@ async fn stream_hls(
             *state
                 .current_hls
                 .lock()
-                .map_err(|_| "HLS state poisoned".to_string())? = Some(HlsJob { dir, child });
+                .map_err(|_| "HLS state poisoned".to_string())? = Some(HlsJob {
+                dir,
+                child,
+                source: path.to_string(),
+                video,
+                audio,
+                channels,
+                duration_sec,
+            });
             log::info!(
                 "prepare_media HLS first segment in {}ms path={path} url={url}",
                 started.elapsed().as_millis()
@@ -802,9 +986,11 @@ fn poll_first_segment(
 #[cfg(test)]
 mod tests {
     use super::{
-        audio_convert_args, bg_audio_args, parse_probe_json, plan_media, plan_media_for_webview,
-        strategy_for, strategy_for_webview, video_convert_args, AudioAction, MediaPlan,
-        MediaStrategy, ProbeResult, VideoAction,
+        audio_convert_args, bg_audio_args, hls_audio_args, hls_format_args, hls_input_args,
+        parse_probe_json,
+        plan_media, plan_media_for_webview, strategy_for, video_convert_args,
+        video_encode_args, video_encoder_candidates, AudioAction, MediaPlan, MediaStrategy,
+        ProbeResult, VideoAction,
     };
 
     // The bundled ffmpeg builds are LGPL (BtbN) and are compiled with
@@ -973,6 +1159,7 @@ mod tests {
                 vcodec: "h264".to_string(),
                 acodec: "aac".to_string(),
                 duration_sec: None,
+                channels: None,
             }
         );
     }
@@ -987,6 +1174,7 @@ mod tests {
                 vcodec: "h264".to_string(),
                 acodec: "opus".to_string(),
                 duration_sec: None,
+                channels: None,
             }
         );
     }
@@ -1048,6 +1236,7 @@ mod tests {
                 vcodec: String::new(),
                 acodec: String::new(),
                 duration_sec: None,
+                channels: None,
             }
         );
     }
@@ -1062,6 +1251,7 @@ mod tests {
                 vcodec: String::new(),
                 acodec: String::new(),
                 duration_sec: None,
+                channels: None,
             }
         );
     }
@@ -1156,41 +1346,107 @@ mod tests {
         );
     }
 
-    // Chromium (WebView2) has no native HLS: the playlist loads but never plays,
-    // so off macOS a video re-encode must produce a complete MP4 instead.
+    const MKV_TRUEHD_71_JSON: &str = r#"{
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+            { "codec_name": "hevc", "codec_type": "video" },
+            { "codec_name": "truehd", "codec_type": "audio", "channels": 8 }
+        ],
+        "format": { "format_name": "matroska,webm" }
+    }"#;
+
+    // The HLS audio path needs the channel count: ADTS (AAC inside MPEG-TS) tops out
+    // at 7 channels, so an 8-channel source has to be downmixed.
     #[test]
-    fn should_complete_remux_when_video_reencode_and_no_hls_support() {
+    fn should_parse_channel_count_when_audio_stream_reports_one() {
+        assert_eq!(parse_probe_json(MKV_TRUEHD_71_JSON).channels, Some(8));
+    }
+
+    #[test]
+    fn should_leave_channel_count_none_when_no_audio_stream_has_one() {
+        assert_eq!(parse_probe_json(MP4_H264_AAC_JSON).channels, None);
+    }
+
+    // A 7.1 TrueHD source kills the whole HLS job at header write with
+    // "channelConfiguration > 7 is not supported in ADTS", so >6 channels must be
+    // downmixed to 5.1 - the stream otherwise never starts at all.
+    #[test]
+    fn should_downmix_to_5_1_when_hls_source_has_more_than_7_channels() {
+        let args = hls_audio_args(AudioAction::Reencode, Some(8));
+        assert!(args.contains(&"-ac"), "args: {args:?}");
+        assert!(args.contains(&"6"), "args: {args:?}");
+    }
+
+    // A 5.1 or stereo source already fits ADTS: downmixing it would change how it
+    // sounds for no reason.
+    #[test]
+    fn should_keep_channels_when_hls_source_fits_adts() {
+        let args = hls_audio_args(AudioAction::Reencode, Some(6));
+        assert!(!args.contains(&"-ac"), "args: {args:?}");
+    }
+
+    // A hardware encoder is worth 10x+ on a big source (measured: 10s of 4K HEVC
+    // takes 8.4s through libopenh264, 3.6s through NVENC), so the probe order must
+    // try hardware first and only fall back to software.
+    #[test]
+    fn should_try_hardware_encoders_before_the_software_one() {
+        let candidates = video_encoder_candidates();
+        if cfg!(target_os = "macos") {
+            assert_eq!(candidates, ["h264_videotoolbox"]);
+            return;
+        }
         assert_eq!(
-            strategy_for_webview(
-                MediaPlan::Convert {
-                    video: VideoAction::Reencode,
-                    audio: AudioAction::Reencode,
-                },
-                false
-            ),
-            Some(MediaStrategy::CompleteRemux {
-                video: VideoAction::Reencode,
-                audio: AudioAction::Reencode,
-            })
+            candidates.last(),
+            Some(&"libopenh264"),
+            "software must be the last resort, got: {candidates:?}"
+        );
+        assert!(
+            candidates.len() > 2,
+            "expected several hardware candidates, got: {candidates:?}"
         );
     }
 
-    // macOS keeps the HLS decode-ahead stream for a video re-encode.
+    // An MKV with SRT subtitles maps them to webvtt, which the MPEG-TS muxer behind
+    // HLS cannot take: the whole job dies at header write ("Invalid data found"),
+    // so the stream must carry picture + sound only.
     #[test]
-    fn should_hls_stream_when_video_reencode_and_hls_supported() {
-        assert_eq!(
-            strategy_for_webview(
-                MediaPlan::Convert {
-                    video: VideoAction::Reencode,
-                    audio: AudioAction::Reencode,
-                },
-                true
-            ),
-            Some(MediaStrategy::HlsStream {
-                video: VideoAction::Reencode,
-                audio: AudioAction::Reencode,
-            })
-        );
+    fn should_drop_subtitles_when_streaming_hls() {
+        let args = hls_format_args();
+        assert!(args.contains(&"-sn"), "args: {args:?}");
+        assert!(args.contains(&"hls"), "args: {args:?}");
+    }
+
+    // A fresh prepare encodes from the beginning: no `-ss`, so ffmpeg reads the file
+    // from 0 and the playlist starts at 00:00.
+    #[test]
+    fn should_not_seek_when_streaming_from_the_start() {
+        let args = hls_input_args(0.0);
+        assert!(!args.contains(&"-ss".to_string()), "args: {args:?}");
+    }
+
+    // Seeking past the written segments restarts the encode at the target, and the
+    // seek must be an INPUT seek placed before `-i` (a keyframe jump, not a decode
+    // from 0).
+    #[test]
+    fn should_seek_from_an_offset_when_restarting_the_stream() {
+        let args = hls_input_args(3600.5);
+        let ss = args.iter().position(|a| a == "-ss");
+        assert_eq!(ss.and_then(|i| args.get(i + 1)), Some(&"3600.500".to_string()));
+    }
+
+    // 10-bit sources (HEVC/AV1) cannot go through the 8-bit H.264 encoders, so a
+    // re-encode must pin yuv420p - but only off macOS, where VideoToolbox handles
+    // 10-bit/HDR itself.
+    #[test]
+    fn should_pin_8_bit_pixel_format_when_encoding_with_a_given_encoder() {
+        let args = video_encode_args("h264_nvenc");
+        assert!(args.contains(&"h264_nvenc"), "args: {args:?}");
+        if cfg!(target_os = "macos") {
+            assert!(!args.contains(&"yuv420p"), "args: {args:?}");
+        } else {
+            assert!(args.contains(&"yuv420p"), "args: {args:?}");
+        }
     }
 }
 

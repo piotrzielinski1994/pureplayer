@@ -61,13 +61,26 @@ export type PreparedSource = {
 // Infinity until it ends, so the FE falls back to this for the transport readout.
 export async function prepareMediaUrl(path: string): Promise<PreparedSource> {
   const prepared = await invoke<PreparedMedia>("prepare_media", { path });
-  const isUrl =
-    prepared.path.startsWith("http://") || prepared.path.startsWith("https://");
   return {
-    url: isUrl ? prepared.path : convertFileSrc(prepared.path),
+    url: toPlayableUrl(prepared.path),
     durationSec: prepared.durationSec,
     swapId: prepared.swapId ?? null,
   };
+}
+
+// A playlist URL is served by the loopback server; a complete file goes through the
+// asset protocol, since the webview cannot read arbitrary paths itself.
+function toPlayableUrl(path: string): string {
+  const isUrl = path.startsWith("http://") || path.startsWith("https://");
+  return isUrl ? path : convertFileSrc(path);
+}
+
+// Restart the running HLS encode at `offsetSec` and return the new playlist: a seek
+// past the segments already written cannot be served from disk, so the backend
+// re-encodes from the target keyframe (the VLC model).
+export async function seekMediaUrl(offsetSec: number): Promise<string> {
+  const prepared = await invoke<PreparedMedia>("seek_media", { offsetSec });
+  return toPlayableUrl(prepared.path);
 }
 
 export type AudioReady = { swapId: number; url: string };

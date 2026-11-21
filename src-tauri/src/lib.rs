@@ -60,6 +60,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             media::prepare_media,
+            media::seek_media,
             media::log_playback,
             focus::focus_webview,
             import::expand_dropped_paths,
