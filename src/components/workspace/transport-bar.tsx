@@ -25,8 +25,14 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 const EMPTY_TIME = "--:-- / --:--";
 
 // Bar buttons fill the bar's full height, square, no rounding - read as 1px-
-// divided cells, not floating chips (docs/design.md Layout rule).
-const BAR_BUTTON = "h-full w-12 rounded-none";
+// divided cells, not floating chips (docs/design.md Layout rule). The width is
+// 7% of the bar (`7cqw`, capped at `w-12`): the cells scale DOWN continuously
+// with the bar instead of wrapping or overlapping, so every control stays
+// visible even at a tiny window. The bar itself is the `@container` that these
+// units measure, so the class sits on the outer bar element.
+const BAR_BUTTON = "h-full w-[7cqw] max-w-12 shrink-0 rounded-none";
+// Icons shrink with the cells too; they never exceed the text icon size.
+const BAR_ICON = "size-[min(1rem,4cqw)]";
 
 export function TransportBar() {
   const {
@@ -148,12 +154,14 @@ export function TransportBar() {
           />
         </div>
       </div>
-      <div className="grid grid-cols-[1fr_auto_1fr] [grid-template-areas:'left_playback_meta'_'controls_controls_controls'] @2xl:h-12 @2xl:items-center @2xl:[grid-template-areas:'controls_playback_meta']">
+      <div className="grid h-12 grid-rows-1 grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center [grid-template-areas:'controls_playback_meta']">
         {/* left zone (1fr) - mute toggle + volume slider + shuffle + repeat.
-          Narrow: its own centered row below playback/meta. Wide: left column. */}
+          Stays on the same row as the playback/meta zones at every width; its
+          cells scale down with the bar (`7cqw`) and the slider shrinks to
+          `min-w-0` instead of wrapping to a second row or overlapping. */}
         <div
           data-transport-zone="controls"
-          className="flex h-12 items-center justify-center border-t border-border [grid-area:controls] @2xl:h-full @2xl:justify-start @2xl:border-t-0"
+          className="flex h-full min-w-0 items-center justify-start overflow-hidden [grid-area:controls]"
         >
           <Button
             variant="ghost"
@@ -163,9 +171,9 @@ export function TransportBar() {
             className={`${BAR_BUTTON} border-r border-border`}
           >
             {isMuted ? (
-              <VolumeX className="size-4" />
+              <VolumeX className={BAR_ICON} />
             ) : (
-              <Volume2 className="size-4" />
+              <Volume2 className={BAR_ICON} />
             )}
           </Button>
           <div
@@ -179,7 +187,7 @@ export function TransportBar() {
             onPointerMove={handleVolumePointerMove}
             onPointerUp={stopVolumeScrubbing}
             onPointerCancel={stopVolumeScrubbing}
-            className="mx-3 flex h-2 w-24 cursor-pointer items-center"
+            className="mx-2 flex h-2 min-w-0 max-w-24 flex-1 cursor-pointer items-center"
           >
             <div className="h-px w-full bg-border">
               <div
@@ -198,7 +206,7 @@ export function TransportBar() {
               isShuffling ? "text-foreground" : "text-muted-foreground"
             }`}
           >
-            <Shuffle className="size-4" />
+            <Shuffle className={BAR_ICON} />
           </Button>
           <Button
             variant="ghost"
@@ -210,15 +218,15 @@ export function TransportBar() {
             }`}
           >
             {repeatMode === "one" ? (
-              <Repeat1 className="size-4" />
+              <Repeat1 className={BAR_ICON} />
             ) : (
-              <Repeat className="size-4" />
+              <Repeat className={BAR_ICON} />
             )}
           </Button>
         </div>
         <div
           data-transport-zone="playback"
-          className="flex h-12 items-center justify-center [grid-area:playback] @2xl:h-full"
+          className="flex h-full min-w-0 items-center justify-center overflow-hidden [grid-area:playback]"
         >
           <Button
             variant="ghost"
@@ -227,7 +235,7 @@ export function TransportBar() {
             onClick={() => prevMedia()}
             className={`${BAR_BUTTON} border-l border-border`}
           >
-            <SkipBack className="size-4" />
+            <SkipBack className={BAR_ICON} />
           </Button>
           <Button
             variant="ghost"
@@ -237,9 +245,9 @@ export function TransportBar() {
             className={`${BAR_BUTTON} border-l border-border`}
           >
             {isPlaying ? (
-              <Pause className="size-4" />
+              <Pause className={BAR_ICON} />
             ) : (
-              <Play className="size-4" />
+              <Play className={BAR_ICON} />
             )}
           </Button>
           <Button
@@ -249,26 +257,26 @@ export function TransportBar() {
             onClick={() => nextMedia()}
             className={`${BAR_BUTTON} border-x border-border`}
           >
-            <SkipForward className="size-4" />
+            <SkipForward className={BAR_ICON} />
           </Button>
         </div>
         {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout.
-          Shares the top row with playback (narrow) / right column (wide). */}
+          Truncates rather than pushing the other zones when the bar is narrow. */}
         <div
           data-transport-zone="meta"
-          className="flex h-12 items-center justify-end gap-3 pr-4 [grid-area:meta] @2xl:h-full"
+          className="flex h-full min-w-0 items-center justify-end gap-3 overflow-hidden pl-2 pr-4 [grid-area:meta]"
         >
           {activeMedia && !isDefaultTransform(viewportTransform) && (
-            <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+            <span className="min-w-0 truncate font-mono text-xs text-muted-foreground tabular-nums">
               {formatTransform(viewportTransform)}
             </span>
           )}
           {playbackRate !== 1 && (
-            <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+            <span className="min-w-0 truncate font-mono text-xs text-muted-foreground tabular-nums">
               {playbackRate}x
             </span>
           )}
-          <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+          <span className="min-w-0 truncate font-mono text-xs text-muted-foreground tabular-nums">
             {timeReadout}
           </span>
         </div>
