@@ -326,6 +326,15 @@ describe("TransportBar", () => {
     const volume = screen.getByRole("slider", { name: /volume/i });
     expect(volume.className).toContain("min-w-0");
     expect(volume.className).toContain("flex-1");
+
+    // the playback trio is the emphasized control: larger icons only, no bg,
+    // no heavier stroke
+    expect(playback?.className).not.toContain("bg-muted");
+    const playIcon = screen
+      .getByRole("button", { name: /play/i })
+      .querySelector("svg");
+    expect(playIcon?.getAttribute("class")).toContain("size-[min(1.25rem,5cqw)]");
+    expect(playIcon?.getAttribute("class")).toContain("stroke-[1.6]");
   });
 
   // behavior: prev/next follow the CURRENT sorted order when a sort key is active (AC-008)

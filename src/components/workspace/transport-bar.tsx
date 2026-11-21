@@ -33,6 +33,12 @@ const EMPTY_TIME = "--:-- / --:--";
 const BAR_BUTTON = "h-full w-[7cqw] max-w-12 shrink-0 rounded-none";
 // Icons shrink with the cells too; they never exceed the text icon size.
 const BAR_ICON = "size-[min(1rem,4cqw)]";
+// The playback trio is the primary control, so it reads one step stronger than
+// the rest of the bar with slightly larger icons - no separate background, and
+// the size scales with the `cqw` bar width. The stroke is thinned in proportion
+// (2 * 16/20 = 1.6) so a larger icon keeps the SAME rendered line weight as the
+// other cells instead of looking bold.
+const BAR_PLAY_ICON = "size-[min(1.25rem,5cqw)] stroke-[1.6]";
 
 export function TransportBar() {
   const {
@@ -235,7 +241,7 @@ export function TransportBar() {
             onClick={() => prevMedia()}
             className={`${BAR_BUTTON} border-l border-border`}
           >
-            <SkipBack className={BAR_ICON} />
+            <SkipBack className={BAR_PLAY_ICON} />
           </Button>
           <Button
             variant="ghost"
@@ -245,9 +251,9 @@ export function TransportBar() {
             className={`${BAR_BUTTON} border-l border-border`}
           >
             {isPlaying ? (
-              <Pause className={BAR_ICON} />
+              <Pause className={BAR_PLAY_ICON} />
             ) : (
-              <Play className={BAR_ICON} />
+              <Play className={BAR_PLAY_ICON} />
             )}
           </Button>
           <Button
@@ -257,7 +263,7 @@ export function TransportBar() {
             onClick={() => nextMedia()}
             className={`${BAR_BUTTON} border-x border-border`}
           >
-            <SkipForward className={BAR_ICON} />
+            <SkipForward className={BAR_PLAY_ICON} />
           </Button>
         </div>
         {/* right zone (1fr) - transform readout (only != default) + rate readout (only off 1x) + time readout.
