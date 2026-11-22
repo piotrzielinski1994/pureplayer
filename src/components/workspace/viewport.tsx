@@ -410,7 +410,7 @@ export function Viewport() {
           <p className="text-sm">No media selected</p>
         </div>
       )}
-      {activeMedia && !sourceForActive && (
+      {activeMedia && !mpvActive && !sourceForActive && (
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="size-10 animate-spin" />
           <p className="text-sm">Preparing {activeMedia.name}…</p>
