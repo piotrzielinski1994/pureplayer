@@ -16,6 +16,13 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 
 - MKV is played through a **native `mpv` window** (`useMpv = isMkv && mpvAvailable`), which sits on top of the webview. HTML overlays therefore do **not** show over MKV video; for mpv mode use mpv OSD (`show-text` / `osd-*` commands) instead. Never disable the mpv path to "fix" overlay visibility - forcing ffmpeg to transcode large MKVs burns ~50% CPU and kills playback performance.
 
+## Environment (Windows repo, read first)
+
+- This repo lives on a Windows drive and is edited from WSL, but **ALL commands (install, build, test, lint, typecheck, tauri) must run in PowerShell on Windows - never in WSL/Ubuntu.** WSL runs overwrite `node_modules` with Linux binaries and break Windows tooling; `npm ci`/`npm install`/builds/tests in WSL have already broken the tree multiple times.
+- Use `npm run tauri:fast` (debug, no-bundle) instead of `npm run tauri build` when iterating; full `npm run tauri build` for release verification.
+- If a WSL run broke `node_modules`, restore with `npm install` in PowerShell.
+- The build target is the host OS: Windows `.exe` from Windows, Linux bundle from WSL/Linux - say which one you built.
+
 ## Learning from conversation
 
 If during a session you learn something project-specific that future-you would otherwise have to re-derive - a non-obvious convention the user prefers, a constraint that bit us, a gotcha worth recording - append it to [docs/learnings.md](docs/learnings.md). Examples: formatting rules the user repeated, gotchas that broke a hook/CI, naming conventions enforced via review.
@@ -46,7 +53,7 @@ Don't add: one-off task context, debugging notes, things obvious from the code i
 
 ## Before committing
 
-- Rebuild the app after a code change, not just the tests: `npm run tauri build` (or `npm start` for a dev run) so the change is proven to compile and bundle in the real app. Passing `cargo test` / `npm test` is not enough. The build target is the host OS - a Windows `.exe` is built on Windows, a Linux bundle from WSL/Linux; say which one you built rather than implying the other. If the repo lives on a Windows drive accessed from WSL, do NOT run `npm ci`/`npm install`/builds in WSL - they overwrite `node_modules` with Linux binaries and break Windows tooling. Build and install dependencies in PowerShell on Windows instead.
+- Rebuild the app after a code change, not just the tests: `npm run tauri build` (or `npm start` for a dev run) so the change is proven to compile and bundle in the real app. Passing `cargo test` / `npm test` is not enough. Run it in PowerShell on Windows - see **Environment (Windows repo, read first)**; never in WSL. The build target is the host OS - a Windows `.exe` is built on Windows, a Linux bundle from WSL/Linux; say which one you built rather than implying the other.
 - Check whether the change makes README.md or CLAUDE.md drift:
   - New script / removed dependency / renamed module -> update README.
   - New convention or gotcha that future-you would miss -> add to CLAUDE.md (or docs/learnings.md).

@@ -6,6 +6,8 @@ Project-specific conventions, gotchas, and constraints worth recording so future
 
 <!-- Format: one bullet per learning. Date prefix optional. -->
 
+- MKV via mpv: the native mpv window covers the whole host window by default, so without margins it draws over the sidebar (sidebar appears to overlap the viewport). Constrain it with `mpvSetMargins` (ratios of the window) to the Viewport element's bounding box, recomputed on a `ResizeObserver` + window resize (sidebar/logs/transport toggles change the box). Reset margins to 0 on deactivation/unmount. `mpvSetMargins` was previously defined in `src/lib/mpv.ts` but unused.
+
 - `nvm` on this machine is shimmed to print "use `mise` instead" and does nothing; node is managed by mise (`.nvmrc` pins 24, mise has 24.17.0). In non-interactive bash, activate first: `eval "$(mise activate bash)"` then `mise exec -- <cmd>` to get node 24.
 - TanStack Hotkeys: `@tanstack/react-hotkeys` provides the React `useHotkeys` + `HotkeysProvider` (the framework-agnostic core is the separate `@tanstack/hotkeys`). Hotkey strings are case-sensitive uppercase, e.g. `"Mod+K"`. Under jsdom the lib resolves `Mod` to `Control`, so hotkey tests fire `{Control>}k{/Control}`, not Meta. Root cause: `detectPlatform()` checks UA for "mac" then "win"; jsdom's UA is `Mozilla/5.0 (darwin) ...` and "da**rwin**" contains "win" -> resolves to `"windows"`. Production "Mod+K" still maps to Cmd on real macOS - this is a test-env quirk only.
 - shadcn Button keeps `react-refresh/only-export-components` as an accepted lint *warning* (the canonical upstream file exports `buttonVariants` alongside the component). Lint exits 0 with that one warning.

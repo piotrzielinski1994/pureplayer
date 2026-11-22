@@ -28,6 +28,7 @@ import {
   mpvSetVolume,
   mpvSetMuted,
   mpvSetSpeed,
+  mpvSetMargins,
   observeProperties,
   mpvDestroyAndReset,
 } from "@/lib/mpv";
@@ -86,6 +87,7 @@ export function Viewport() {
     reportEnded,
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [source, setSource] = useState<SourceState | null>(null);
   const [mpvActive, setMpvActive] = useState(false);
   const [mpvAvailable, setMpvAvailable] = useState<boolean | null>(null);
@@ -193,6 +195,39 @@ export function Viewport() {
   useEffect(() => {
     void ensureMpv().then((ok) => setMpvAvailable(ok));
   }, []);
+
+  // mpv renders its native video over the whole window. Constrain it to this
+  // viewport's box via margins so it never draws over the sidebar (or logs /
+  // transport regions) - otherwise the video is centered in the whole window and
+  // the sidebar visually overlaps it.
+  useEffect(() => {
+    if (!mpvActive) {
+      return;
+    }
+    const compute = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
+      const left = Math.max(0, Math.min(1, rect.left / w));
+      const right = Math.max(0, Math.min(1, (w - rect.right) / w));
+      const top = Math.max(0, Math.min(1, rect.top / h));
+      const bottom = Math.max(0, Math.min(1, (h - rect.bottom) / h));
+      void mpvSetMargins({ left, right, top, bottom }).catch(() => {});
+    };
+    // Defer to next frame so layout (resizable panels) has settled.
+    const raf = requestAnimationFrame(compute);
+    const ro = new ResizeObserver(() => requestAnimationFrame(compute));
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener("resize", compute);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", compute);
+      void mpvSetMargins({ left: 0, right: 0, top: 0, bottom: 0 }).catch(() => {});
+    };
+  }, [mpvActive]);
 
   const handleClick = () => {
     if (!activeMedia) {
@@ -484,6 +519,7 @@ export function Viewport() {
 
   return (
     <div
+      ref={containerRef}
       role="region"
       aria-label="Media viewport"
       onClick={handleClick}
