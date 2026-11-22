@@ -29,6 +29,7 @@ import {
   mpvSetMuted,
   mpvSetSpeed,
   observeProperties,
+  mpvDestroyAndReset,
 } from "@/lib/mpv";
 
 function logPlayError(error: unknown) {
@@ -89,6 +90,7 @@ export function Viewport() {
   const [mpvActive, setMpvActive] = useState(false);
   const [mpvAvailable, setMpvAvailable] = useState<boolean | null>(null);
   const mpvUnlistenRef = useRef<(() => void) | null>(null);
+  const wasMpvRef = useRef(false);
   const mpvTimeRef = useRef<number | null>(null);
   const mpvDurationRef = useRef<number | null>(null);
   // Film time where the current HLS job started. An HLS playlist always begins at
@@ -156,75 +158,108 @@ export function Viewport() {
     if (!activeMedia) {
       return;
     }
-    // mpv path: for HEVC/MKV files, use native mpv instead of ffmpeg transcode.
     const isMkv = activeMedia.path.toLowerCase().endsWith(".mkv");
-    if (isMkv && mpvAvailable) {
-      setMpvActive(true);
-      setSource(null);
-      void mpvLoadFile(activeMedia.path).then(() => {
-        // observe properties
-        void observeProperties(
-          [
-            ["time-pos", "double", "none"],
-            ["duration", "double", "none"],
-            ["eof-reached", "flag"],
-          ],
-          ({ name, data }) => {
-            if (name === "time-pos" && typeof data === "number") {
-              mpvTimeRef.current = data;
-              reportProgress(data, mpvDurationRef.current ?? 0);
-            }
-            if (name === "duration" && typeof data === "number") {
-              mpvDurationRef.current = data;
-              reportProgress(mpvTimeRef.current ?? 0, data);
-            }
-            if (name === "eof-reached" && data === true) {
-              reportEnded();
-            }
-          },
-        ).then((unlisten) => {
-          mpvUnlistenRef.current = unlisten;
-        });
-      }).catch((e) => {
-        console.error("mpv load failed, falling back to ffmpeg", e);
-        setMpvActive(false);
-      });
-      return () => {
-        mpvUnlistenRef.current?.();
-        mpvUnlistenRef.current = null;
-      };
-    }
-    setMpvActive(false);
+    const useMpv = isMkv && mpvAvailable === true;
     let cancelled = false;
     const forId = activeMedia.id;
-    timelineRef.current = {
-      forId,
-      name: activeMedia.name,
-      activatedAtMs: performance.now(),
-      prepareResolvedAtMs: null,
-      firstFrameAtMs: null,
-    };
-    prepareMediaUrl(activeMedia.path)
-      .then(({ url, durationSec, swapId }) => {
-        const marks = timelineRef.current;
-        if (marks && marks.forId === forId) {
-          marks.prepareResolvedAtMs = performance.now();
-        }
-        hlsBaseRef.current = 0;
-        if (!cancelled) {
-          setSource({ status: "ready", forId, url, durationSec, swapId });
-        }
-      })
-      .catch((error) => {
-        console.error("prepare_media failed", error);
-        void logPlayback(`playback "${activeMedia.name}": prepare FAILED`);
-        if (!cancelled) {
-          setSource({ status: "error", forId, message: String(error) });
-        }
-      });
-    return () => {
+
+    const cleanup = () => {
       cancelled = true;
+      mpvUnlistenRef.current?.();
+      mpvUnlistenRef.current = null;
     };
+
+    const prepareFfmpeg = () => {
+      setMpvActive(false);
+      timelineRef.current = {
+        forId,
+        name: activeMedia.name,
+        activatedAtMs: performance.now(),
+        prepareResolvedAtMs: null,
+        firstFrameAtMs: null,
+      };
+      prepareMediaUrl(activeMedia.path)
+        .then(({ url, durationSec, swapId }) => {
+          const marks = timelineRef.current;
+          if (marks && marks.forId === forId) {
+            marks.prepareResolvedAtMs = performance.now();
+          }
+          hlsBaseRef.current = 0;
+          if (!cancelled) {
+            setSource({ status: "ready", forId, url, durationSec, swapId });
+          }
+        })
+        .catch((error) => {
+          console.error("prepare_media failed", error);
+          void logPlayback(`playback "${activeMedia.name}": prepare FAILED`);
+          if (!cancelled) {
+            setSource({ status: "error", forId, message: String(error) });
+          }
+        });
+    };
+
+    if (useMpv) {
+      wasMpvRef.current = true;
+      setMpvActive(true);
+      setSource(null);
+      void (async () => {
+        const ok = await ensureMpv();
+        if (cancelled) return;
+        if (!ok) {
+          setMpvActive(false);
+          prepareFfmpeg();
+          return;
+        }
+        try {
+          await mpvLoadFile(activeMedia.path);
+          if (cancelled) return;
+          const unlisten = await observeProperties(
+            [
+              ["time-pos", "double", "none"],
+              ["duration", "double", "none"],
+              ["eof-reached", "flag"],
+            ],
+            ({ name, data }) => {
+              if (name === "time-pos" && typeof data === "number") {
+                mpvTimeRef.current = data;
+                reportProgress(data, mpvDurationRef.current ?? 0);
+              }
+              if (name === "duration" && typeof data === "number") {
+                mpvDurationRef.current = data;
+                reportProgress(mpvTimeRef.current ?? 0, data);
+              }
+              if (name === "eof-reached" && data === true) {
+                reportEnded();
+              }
+            },
+          );
+          if (cancelled) {
+            unlisten?.();
+            return;
+          }
+          mpvUnlistenRef.current = unlisten;
+        } catch (e) {
+          console.error("mpv load failed, falling back to ffmpeg", e);
+          if (!cancelled) {
+            setMpvActive(false);
+            prepareFfmpeg();
+          }
+        }
+      })();
+      return cleanup;
+    }
+
+    // non-mpv path: tear down mpv if it was active
+    if (wasMpvRef.current) {
+      wasMpvRef.current = false;
+      void mpvDestroyAndReset().then(() => {
+        if (cancelled) return;
+        prepareFfmpeg();
+      });
+    } else {
+      prepareFfmpeg();
+    }
+    return cleanup;
   }, [activeMedia?.id, activeMedia, mpvAvailable]);
 
   // Two-phase swap: when the background audio re-encode finishes, the backend

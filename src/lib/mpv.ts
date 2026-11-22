@@ -97,5 +97,30 @@ export async function mpvSetMargins(ratio: {
   }
 }
 
+export async function mpvDestroyAndReset(): Promise<void> {
+  try {
+    await setProperty("force-window", "no");
+  } catch {
+    // ignore
+  }
+  try {
+    await setProperty("keep-open", "no");
+  } catch {
+    // ignore
+  }
+  try {
+    await command("quit");
+  } catch {
+    // ignore
+  }
+  try {
+    await mpvDestroy();
+  } catch {
+    // ignore
+  }
+  initialized = false;
+  initPromise = null;
+}
+
 export { observeProperties, getProperty, mpvDestroy };
 export { command as mpvCommand };
