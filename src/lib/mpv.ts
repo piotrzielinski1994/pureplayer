@@ -29,6 +29,11 @@ export async function ensureMpv(): Promise<boolean> {
             "force-window": "yes",
             "osc": "no",
             "osd-level": 0,
+            // Keep text (SRT) subtitles on the video area only; with our
+            // UI margins (sidebar/logs) mpv would otherwise render them in
+            // the black borders, overlapping panels.
+            "sub-use-margins": "no",
+            "sub-ass-force-margins": "no",
             // The only OSD drawn is the track list: several long lines, which
             // the default 55px font would overflow the window with.
             "osd-font-size": 24,
@@ -85,6 +90,26 @@ export async function mpvSetMuted(muted: boolean): Promise<void> {
 
 export async function mpvSetSpeed(speed: number): Promise<void> {
   await setProperty("speed", speed);
+}
+
+// Select a subtitle track by its mpv track id, or "no" to disable subtitles.
+// Only meaningful in mpv mode (MKV); other paths have no selectable tracks.
+export async function mpvSetSubtitle(trackId: number | null): Promise<void> {
+  // Make sure subtitles are actually rendered (mpv may have them disabled).
+  await setProperty("sub-visibility", true);
+  if (trackId === null) {
+    try {
+      await setProperty("sid", "no");
+    } catch {
+      await command("set", ["sid", "no"]);
+    }
+  } else {
+    try {
+      await setProperty("sid", trackId);
+    } catch {
+      await command("set", ["sid", String(trackId)]);
+    }
+  }
 }
 
 // Draw a message with mpv's own OSD. The native mpv window covers the webview,

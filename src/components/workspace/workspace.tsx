@@ -53,6 +53,7 @@ export function Workspace() {
     cycleFitMode,
     zoomBy,
     resetViewportTransform,
+    setSubtitlePickerOpen,
   } = useWorkspace();
   const { settings, saveRevealTransportOnHover } = useSettings();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -174,6 +175,9 @@ export function Workspace() {
     "zoom-in": () => zoomBy(0.1),
     "zoom-out": () => zoomBy(-0.1),
     "reset-viewport": resetViewportTransform,
+    "change-subtitles": () => {
+      setSubtitlePickerOpen(true);
+    },
   };
 
   useActionHotkeys(

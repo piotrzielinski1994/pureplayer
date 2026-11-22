@@ -30,7 +30,8 @@ export type ShortcutActionId =
   | "cycle-fit-mode"
   | "zoom-in"
   | "zoom-out"
-  | "reset-viewport";
+  | "reset-viewport"
+  | "change-subtitles";
 
 export type ShortcutAction = {
   id: ShortcutActionId;
@@ -262,5 +263,12 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     description: "Reset rotation, fit mode and zoom to defaults.",
     defaultHotkey: "Mod+0",
     keywords: ["reset", "transform", "rotate", "zoom", "fit"],
+  },
+  {
+    id: "change-subtitles",
+    name: "Change subtitles",
+    description: "Pick a subtitle track (or none) for the active media.",
+    defaultHotkey: "Mod+Shift+T",
+    keywords: ["subtitle", "captions", "tracks", "audio"],
   },
 ];

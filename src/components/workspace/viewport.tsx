@@ -1,8 +1,10 @@
 import { Film, Loader2, Pause } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import {
   formatTrackListOsd,
   trackFromProperties,
+  type MediaTrack,
 } from "@/components/workspace/track-list";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import {
@@ -22,6 +24,7 @@ import {
   mpvSetMargins,
   mpvSetMuted,
   mpvSetSpeed,
+  mpvSetSubtitle,
   mpvSetVolume,
   mpvShowText,
   observeProperties,
@@ -58,7 +61,8 @@ async function readMpvProperty(
   }
 }
 
-async function showMpvTrackList() {
+async function showMpvTrackList(): Promise<MediaTrack[]> {
+  const collected: MediaTrack[] = [];
   for (let attempt = 0; attempt < TRACK_LIST_ATTEMPTS; attempt++) {
     try {
       const count = await readMpvProperty("track-list/count", "int64");
@@ -91,22 +95,24 @@ async function showMpvTrackList() {
         });
         if (track) {
           tracks.push(track);
+          collected.push(track);
         }
       }
       const osd = formatTrackListOsd(tracks);
       if (osd) {
         await mpvShowText(osd, TRACK_LIST_OSD_MS);
-        return;
+        return collected;
       }
     } catch (error) {
       void logPlayback(
         `viewport: mpv track-list read failed: ${String(error)}`,
       );
-      return;
+      return collected;
     }
     await new Promise((resolve) => setTimeout(resolve, TRACK_LIST_RETRY_MS));
   }
   void logPlayback("viewport: mpv track-list: gave up, never got a list");
+  return collected;
 }
 
 function logPlayError(error: unknown) {
@@ -161,6 +167,10 @@ export function Viewport() {
     togglePlay,
     reportProgress,
     reportEnded,
+    setMpvSubtitleTracks,
+    mpvSubtitleTracks,
+    subtitlePickerOpen,
+    setSubtitlePickerOpen,
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -328,6 +338,7 @@ export function Viewport() {
     if (!activeMedia) {
       return;
     }
+    setSubtitlePickerOpen(false);
     const isMkv = activeMedia.path.toLowerCase().endsWith(".mkv");
     // Wait for the mpv availability check before choosing a path: starting ffmpeg
     // for an MKV that mpv can play wastes CPU transcoding the whole file.
@@ -414,7 +425,9 @@ export function Viewport() {
           }
           mpvUnlistenRef.current = unlisten;
           // The track listing is a readout only: it never blocks the load.
-          void showMpvTrackList();
+          void showMpvTrackList().then((tracks) => {
+            setMpvSubtitleTracks(tracks.filter((t) => t.kind === "subtitle"));
+          });
         } catch (e) {
           void logPlayback(
             `viewport: mpv load failed, falling back to ffmpeg: ${String(e)}`,
@@ -429,6 +442,8 @@ export function Viewport() {
       return cleanup;
     }
 
+    // non-mpv path: no selectable tracks; clear any stale list from a previous MKV.
+    setMpvSubtitleTracks([]);
     // non-mpv path: tear down mpv if it was active
     if (wasMpvRef.current) {
       wasMpvRef.current = false;
@@ -725,6 +740,74 @@ export function Viewport() {
         >
           <Pause className="size-24 text-white drop-shadow-lg" />
         </div>
+      )}
+      {subtitlePickerOpen &&
+        createPortal(
+          <div
+            data-testid="subtitle-picker"
+            className="fixed right-3 top-3 z-[9999] max-h-80 w-72 overflow-auto border border-border bg-background p-2 text-sm text-foreground shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-medium">Subtitles</span>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setSubtitlePickerOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+          <button
+            type="button"
+            className="block w-full px-2 py-1 text-left hover:bg-muted"
+            onClick={() => {
+              void mpvSetSubtitle(null)
+                .then(() => {
+                  void mpvShowText("Subtitles: none", 2000);
+                })
+                .catch((e) => {
+                  void mpvShowText(`Subtitle change failed: ${String(e)}`, 3000);
+                });
+              setSubtitlePickerOpen(false);
+            }}
+          >
+            None
+          </button>
+          {mpvSubtitleTracks.length === 0 && (
+            <p className="px-2 py-1 text-muted-foreground">No subtitles</p>
+          )}
+          {mpvSubtitleTracks.map((track) => (
+            <button
+              key={track.id ?? track.title}
+              type="button"
+              className="block w-full px-2 py-1 text-left hover:bg-muted"
+              onClick={() => {
+                if (track.id !== null) {
+                  void mpvSetSubtitle(track.id)
+                    .then(() => {
+                      void mpvShowText(
+                        `Subtitles: ${track.lang ?? track.title ?? track.id}`,
+                        2000,
+                      );
+                    })
+                    .catch((e) => {
+                      void mpvShowText(`Subtitle change failed: ${String(e)}`, 3000);
+                    });
+                }
+                setSubtitlePickerOpen(false);
+              }}
+            >
+              {track.id !== null ? `${track.id}: ` : ""}
+              {track.codec}/{track.lang}
+              {track.title ? ` "${track.title}"` : ""}
+              {track.isDefault ? " [default]" : ""}
+              {track.isForced ? " [forced]" : ""}
+            </button>
+          ))}
+        </div>,
+        document.body,
       )}
     </div>
   );

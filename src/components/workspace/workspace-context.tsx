@@ -30,6 +30,7 @@ import {
   type ViewportTransform,
 } from "@/components/workspace/viewport-transform";
 import { type LogLine, parseLogLine } from "@/lib/logging/log-line";
+import type { MediaTrack } from "@/components/workspace/track-list";
 import { createNoopLogStream, type LogStream } from "@/lib/logging/log-stream";
 
 type SortDirection = "asc" | "desc";
@@ -59,6 +60,12 @@ type WorkspaceContextValue = {
   isContentVisible: boolean;
   isTransportVisible: boolean;
   isLogsVisible: boolean;
+  // Tracks read from the native mpv instance for the active MKV, so a picker
+  // can offer subtitle (and audio) selection. Empty outside mpv mode.
+  mpvSubtitleTracks: MediaTrack[];
+  setMpvSubtitleTracks: (tracks: MediaTrack[]) => void;
+  subtitlePickerOpen: boolean;
+  setSubtitlePickerOpen: (open: boolean) => void;
   selectNode: (id: string) => void;
   loadMedia: (media: MediaNode[]) => void;
   addMedia: (media: MediaNode[]) => void;
@@ -175,6 +182,8 @@ export function WorkspaceProvider({
     !initialTransportHidden,
   );
   const [isLogsVisible, setIsLogsVisible] = useState(false);
+  const [mpvSubtitleTracks, setMpvSubtitleTracks] = useState<MediaTrack[]>([]);
+  const [subtitlePickerOpen, setSubtitlePickerOpen] = useState(false);
   const [logLines, setLogLines] = useState<LogLine[]>([]);
   const wasFullscreen = useRef(false);
   const initialChrome = {
@@ -330,6 +339,10 @@ export function WorkspaceProvider({
       isContentVisible,
       isTransportVisible,
       isLogsVisible,
+      mpvSubtitleTracks,
+      setMpvSubtitleTracks,
+      subtitlePickerOpen,
+      setSubtitlePickerOpen,
       selectNode: (id) => activate(id),
       loadMedia: (next) => {
         setSourceMedia(next);
@@ -542,6 +555,8 @@ export function WorkspaceProvider({
     isContentVisible,
     isTransportVisible,
     isLogsVisible,
+    mpvSubtitleTracks,
+    subtitlePickerOpen,
     toggleLogs,
     onVolumeChange,
     onMutedChange,
