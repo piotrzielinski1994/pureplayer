@@ -24,6 +24,7 @@ import {
   mpvSetMargins,
   mpvSetMuted,
   mpvSetSpeed,
+  mpvSetAudio,
   mpvSetSubtitle,
   mpvSetVolume,
   mpvShowText,
@@ -169,8 +170,12 @@ export function Viewport() {
     reportEnded,
     setMpvSubtitleTracks,
     mpvSubtitleTracks,
+    setMpvAudioTracks,
+    mpvAudioTracks,
     subtitlePickerOpen,
     setSubtitlePickerOpen,
+    audioPickerOpen,
+    setAudioPickerOpen,
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -339,6 +344,7 @@ export function Viewport() {
       return;
     }
     setSubtitlePickerOpen(false);
+    setAudioPickerOpen(false);
     const isMkv = activeMedia.path.toLowerCase().endsWith(".mkv");
     // Wait for the mpv availability check before choosing a path: starting ffmpeg
     // for an MKV that mpv can play wastes CPU transcoding the whole file.
@@ -427,6 +433,7 @@ export function Viewport() {
           // The track listing is a readout only: it never blocks the load.
           void showMpvTrackList().then((tracks) => {
             setMpvSubtitleTracks(tracks.filter((t) => t.kind === "subtitle"));
+            setMpvAudioTracks(tracks.filter((t) => t.kind === "audio"));
           });
         } catch (e) {
           void logPlayback(
@@ -444,6 +451,7 @@ export function Viewport() {
 
     // non-mpv path: no selectable tracks; clear any stale list from a previous MKV.
     setMpvSubtitleTracks([]);
+    setMpvAudioTracks([]);
     // non-mpv path: tear down mpv if it was active
     if (wasMpvRef.current) {
       wasMpvRef.current = false;
@@ -797,6 +805,74 @@ export function Viewport() {
                     });
                 }
                 setSubtitlePickerOpen(false);
+              }}
+            >
+              {track.id !== null ? `${track.id}: ` : ""}
+              {track.codec}/{track.lang}
+              {track.title ? ` "${track.title}"` : ""}
+              {track.isDefault ? " [default]" : ""}
+              {track.isForced ? " [forced]" : ""}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+      {audioPickerOpen &&
+        createPortal(
+          <div
+            data-testid="audio-picker"
+            className="fixed right-3 top-3 z-[9999] max-h-80 w-72 overflow-auto border border-border bg-background p-2 text-sm text-foreground shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-medium">Audio</span>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setAudioPickerOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+          <button
+            type="button"
+            className="block w-full px-2 py-1 text-left hover:bg-muted"
+            onClick={() => {
+              void mpvSetAudio(null)
+                .then(() => {
+                  void mpvShowText("Audio: none", 2000);
+                })
+                .catch((e) => {
+                  void mpvShowText(`Audio change failed: ${String(e)}`, 3000);
+                });
+              setAudioPickerOpen(false);
+            }}
+          >
+            None
+          </button>
+          {mpvAudioTracks.length === 0 && (
+            <p className="px-2 py-1 text-muted-foreground">No audio</p>
+          )}
+          {mpvAudioTracks.map((track) => (
+            <button
+              key={track.id ?? track.title}
+              type="button"
+              className="block w-full px-2 py-1 text-left hover:bg-muted"
+              onClick={() => {
+                if (track.id !== null) {
+                  void mpvSetAudio(track.id)
+                    .then(() => {
+                      void mpvShowText(
+                        `Audio: ${track.lang ?? track.title ?? track.id}`,
+                        2000,
+                      );
+                    })
+                    .catch((e) => {
+                      void mpvShowText(`Audio change failed: ${String(e)}`, 3000);
+                    });
+                }
+                setAudioPickerOpen(false);
               }}
             >
               {track.id !== null ? `${track.id}: ` : ""}

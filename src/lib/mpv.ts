@@ -112,6 +112,24 @@ export async function mpvSetSubtitle(trackId: number | null): Promise<void> {
   }
 }
 
+// Select an audio track by its mpv track id, or "no" to disable audio.
+// Only meaningful in mpv mode (MKV); other paths have no selectable tracks.
+export async function mpvSetAudio(trackId: number | null): Promise<void> {
+  if (trackId === null) {
+    try {
+      await setProperty("aid", "no");
+    } catch {
+      await command("set", ["aid", "no"]);
+    }
+  } else {
+    try {
+      await setProperty("aid", trackId);
+    } catch {
+      await command("set", ["aid", String(trackId)]);
+    }
+  }
+}
+
 // Draw a message with mpv's own OSD. The native mpv window covers the webview,
 // so a React overlay never shows over MKV video - OSD is the only way to put
 // text on screen there (CLAUDE.md playback rules).

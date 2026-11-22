@@ -54,6 +54,7 @@ export function Workspace() {
     zoomBy,
     resetViewportTransform,
     setSubtitlePickerOpen,
+    setAudioPickerOpen,
   } = useWorkspace();
   const { settings, saveRevealTransportOnHover } = useSettings();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -177,6 +178,9 @@ export function Workspace() {
     "reset-viewport": resetViewportTransform,
     "change-subtitles": () => {
       setSubtitlePickerOpen(true);
+    },
+    "change-audio": () => {
+      setAudioPickerOpen(true);
     },
   };
 

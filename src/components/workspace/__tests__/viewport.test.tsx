@@ -100,6 +100,7 @@ vi.mock("@/lib/mpv", () => ({
   mpvSetMuted: vi.fn(() => Promise.resolve()),
   mpvSetSpeed: vi.fn(() => Promise.resolve()),
   mpvSetSubtitle: vi.fn(() => Promise.resolve()),
+  mpvSetAudio: vi.fn(() => Promise.resolve()),
   mpvSetMargins: vi.fn(() => Promise.resolve()),
   mpvShowText: (message: string, durationMs: number) =>
     mpvShowText(message, durationMs),

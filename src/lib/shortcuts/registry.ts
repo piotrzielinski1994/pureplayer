@@ -31,7 +31,8 @@ export type ShortcutActionId =
   | "zoom-in"
   | "zoom-out"
   | "reset-viewport"
-  | "change-subtitles";
+  | "change-subtitles"
+  | "change-audio";
 
 export type ShortcutAction = {
   id: ShortcutActionId;
@@ -270,5 +271,12 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     description: "Pick a subtitle track (or none) for the active media.",
     defaultHotkey: "Mod+Shift+T",
     keywords: ["subtitle", "captions", "tracks", "audio"],
+  },
+  {
+    id: "change-audio",
+    name: "Change audio track",
+    description: "Pick an audio track for the active media.",
+    defaultHotkey: "Mod+Shift+A",
+    keywords: ["audio", "track", "language", "sound"],
   },
 ];

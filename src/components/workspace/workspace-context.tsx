@@ -64,8 +64,12 @@ type WorkspaceContextValue = {
   // can offer subtitle (and audio) selection. Empty outside mpv mode.
   mpvSubtitleTracks: MediaTrack[];
   setMpvSubtitleTracks: (tracks: MediaTrack[]) => void;
+  mpvAudioTracks: MediaTrack[];
+  setMpvAudioTracks: (tracks: MediaTrack[]) => void;
   subtitlePickerOpen: boolean;
   setSubtitlePickerOpen: (open: boolean) => void;
+  audioPickerOpen: boolean;
+  setAudioPickerOpen: (open: boolean) => void;
   selectNode: (id: string) => void;
   loadMedia: (media: MediaNode[]) => void;
   addMedia: (media: MediaNode[]) => void;
@@ -183,7 +187,9 @@ export function WorkspaceProvider({
   );
   const [isLogsVisible, setIsLogsVisible] = useState(false);
   const [mpvSubtitleTracks, setMpvSubtitleTracks] = useState<MediaTrack[]>([]);
+  const [mpvAudioTracks, setMpvAudioTracks] = useState<MediaTrack[]>([]);
   const [subtitlePickerOpen, setSubtitlePickerOpen] = useState(false);
+  const [audioPickerOpen, setAudioPickerOpen] = useState(false);
   const [logLines, setLogLines] = useState<LogLine[]>([]);
   const wasFullscreen = useRef(false);
   const initialChrome = {
@@ -341,8 +347,12 @@ export function WorkspaceProvider({
       isLogsVisible,
       mpvSubtitleTracks,
       setMpvSubtitleTracks,
+      mpvAudioTracks,
+      setMpvAudioTracks,
       subtitlePickerOpen,
       setSubtitlePickerOpen,
+      audioPickerOpen,
+      setAudioPickerOpen,
       selectNode: (id) => activate(id),
       loadMedia: (next) => {
         setSourceMedia(next);
@@ -556,7 +566,9 @@ export function WorkspaceProvider({
     isTransportVisible,
     isLogsVisible,
     mpvSubtitleTracks,
+    mpvAudioTracks,
     subtitlePickerOpen,
+    audioPickerOpen,
     toggleLogs,
     onVolumeChange,
     onMutedChange,
