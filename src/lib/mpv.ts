@@ -29,6 +29,9 @@ export async function ensureMpv(): Promise<boolean> {
             "force-window": "yes",
             "osc": "no",
             "osd-level": 0,
+            // The only OSD drawn is the track list: several long lines, which
+            // the default 55px font would overflow the window with.
+            "osd-font-size": 24,
           },
           observedProperties: [
             ["pause", "flag"],
@@ -82,6 +85,16 @@ export async function mpvSetMuted(muted: boolean): Promise<void> {
 
 export async function mpvSetSpeed(speed: number): Promise<void> {
   await setProperty("speed", speed);
+}
+
+// Draw a message with mpv's own OSD. The native mpv window covers the webview,
+// so a React overlay never shows over MKV video - OSD is the only way to put
+// text on screen there (CLAUDE.md playback rules).
+export async function mpvShowText(
+  message: string,
+  durationMs: number,
+): Promise<void> {
+  await command("show-text", [message, durationMs]);
 }
 
 export async function mpvSetMargins(ratio: {

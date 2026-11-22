@@ -36,6 +36,77 @@ const logPlayback = vi.fn((message: string) => {
 });
 const watchAudioReady = vi.fn(() => Promise.resolve(() => {}));
 
+// MKV plays through the native mpv window, so the mpv surface is stubbed with a
+// working player: init succeeds and `track-list` reports two audio tracks and
+// one subtitle, like a disc rip. Everything else is a resolved no-op.
+const mpvShowText = vi.fn((_message: string, _durationMs: number) =>
+  Promise.resolve(),
+);
+const TRACK_FIXTURE = [
+  { id: 1, type: "video", codec: "hevc" },
+  {
+    id: 2,
+    type: "audio",
+    codec: "truehd",
+    lang: "eng",
+    title: "Atmos 7.1",
+    default: true,
+  },
+  { id: 3, type: "audio", codec: "ac3", lang: "eng", title: "AC-3 5.1" },
+  {
+    id: 4,
+    type: "sub",
+    codec: "hdmv_pgs_subtitle",
+    lang: "eng",
+    title: "SDH",
+  },
+];
+
+const mpvGetProperty = vi.fn((name: string): Promise<unknown> => {
+  if (name === "track-list/count") {
+    return Promise.resolve(TRACK_FIXTURE.length);
+  }
+  const match = name.match(/^track-list\/(\d+)\/(.+)$/);
+  if (match) {
+    const entry = TRACK_FIXTURE[Number(match[1])] as
+      | Record<string, unknown>
+      | undefined;
+    if (!entry) {
+      return Promise.resolve(null);
+    }
+    const field = match[2];
+    if (field === "id") return Promise.resolve(entry.id ?? null);
+    if (field === "type") return Promise.resolve(entry.type ?? null);
+    if (field === "codec") return Promise.resolve(entry.codec ?? null);
+    if (field === "lang") return Promise.resolve(entry.lang ?? null);
+    if (field === "title") return Promise.resolve(entry.title ?? null);
+    if (field === "default") {
+      return Promise.resolve(entry.default === true);
+    }
+    if (field === "forced") {
+      return Promise.resolve(entry.forced === true);
+    }
+  }
+  return Promise.resolve(null);
+});
+
+vi.mock("@/lib/mpv", () => ({
+  ensureMpv: vi.fn(() => Promise.resolve(true)),
+  mpvLoadFile: vi.fn(() => Promise.resolve()),
+  mpvPlay: vi.fn(() => Promise.resolve()),
+  mpvPause: vi.fn(() => Promise.resolve()),
+  mpvSeek: vi.fn(() => Promise.resolve()),
+  mpvSetVolume: vi.fn(() => Promise.resolve()),
+  mpvSetMuted: vi.fn(() => Promise.resolve()),
+  mpvSetSpeed: vi.fn(() => Promise.resolve()),
+  mpvSetMargins: vi.fn(() => Promise.resolve()),
+  mpvShowText: (message: string, durationMs: number) =>
+    mpvShowText(message, durationMs),
+  getProperty: (name: string) => mpvGetProperty(name),
+  observeProperties: vi.fn(() => Promise.resolve(() => {})),
+  mpvDestroyAndReset: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("@/lib/tauri", () => ({
   takePendingOpenPaths: vi.fn(() => Promise.resolve([])),
   watchOpenPaths: vi.fn(() => Promise.resolve(() => {})),
@@ -293,6 +364,27 @@ describe("Viewport", () => {
 
     await waitFor(() => expect(video.currentTime).toBe(0));
     expect(video.paused).toBe(false);
+  });
+
+  // behavior: an mkv's audio and subtitle tracks are listed in mpv's OSD, since
+  // a React overlay is hidden behind the native mpv window
+  it("should show the audio and subtitle track list in the osd if an mkv loads in mpv", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+        <SelectButton id="v-12" />
+      </WorkspaceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "select-v-12" }));
+
+    await waitFor(() => expect(mpvShowText).toHaveBeenCalled());
+    const osd = mpvShowText.mock.calls[0][0];
+    expect(osd).toContain("Audio tracks (2)");
+    expect(osd).toContain('2: truehd/eng "Atmos 7.1" [default]');
+    expect(osd).toContain("Subtitles (1)");
+    expect(osd).toContain('4: hdmv_pgs_subtitle/eng "SDH"');
   });
 
   // behavior: the active video's name is shown in the viewport once ready (AC-004)

@@ -1,5 +1,9 @@
 import { Film, Loader2, Pause } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import {
+  formatTrackListOsd,
+  trackFromProperties,
+} from "@/components/workspace/track-list";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import {
   attachHlsJs,
@@ -7,6 +11,21 @@ import {
   needsHlsJs,
   seekTarget,
 } from "@/lib/hls";
+import {
+  ensureMpv,
+  getProperty,
+  mpvDestroyAndReset,
+  mpvLoadFile,
+  mpvPause,
+  mpvPlay,
+  mpvSeek,
+  mpvSetMargins,
+  mpvSetMuted,
+  mpvSetSpeed,
+  mpvSetVolume,
+  mpvShowText,
+  observeProperties,
+} from "@/lib/mpv";
 import {
   describeElementState,
   formatTimeline,
@@ -19,19 +38,76 @@ import {
   toggleFullscreen,
   watchAudioReady,
 } from "@/lib/tauri";
-import {
-  ensureMpv,
-  mpvLoadFile,
-  mpvPlay,
-  mpvPause,
-  mpvSeek,
-  mpvSetVolume,
-  mpvSetMuted,
-  mpvSetSpeed,
-  mpvSetMargins,
-  observeProperties,
-  mpvDestroyAndReset,
-} from "@/lib/mpv";
+
+// mpv fills `track-list` asynchronously after `loadfile`, so the read is retried
+// briefly before giving up on the listing.
+const TRACK_LIST_ATTEMPTS = 10;
+const TRACK_LIST_RETRY_MS = 300;
+const TRACK_LIST_OSD_MS = 8000;
+
+// Show the file's audio/subtitle tracks in mpv's OSD. Best-effort: an empty or
+// failed read only means no listing, never a playback error.
+async function readMpvProperty(
+  name: string,
+  format: "int64" | "string" | "flag",
+): Promise<unknown> {
+  try {
+    return await getProperty(name, format);
+  } catch {
+    return null;
+  }
+}
+
+async function showMpvTrackList() {
+  for (let attempt = 0; attempt < TRACK_LIST_ATTEMPTS; attempt++) {
+    try {
+      const count = await readMpvProperty("track-list/count", "int64");
+      if (typeof count !== "number" || count <= 0) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, TRACK_LIST_RETRY_MS),
+        );
+        continue;
+      }
+      const tracks = [];
+      for (let index = 0; index < count; index++) {
+        const [id, type, codec, lang, title, isDefault, isForced] =
+          await Promise.all([
+            readMpvProperty(`track-list/${index}/id`, "int64"),
+            readMpvProperty(`track-list/${index}/type`, "string"),
+            readMpvProperty(`track-list/${index}/codec`, "string"),
+            readMpvProperty(`track-list/${index}/lang`, "string"),
+            readMpvProperty(`track-list/${index}/title`, "string"),
+            readMpvProperty(`track-list/${index}/default`, "flag"),
+            readMpvProperty(`track-list/${index}/forced`, "flag"),
+          ]);
+        const track = trackFromProperties({
+          id: typeof id === "number" ? id : null,
+          type,
+          codec,
+          lang,
+          title,
+          isDefault,
+          isForced,
+        });
+        if (track) {
+          tracks.push(track);
+        }
+      }
+      const osd = formatTrackListOsd(tracks);
+      if (osd) {
+        await mpvShowText(osd, TRACK_LIST_OSD_MS);
+        return;
+      }
+    } catch (error) {
+      void logPlayback(
+        `viewport: mpv track-list read failed: ${String(error)}`,
+      );
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, TRACK_LIST_RETRY_MS));
+  }
+  void logPlayback("viewport: mpv track-list: gave up, never got a list");
+}
 
 function logPlayError(error: unknown) {
   console.error("video play() rejected", error);
@@ -153,7 +229,10 @@ export function Viewport() {
     if (speedTimerRef.current !== null) {
       clearTimeout(speedTimerRef.current);
     }
-    speedTimerRef.current = setTimeout(() => setSpeedOverlayVisible(false), SPEED_OVERLAY_MS);
+    speedTimerRef.current = setTimeout(
+      () => setSpeedOverlayVisible(false),
+      SPEED_OVERLAY_MS,
+    );
     return () => {
       if (speedTimerRef.current !== null) {
         clearTimeout(speedTimerRef.current);
@@ -170,7 +249,10 @@ export function Viewport() {
       if (pauseTimerRef.current !== null) {
         clearTimeout(pauseTimerRef.current);
       }
-      pauseTimerRef.current = setTimeout(() => setPauseOverlayVisible(false), PAUSE_OVERLAY_MS);
+      pauseTimerRef.current = setTimeout(
+        () => setPauseOverlayVisible(false),
+        PAUSE_OVERLAY_MS,
+      );
     } else if (!prevPlayingRef.current || isPlaying) {
       setPauseOverlayVisible(false);
       if (pauseTimerRef.current !== null) {
@@ -225,7 +307,9 @@ export function Viewport() {
       cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener("resize", compute);
-      void mpvSetMargins({ left: 0, right: 0, top: 0, bottom: 0 }).catch(() => {});
+      void mpvSetMargins({ left: 0, right: 0, top: 0, bottom: 0 }).catch(
+        () => {},
+      );
     };
   }, [mpvActive]);
 
@@ -245,6 +329,11 @@ export function Viewport() {
       return;
     }
     const isMkv = activeMedia.path.toLowerCase().endsWith(".mkv");
+    // Wait for the mpv availability check before choosing a path: starting ffmpeg
+    // for an MKV that mpv can play wastes CPU transcoding the whole file.
+    if (mpvAvailable === null) {
+      return;
+    }
     const useMpv = isMkv && mpvAvailable === true;
     let cancelled = false;
     const forId = activeMedia.id;
@@ -324,7 +413,12 @@ export function Viewport() {
             return;
           }
           mpvUnlistenRef.current = unlisten;
+          // The track listing is a readout only: it never blocks the load.
+          void showMpvTrackList();
         } catch (e) {
+          void logPlayback(
+            `viewport: mpv load failed, falling back to ffmpeg: ${String(e)}`,
+          );
           console.error("mpv load failed, falling back to ffmpeg", e);
           if (!cancelled) {
             setMpvActive(false);
@@ -551,51 +645,61 @@ export function Viewport() {
         <>
           {!mpvActive && (
             <video
-            ref={videoRef}
-            src={hlsUrl === null ? (sourceForActive?.status === "ready" ? sourceForActive.url : undefined) : undefined}
-            className="h-full w-full"
-            style={{
-              objectFit: viewportTransform.fitMode,
-              transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
-              transformOrigin: "center",
-            }}
-            onCanPlay={(event) => {
-              if (hlsUrl !== null) {
-                void logPlayback(
-                  describeElementState(snapshotElement(event.currentTarget)),
+              ref={videoRef}
+              src={
+                hlsUrl === null
+                  ? sourceForActive?.status === "ready"
+                    ? sourceForActive.url
+                    : undefined
+                  : undefined
+              }
+              className="h-full w-full"
+              style={{
+                objectFit: viewportTransform.fitMode,
+                transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
+                transformOrigin: "center",
+              }}
+              onCanPlay={(event) => {
+                if (hlsUrl !== null) {
+                  void logPlayback(
+                    describeElementState(snapshotElement(event.currentTarget)),
+                  );
+                }
+                emitTimelineOnFirstFrame();
+              }}
+              onLoadedData={(event) => {
+                if (isPlaying) {
+                  void event.currentTarget.play().catch(logPlayError);
+                }
+              }}
+              onTimeUpdate={(event) =>
+                reportProgress(
+                  hlsBaseRef.current + event.currentTarget.currentTime,
+                  resolveDuration(
+                    event.currentTarget.duration,
+                    sourceForActive?.status === "ready"
+                      ? sourceForActive.durationSec
+                      : null,
+                  ),
+                )
+              }
+              onLoadedMetadata={(event) => {
+                if (resumeAfterSwapRef.current !== null) {
+                  event.currentTarget.currentTime = resumeAfterSwapRef.current;
+                  resumeAfterSwapRef.current = null;
+                }
+                reportProgress(
+                  hlsBaseRef.current + event.currentTarget.currentTime,
+                  resolveDuration(
+                    event.currentTarget.duration,
+                    sourceForActive?.status === "ready"
+                      ? sourceForActive.durationSec
+                      : null,
+                  ),
                 );
-              }
-              emitTimelineOnFirstFrame();
-            }}
-            onLoadedData={(event) => {
-              if (isPlaying) {
-                void event.currentTarget.play().catch(logPlayError);
-              }
-            }}
-            onTimeUpdate={(event) =>
-              reportProgress(
-                hlsBaseRef.current + event.currentTarget.currentTime,
-                resolveDuration(
-                  event.currentTarget.duration,
-                  sourceForActive?.status === "ready" ? sourceForActive.durationSec : null,
-                ),
-              )
-            }
-            onLoadedMetadata={(event) => {
-              if (resumeAfterSwapRef.current !== null) {
-                event.currentTarget.currentTime = resumeAfterSwapRef.current;
-                resumeAfterSwapRef.current = null;
-              }
-              reportProgress(
-                hlsBaseRef.current + event.currentTarget.currentTime,
-                resolveDuration(
-                  event.currentTarget.duration,
-                  sourceForActive?.status === "ready" ? sourceForActive.durationSec : null,
-                ),
-              );
-            }}
-            onEnded={() => reportEnded()}
-          />
+              }}
+              onEnded={() => reportEnded()}
+            />
           )}
           {!isFullscreen && titleHiddenForId !== activeMedia.id && (
             <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-sm text-white">

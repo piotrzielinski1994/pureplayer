@@ -46,7 +46,9 @@ Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
 - **Universal playback** - every file is probed (ffprobe) and a playback strategy is chosen so the
   picture is instant and seeking is native: native-codec files play directly, others are stream-copied
   into a finished MP4, play with a background audio re-encode, or fall back to play-while-encode HLS.
-  `ffmpeg`/`ffprobe` are bundled as Tauri sidecars - the app is standalone.
+  `ffmpeg`/`ffprobe` are bundled as Tauri sidecars - the app is standalone. MKV plays through a native
+  mpv window, which lists the file's audio and subtitle tracks in its OSD on load (track names only -
+  switching them is not implemented).
 - **Transport** - prev/play-pause/next, seekable progress bar (click or drag), arrows seek ±5s
   (Shift ±1s), `Up`/`Down`/`M` volume + mute, `[`/`]` speed 0.5x-2x, auto-advance with repeat (`R`)
   and shuffle (`S`).
