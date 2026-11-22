@@ -12,6 +12,10 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 - Read [docs/design.md](docs/design.md) before any UI change - it's the visual contract, shared verbatim with the `requi` and `dbui` repos to keep all three consistent. Key rule: **no rounded corners anywhere** (`--radius` and every `--radius-*` pinned to `0rem` in `index.css`); don't raise them or add `rounded-full` / `rounded-xs` / `rounded-[..]` (token-based `rounded-{sm,md,lg}` resolve to 0 so are tolerated, but prefer stripping). Buttons in a thin bar (the transport bar) fill the bar's full height, square, divided by a 1px border - not floating chips with their own height/padding (see `transport-bar.tsx` `BAR_BUTTON`).
 - Keep design.md in sync with `requi`/`dbui` when the shared contract changes; pureplayer-only rules can be added but mark them as such.
 
+## Playback (pureplayer-only)
+
+- MKV is played through a **native `mpv` window** (`useMpv = isMkv && mpvAvailable`), which sits on top of the webview. HTML overlays therefore do **not** show over MKV video; for mpv mode use mpv OSD (`show-text` / `osd-*` commands) instead. Never disable the mpv path to "fix" overlay visibility - forcing ffmpeg to transcode large MKVs burns ~50% CPU and kills playback performance.
+
 ## Learning from conversation
 
 If during a session you learn something project-specific that future-you would otherwise have to re-derive - a non-obvious convention the user prefers, a constraint that bit us, a gotcha worth recording - append it to [docs/learnings.md](docs/learnings.md). Examples: formatting rules the user repeated, gotchas that broke a hook/CI, naming conventions enforced via review.
@@ -42,7 +46,7 @@ Don't add: one-off task context, debugging notes, things obvious from the code i
 
 ## Before committing
 
-- Rebuild the app after a code change, not just the tests: `npm run tauri build` (or `npm start` for a dev run) so the change is proven to compile and bundle in the real app. Passing `cargo test` / `npm test` is not enough. The build target is the host OS - a Windows `.exe` is built on Windows, a Linux bundle from WSL/Linux; say which one you built rather than implying the other.
+- Rebuild the app after a code change, not just the tests: `npm run tauri build` (or `npm start` for a dev run) so the change is proven to compile and bundle in the real app. Passing `cargo test` / `npm test` is not enough. The build target is the host OS - a Windows `.exe` is built on Windows, a Linux bundle from WSL/Linux; say which one you built rather than implying the other. If the repo lives on a Windows drive accessed from WSL, do NOT run `npm ci`/`npm install`/builds in WSL - they overwrite `node_modules` with Linux binaries and break Windows tooling. Build and install dependencies in PowerShell on Windows instead.
 - Check whether the change makes README.md or CLAUDE.md drift:
   - New script / removed dependency / renamed module -> update README.
   - New convention or gotcha that future-you would miss -> add to CLAUDE.md (or docs/learnings.md).

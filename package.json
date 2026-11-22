@@ -9,6 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:fast": "tauri build --no-bundle",
+    "tauri:fast:debug": "tauri build --debug --no-bundle",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",

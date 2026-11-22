@@ -1,4 +1,4 @@
-import { Film, Loader2 } from "lucide-react";
+import { Film, Loader2, Pause } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import {
@@ -99,6 +99,12 @@ export function Viewport() {
   // Latest seek-restart request, so a slow one cannot overwrite a newer one.
   const seekRestartTokenRef = useRef(0);
   const [titleHiddenForId, setTitleHiddenForId] = useState<string | null>(null);
+  const [speedOverlayVisible, setSpeedOverlayVisible] = useState(false);
+  const [pauseOverlayVisible, setPauseOverlayVisible] = useState(false);
+  const prevRateRef = useRef(playbackRate);
+  const prevPlayingRef = useRef(isPlaying);
+  const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Drop->first-frame timeline marks for the active video. Best-effort timing for
   // the log file; never gates render. Emitted once all three marks land.
   const timelineRef = useRef<TimelineMarks | null>(null);
@@ -133,6 +139,51 @@ export function Viewport() {
     const timer = setTimeout(() => setTitleHiddenForId(id), TITLE_VISIBLE_MS);
     return () => clearTimeout(timer);
   }, [activeMedia?.id]);
+
+  // Briefly surface the newly set playback speed in the top-right corner.
+  const SPEED_OVERLAY_MS = 1000;
+  useEffect(() => {
+    if (playbackRate === prevRateRef.current) {
+      return;
+    }
+    prevRateRef.current = playbackRate;
+    setSpeedOverlayVisible(true);
+    if (speedTimerRef.current !== null) {
+      clearTimeout(speedTimerRef.current);
+    }
+    speedTimerRef.current = setTimeout(() => setSpeedOverlayVisible(false), SPEED_OVERLAY_MS);
+    return () => {
+      if (speedTimerRef.current !== null) {
+        clearTimeout(speedTimerRef.current);
+        speedTimerRef.current = null;
+      }
+    };
+  }, [playbackRate]);
+
+  // Briefly show a pause icon in the center when playback pauses.
+  const PAUSE_OVERLAY_MS = 1000;
+  useEffect(() => {
+    if (prevPlayingRef.current && !isPlaying) {
+      setPauseOverlayVisible(true);
+      if (pauseTimerRef.current !== null) {
+        clearTimeout(pauseTimerRef.current);
+      }
+      pauseTimerRef.current = setTimeout(() => setPauseOverlayVisible(false), PAUSE_OVERLAY_MS);
+    } else if (!prevPlayingRef.current || isPlaying) {
+      setPauseOverlayVisible(false);
+      if (pauseTimerRef.current !== null) {
+        clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
+      }
+    }
+    prevPlayingRef.current = isPlaying;
+    return () => {
+      if (pauseTimerRef.current !== null) {
+        clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
+      }
+    };
+  }, [isPlaying]);
 
   // A single click toggles play/pause instantly (no debounce, so it feels as
   // snappy as the transport button). A double click goes fullscreen: the DOM
@@ -516,6 +567,24 @@ export function Viewport() {
             </p>
           )}
         </>
+      )}
+      {activeMedia && speedOverlayVisible && (
+        <div
+          data-testid="speed-overlay"
+          className="pointer-events-none absolute right-3 top-3 z-10 px-3 py-1.5 font-mono text-lg font-bold text-white"
+        >
+          {playbackRate}x
+        </div>
+      )}
+      {activeMedia && pauseOverlayVisible && (
+        <div
+          data-testid="pause-overlay"
+          role="img"
+          aria-label="Pause"
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+        >
+          <Pause className="size-24 text-white drop-shadow-lg" />
+        </div>
       )}
     </div>
   );
