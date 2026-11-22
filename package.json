@@ -46,7 +46,8 @@
     "radix-ui": "^1.6.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-resizable-panels": "^4.12.2"
+    "react-resizable-panels": "^4.12.2",
+    "tauri-plugin-libmpv-api": "^0.3.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",

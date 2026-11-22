@@ -14,7 +14,9 @@
       {
         "title": "pureplayer",
         "width": 1000,
-        "height": 700
+        "height": 700,
+        "transparent": true,
+        "backgroundColor": "#00000000"
       }
     ],
     "security": {

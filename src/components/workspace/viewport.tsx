@@ -19,6 +19,17 @@ import {
   toggleFullscreen,
   watchAudioReady,
 } from "@/lib/tauri";
+import {
+  ensureMpv,
+  mpvLoadFile,
+  mpvPlay,
+  mpvPause,
+  mpvSeek,
+  mpvSetVolume,
+  mpvSetMuted,
+  mpvSetSpeed,
+  observeProperties,
+} from "@/lib/mpv";
 
 function logPlayError(error: unknown) {
   console.error("video play() rejected", error);
@@ -75,6 +86,11 @@ export function Viewport() {
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [source, setSource] = useState<SourceState | null>(null);
+  const [mpvActive, setMpvActive] = useState(false);
+  const [mpvAvailable, setMpvAvailable] = useState<boolean | null>(null);
+  const mpvUnlistenRef = useRef<(() => void) | null>(null);
+  const mpvTimeRef = useRef<number | null>(null);
+  const mpvDurationRef = useRef<number | null>(null);
   // Film time where the current HLS job started. An HLS playlist always begins at
   // 0, so after a seek-restart the element time is offset from the real position.
   const hlsBaseRef = useRef(0);
@@ -120,6 +136,11 @@ export function Viewport() {
   // snappy as the transport button). A double click goes fullscreen: the DOM
   // fires `click` twice before `dblclick`, so the two toggles cancel out (net
   // no change) and fullscreen lands on top - no stray toggle, no delay.
+  // Check mpv availability once.
+  useEffect(() => {
+    void ensureMpv().then((ok) => setMpvAvailable(ok));
+  }, []);
+
   const handleClick = () => {
     if (!activeMedia) {
       return;
@@ -135,6 +156,45 @@ export function Viewport() {
     if (!activeMedia) {
       return;
     }
+    // mpv path: for HEVC/MKV files, use native mpv instead of ffmpeg transcode.
+    const isMkv = activeMedia.path.toLowerCase().endsWith(".mkv");
+    if (isMkv && mpvAvailable) {
+      setMpvActive(true);
+      setSource(null);
+      void mpvLoadFile(activeMedia.path).then(() => {
+        // observe properties
+        void observeProperties(
+          [
+            ["time-pos", "double", "none"],
+            ["duration", "double", "none"],
+            ["eof-reached", "flag"],
+          ],
+          ({ name, data }) => {
+            if (name === "time-pos" && typeof data === "number") {
+              mpvTimeRef.current = data;
+              reportProgress(data, mpvDurationRef.current ?? 0);
+            }
+            if (name === "duration" && typeof data === "number") {
+              mpvDurationRef.current = data;
+              reportProgress(mpvTimeRef.current ?? 0, data);
+            }
+            if (name === "eof-reached" && data === true) {
+              reportEnded();
+            }
+          },
+        ).then((unlisten) => {
+          mpvUnlistenRef.current = unlisten;
+        });
+      }).catch((e) => {
+        console.error("mpv load failed, falling back to ffmpeg", e);
+        setMpvActive(false);
+      });
+      return () => {
+        mpvUnlistenRef.current?.();
+        mpvUnlistenRef.current = null;
+      };
+    }
+    setMpvActive(false);
     let cancelled = false;
     const forId = activeMedia.id;
     timelineRef.current = {
@@ -165,7 +225,7 @@ export function Viewport() {
     return () => {
       cancelled = true;
     };
-  }, [activeMedia?.id, activeMedia]);
+  }, [activeMedia?.id, activeMedia, mpvAvailable]);
 
   // Two-phase swap: when the background audio re-encode finishes, the backend
   // emits audio-ready with the matching swapId. We point the <video> at the
@@ -197,6 +257,14 @@ export function Viewport() {
   sourceRef.current = sourceForActive;
 
   useEffect(() => {
+    if (mpvActive) {
+      if (isPlaying) {
+        void mpvPlay().catch(() => {});
+      } else {
+        void mpvPause().catch(() => {});
+      }
+      return;
+    }
     const element = videoRef.current;
     if (!element) {
       return;
@@ -206,7 +274,7 @@ export function Viewport() {
       return;
     }
     element.pause();
-  }, [isPlaying]);
+  }, [isPlaying, mpvActive]);
 
   // The <video> only mounts once the source resolves (and remounts when an
   // audio swap points it at a new url), so the url is a dependency: without it
@@ -258,6 +326,12 @@ export function Viewport() {
   // time, so the transport keeps showing the real position. Complete files keep the
   // plain element seek they always had.
   useEffect(() => {
+    if (mpvActive) {
+      if (seekToSec !== null) {
+        void mpvSeek(seekToSec).catch(() => {});
+      }
+      return;
+    }
     const element = videoRef.current;
     if (!element || seekToSec === null) {
       return;
@@ -304,9 +378,15 @@ export function Viewport() {
     if (isPlaying && element.paused) {
       void element.play().catch(logPlayError);
     }
-  }, [seekToSec, isPlaying, hlsUrl]);
+  }, [seekToSec, isPlaying, hlsUrl, mpvActive]);
 
   useEffect(() => {
+    if (mpvActive) {
+      void mpvSetVolume(volume).catch(() => {});
+      void mpvSetMuted(isMuted).catch(() => {});
+      void mpvSetSpeed(playbackRate).catch(() => {});
+      return;
+    }
     const element = videoRef.current;
     if (!element) {
       return;
@@ -314,7 +394,7 @@ export function Viewport() {
     element.volume = volume;
     element.muted = isMuted;
     element.playbackRate = playbackRate;
-  }, [volume, isMuted, playbackRate, sourceUrl]);
+  }, [volume, isMuted, playbackRate, sourceUrl, mpvActive]);
 
   return (
     <div
@@ -322,7 +402,7 @@ export function Viewport() {
       aria-label="Media viewport"
       onClick={handleClick}
       onDoubleClick={() => void toggleFullscreen()}
-      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black"
+      className={`relative flex h-full w-full items-center justify-center overflow-hidden ${mpvActive ? "bg-transparent" : "bg-black"}`}
     >
       {!activeMedia && (
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -345,11 +425,12 @@ export function Viewport() {
           <p className="text-xs">{sourceForActive.message}</p>
         </div>
       )}
-      {activeMedia && sourceForActive?.status === "ready" && (
+      {activeMedia && (mpvActive || sourceForActive?.status === "ready") && (
         <>
-          <video
+          {!mpvActive && (
+            <video
             ref={videoRef}
-            src={hlsUrl === null ? sourceForActive.url : undefined}
+            src={hlsUrl === null ? (sourceForActive?.status === "ready" ? sourceForActive.url : undefined) : undefined}
             className="h-full w-full"
             style={{
               objectFit: viewportTransform.fitMode,
@@ -374,7 +455,7 @@ export function Viewport() {
                 hlsBaseRef.current + event.currentTarget.currentTime,
                 resolveDuration(
                   event.currentTarget.duration,
-                  sourceForActive.durationSec,
+                  sourceForActive?.status === "ready" ? sourceForActive.durationSec : null,
                 ),
               )
             }
@@ -387,12 +468,13 @@ export function Viewport() {
                 hlsBaseRef.current + event.currentTarget.currentTime,
                 resolveDuration(
                   event.currentTarget.duration,
-                  sourceForActive.durationSec,
+                  sourceForActive?.status === "ready" ? sourceForActive.durationSec : null,
                 ),
               );
             }}
             onEnded={() => reportEnded()}
           />
+          )}
           {!isFullscreen && titleHiddenForId !== activeMedia.id && (
             <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-sm text-white">
               {activeMedia.name}

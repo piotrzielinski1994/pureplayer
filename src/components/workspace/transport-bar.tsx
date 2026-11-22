@@ -139,7 +139,7 @@ export function TransportBar() {
   };
 
   return (
-    <div data-transport-bar className="@container relative shrink-0">
+    <div data-transport-bar className="@container relative shrink-0 bg-background">
       <div
         ref={seekBarRef}
         role="slider"

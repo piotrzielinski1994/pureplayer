@@ -27,6 +27,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_libmpv::init())
         .setup(|app| {
             logging::init(app.handle());
             // Files named on this launch's command line (file association).
