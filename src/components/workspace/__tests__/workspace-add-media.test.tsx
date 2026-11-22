@@ -73,14 +73,15 @@ describe("workspace addMedia", () => {
     expect(screen.getByLabelText("playing")).toHaveTextContent("true");
   });
 
-  // behavior: leaves an already-active video untouched (AC-005 / E-5)
-  it("should leave the active video unchanged if a video is already active", async () => {
+  // behavior: an append activates the first newly-added video (drop plays it)
+  it("should activate and play the first new video even if a video is already active", async () => {
     const user = userEvent.setup();
     renderProbe({ media: existing, initialActiveMediaId: "/v/a.mp4" });
 
     await user.click(screen.getByRole("button", { name: "do-add" }));
 
     expect(playlistNames()).toEqual(["a.mp4", "b.mkv"]);
-    expect(screen.getByLabelText("active-id")).toHaveTextContent("/v/a.mp4");
+    expect(screen.getByLabelText("active-id")).toHaveTextContent("/v/b.mkv");
+    expect(screen.getByLabelText("playing")).toHaveTextContent("true");
   });
 });

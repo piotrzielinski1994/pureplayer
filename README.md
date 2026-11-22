@@ -42,7 +42,7 @@ Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
 ## Features
 
 - **Playlist** - flat sidebar of the open files; `Open files` (`Mod+O`) replaces it, drag & drop
-  appends (folders recursed, deduped, sorted). Audio files are first-class playlist items.
+  appends (folders recursed, deduped, sorted) and starts playing the first dropped file. Audio files are first-class playlist items.
 - **Universal playback** - every file is probed (ffprobe) and a playback strategy is chosen so the
   picture is instant and seeking is native: native-codec files play directly, others are stream-copied
   into a finished MP4, play with a background audio re-encode, or fall back to play-while-encode HLS.

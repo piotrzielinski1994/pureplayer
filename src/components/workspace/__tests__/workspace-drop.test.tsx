@@ -125,7 +125,7 @@ describe("Workspace drag-drop import", () => {
       "x.mp4",
       "y.mp4",
     ]);
-    expect(viewport().getByText(/x\.mp4/i)).toBeInTheDocument();
+    expect(viewport().getByText(/y\.mp4/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /pause/i })).toBeInTheDocument();
   });
 

@@ -218,9 +218,10 @@ export function WorkspaceProvider({
         return;
       }
       setSourceMedia((media) => [...media, ...fresh]);
-      if (activeMediaIdRef.current === null) {
-        activateMedia(fresh[0].id);
-      }
+      // A drop is an explicit "play this" gesture: the first newly-added
+      // file becomes active and starts playing, even when something was
+      // already playing (the appended rows stay queued behind it).
+      activateMedia(fresh[0].id);
     },
     [activateMedia],
   );
