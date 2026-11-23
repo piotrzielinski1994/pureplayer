@@ -15,6 +15,11 @@ import { check } from "@tauri-apps/plugin-updater";
 import { type ReactNode, useEffect, useState } from "react";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { demoSettings } from "@/lib/playlist/demo-seed";
+import { ProgressProvider } from "@/lib/progress/progress-context";
+import {
+  createInMemoryProgressStore,
+  createTauriProgressStore,
+} from "@/lib/progress/progress-store";
 import { isDevBrowser } from "@/lib/runtime/environment";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SettingsProvider } from "@/lib/settings/settings-context";
@@ -60,6 +65,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
       ? createInMemorySettingsStore(demoSettings())
       : createTauriSettingsStore(),
   );
+  // Same split as settings: the dev browser has no Tauri store plugin.
+  const [progressStore] = useState(() =>
+    isDevBrowser() ? createInMemoryProgressStore() : createTauriProgressStore(),
+  );
   const [updateController] = useState(createUpdateControllerForEnv);
 
   useEffect(() => installBrowserDefaultGuards(window), []);
@@ -67,19 +76,21 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SettingsProvider store={settingsStore}>
-        <ThemeProvider>
-          <HotkeysProvider>
-            <ToastProvider>
-              <UpdaterProvider
-                controller={updateController}
-                getVersion={getAppVersion}
-              >
-                <UpdateCheckerBridge controller={updateController} />
-                {children}
-              </UpdaterProvider>
-            </ToastProvider>
-          </HotkeysProvider>
-        </ThemeProvider>
+        <ProgressProvider store={progressStore}>
+          <ThemeProvider>
+            <HotkeysProvider>
+              <ToastProvider>
+                <UpdaterProvider
+                  controller={updateController}
+                  getVersion={getAppVersion}
+                >
+                  <UpdateCheckerBridge controller={updateController} />
+                  {children}
+                </UpdaterProvider>
+              </ToastProvider>
+            </HotkeysProvider>
+          </ThemeProvider>
+        </ProgressProvider>
       </SettingsProvider>
     </QueryClientProvider>
   );

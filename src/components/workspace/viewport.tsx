@@ -1,9 +1,9 @@
 import { Film, Loader2, Pause } from "lucide-react";
-import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  trackFromProperties,
   type MediaTrack,
+  trackFromProperties,
 } from "@/components/workspace/track-list";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import {
@@ -20,11 +20,11 @@ import {
   mpvPause,
   mpvPlay,
   mpvSeek,
+  mpvSetAudio,
   mpvSetInvertColors,
   mpvSetMargins,
   mpvSetMuted,
   mpvSetSpeed,
-  mpvSetAudio,
   mpvSetSubtitle,
   mpvSetVolume,
   mpvShowText,
@@ -157,6 +157,9 @@ export function Viewport() {
     activeMedia,
     isPlaying,
     seekToSec,
+    resumeAtSec,
+    clearResume,
+    seek,
     volume,
     isMuted,
     playbackRate,
@@ -402,6 +405,12 @@ export function Viewport() {
         try {
           await mpvLoadFile(activeMedia.path);
           if (cancelled) return;
+          // Resume a saved position through the normal seek path, which mpv
+          // applies to the file that was just queued.
+          if (resumeAtSec !== null) {
+            seek(resumeAtSec);
+            clearResume();
+          }
           const unlisten = await observeProperties(
             [
               ["time-pos", "double", "none"],
@@ -753,6 +762,12 @@ export function Viewport() {
                       : null,
                   ),
                 );
+                // Resume a saved position only once the element has metadata;
+                // the regular seek effect then handles native vs HLS restart.
+                if (resumeAtSec !== null) {
+                  seek(resumeAtSec);
+                  clearResume();
+                }
               }}
               onEnded={() => reportEnded()}
             />

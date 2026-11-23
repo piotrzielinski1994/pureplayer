@@ -22,6 +22,7 @@ import {
   shuffleIds,
 } from "@/components/workspace/queue";
 import { type SortField, sortMedia } from "@/components/workspace/sort-natural";
+import type { MediaTrack } from "@/components/workspace/track-list";
 import {
   clampZoom,
   DEFAULT_TRANSFORM,
@@ -30,8 +31,16 @@ import {
   type ViewportTransform,
 } from "@/components/workspace/viewport-transform";
 import { type LogLine, parseLogLine } from "@/lib/logging/log-line";
-import type { MediaTrack } from "@/components/workspace/track-list";
 import { createNoopLogStream, type LogStream } from "@/lib/logging/log-stream";
+import {
+  clearProgress,
+  END_TOLERANCE_SEC,
+  isVideoFormat,
+  type ProgressEntry,
+  type ProgressMap,
+  recordProgress,
+  resumePosition,
+} from "@/lib/progress/progress";
 
 type SortDirection = "asc" | "desc";
 
@@ -47,6 +56,10 @@ type WorkspaceContextValue = {
   playbackCurrentSec: number;
   playbackDurationSec: number;
   seekToSec: number | null;
+  // Saved position a freshly-activated video must seek to once it has loaded.
+  // Consumed (cleared) by the viewport after it issues that seek.
+  resumeAtSec: number | null;
+  clearResume: () => void;
   volume: number;
   isMuted: boolean;
   playbackRate: number;
@@ -118,12 +131,14 @@ type WorkspaceProviderProps = {
   initialActiveMediaId?: string;
   initialSortKeys?: SortField[];
   initialSortDirection?: SortDirection;
+  initialProgress?: ProgressMap;
   initialVolume?: number;
   initialMuted?: boolean;
   initialPlaybackRate?: number;
   initialSidebarHidden?: boolean;
   initialContentHidden?: boolean;
   initialTransportHidden?: boolean;
+  onProgressChange?: (path: string, entry: ProgressEntry | null) => void;
   onVolumeChange?: (volume: number) => void;
   onMutedChange?: (isMuted: boolean) => void;
   onPlaybackRateChange?: (rate: number) => void;
@@ -140,12 +155,14 @@ export function WorkspaceProvider({
   initialActiveMediaId,
   initialSortKeys = [],
   initialSortDirection = "asc",
+  initialProgress = {},
   initialVolume = 1,
   initialMuted = false,
   initialPlaybackRate = 1,
   initialSidebarHidden = false,
   initialContentHidden = false,
   initialTransportHidden = false,
+  onProgressChange,
   onVolumeChange,
   onMutedChange,
   onPlaybackRateChange,
@@ -154,6 +171,9 @@ export function WorkspaceProvider({
   onSortDirectionChange,
   rng = Math.random,
 }: WorkspaceProviderProps) {
+  // Saved positions live here; the workspace is the only writer during a session
+  // (it persists through onProgressChange and keeps the map current for resumes).
+  const progressRef = useRef<ProgressMap>(initialProgress);
   const [sourceMedia, setSourceMedia] = useState<MediaNode[]>(media);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     initialActiveMediaId ?? null,
@@ -161,8 +181,24 @@ export function WorkspaceProvider({
   const [activeMediaId, setActiveMediaId] = useState<string | null>(
     initialActiveMediaId ?? null,
   );
+  const initialStartSec = (() => {
+    const node = media.find((item) => item.id === initialActiveMediaId);
+    if (!node || !isVideoFormat(node.format)) {
+      return 0;
+    }
+    return resumePosition(progressRef.current[node.path]);
+  })();
+  // The position a resumed file still has to reach. While set, reports below it
+  // are ignored - the 0 an element (or a fresh mpv instance) reports before the
+  // seek lands must never overwrite saved progress.
+  const pendingResumeRef = useRef<number | null>(
+    initialStartSec > 0 ? initialStartSec : null,
+  );
+  const [resumeAtSec, setResumeAtSec] = useState<number | null>(
+    initialStartSec > 0 ? initialStartSec : null,
+  );
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackCurrentSec, setPlaybackCurrentSec] = useState(0);
+  const [playbackCurrentSec, setPlaybackCurrentSec] = useState(initialStartSec);
   const [playbackDurationSec, setPlaybackDurationSec] = useState(0);
   const [seekToSec, setSeekToSec] = useState<number | null>(null);
   const [volume, setVolumeState] = useState(initialVolume);
@@ -202,6 +238,7 @@ export function WorkspaceProvider({
   const preFullscreenChrome = useRef(initialChrome);
   const sourceMediaRef = useRef(sourceMedia);
   const activeMediaIdRef = useRef(activeMediaId);
+  const activeMediaRef = useRef<MediaNode | null>(null);
 
   // Mirror durable state into refs so the reference-stable verbs below
   // (addMedia) can read CURRENT values without going stale - which lets the
@@ -211,15 +248,67 @@ export function WorkspaceProvider({
     activeMediaIdRef.current = activeMediaId;
   }, [sourceMedia, activeMediaId]);
 
-  // Stable identity ([]-deps). Activates a video and starts playback from 0.
-  const activateMedia = useCallback((id: string) => {
-    setActiveMediaId(id);
-    setSelectedNodeId(id);
+  // Stable identity ([]-deps). Activates a node and starts playback - at the
+  // saved position for a video, from 0 for audio (and for a fresh file).
+  const activateMedia = useCallback((node: MediaNode) => {
+    const start = isVideoFormat(node.format)
+      ? resumePosition(progressRef.current[node.path])
+      : 0;
+    pendingResumeRef.current = start > 0 ? start : null;
+    setActiveMediaId(node.id);
+    setSelectedNodeId(node.id);
     setIsPlaying(true);
-    setPlaybackCurrentSec(0);
+    setPlaybackCurrentSec(start);
     setPlaybackDurationSec(0);
     setSeekToSec(null);
+    setResumeAtSec(start > 0 ? start : null);
   }, []);
+
+  // Clears the seek request only; the pending-position guard stays until the
+  // player actually reports a position at (or past) the resume point.
+  const clearResume = useCallback(() => setResumeAtSec(null), []);
+
+  // Video-only, throttled in the pure layer; a finished position is never
+  // written (the entry is dropped on end instead).
+  const persistProgress = useCallback(
+    (currentSec: number, durationSec: number) => {
+      const node = activeMediaRef.current;
+      if (!node || !isVideoFormat(node.format)) {
+        return;
+      }
+      const pending = pendingResumeRef.current;
+      if (pending !== null) {
+        if (currentSec < pending - 1) {
+          return;
+        }
+        pendingResumeRef.current = null;
+      }
+      if (durationSec > 0 && currentSec >= durationSec - END_TOLERANCE_SEC) {
+        return;
+      }
+      const next = recordProgress(
+        progressRef.current,
+        node.path,
+        currentSec,
+        durationSec,
+        Date.now(),
+      );
+      if (next === null) {
+        return;
+      }
+      progressRef.current = next;
+      onProgressChange?.(node.path, next[node.path]);
+    },
+    [onProgressChange],
+  );
+
+  // A pause is the best moment to persist: playback can end here, and the
+  // throttled timeupdate save may be up to SAVE_INTERVAL_SEC stale.
+  useEffect(() => {
+    if (!isPlaying) {
+      persistProgress(playbackCurrentSec, playbackDurationSec);
+    }
+  }, [isPlaying, persistProgress, playbackCurrentSec, playbackDurationSec]);
 
   // Stable identity so the Workspace drop effect subscribes once. Appends the
   // imported media, deduping by id against the current list; activates the
@@ -237,7 +326,7 @@ export function WorkspaceProvider({
       // A drop is an explicit "play this" gesture: the first newly-added
       // file becomes active and starts playing, even when something was
       // already playing (the appended rows stay queued behind it).
-      activateMedia(fresh[0].id);
+      activateMedia(fresh[0]);
     },
     [activateMedia],
   );
@@ -293,6 +382,13 @@ export function WorkspaceProvider({
     [sourceMedia, sortKeys, sortDirection],
   );
 
+  // Read by the stable verbs above (activateMedia, persistProgress) so they
+  // never go stale.
+  useEffect(() => {
+    activeMediaRef.current =
+      playlist.find((node) => node.id === activeMediaId) ?? null;
+  }, [playlist, activeMediaId]);
+
   // The order Next/Prev/auto-advance walk: the live sorted ids, or - when
   // shuffling - the frozen shuffle order reconciled against the current ids
   // (so appended media slot in at the end and removed ones drop out).
@@ -318,7 +414,10 @@ export function WorkspaceProvider({
         effectiveOrder[
           (index + delta + effectiveOrder.length) % effectiveOrder.length
         ];
-      activate(nextId);
+      const next = playlist.find((node) => node.id === nextId);
+      if (next) {
+        activate(next);
+      }
     };
 
     return {
@@ -333,6 +432,8 @@ export function WorkspaceProvider({
       playbackCurrentSec,
       playbackDurationSec,
       seekToSec,
+      resumeAtSec,
+      clearResume,
       volume,
       isMuted,
       playbackRate,
@@ -354,7 +455,12 @@ export function WorkspaceProvider({
       setSubtitlePickerOpen,
       audioPickerOpen,
       setAudioPickerOpen,
-      selectNode: (id) => activate(id),
+      selectNode: (id) => {
+        const node = playlist.find((item) => item.id === id);
+        if (node) {
+          activate(node);
+        }
+      },
       loadMedia: (next) => {
         setSourceMedia(next);
         if (next.length === 0) {
@@ -363,9 +469,10 @@ export function WorkspaceProvider({
           setIsPlaying(false);
           setPlaybackCurrentSec(0);
           setPlaybackDurationSec(0);
+          setResumeAtSec(null);
           return;
         }
-        activate(next[0].id);
+        activate(next[0]);
       },
       addMedia,
       togglePlay: () => setIsPlaying((playing) => !playing),
@@ -374,6 +481,8 @@ export function WorkspaceProvider({
       seek: (sec) => {
         setPlaybackCurrentSec(sec);
         setSeekToSec(sec);
+        // Scrubbing while paused produces no timeupdate, so persist here too.
+        persistProgress(sec, playbackDurationSec);
       },
       seekBy: (delta) => {
         if (activeMediaId === null) {
@@ -436,10 +545,21 @@ export function WorkspaceProvider({
         setPlaybackCurrentSec(currentSec);
         setPlaybackDurationSec(durationSec);
         setSeekToSec(null);
+        persistProgress(currentSec, durationSec);
       },
       reportEnded: () => {
         if (activeMediaId === null) {
           return;
+        }
+        // A finished video is not resumable: drop its entry so the next play
+        // starts from 0.
+        const endedNode = activeMediaRef.current;
+        if (endedNode && isVideoFormat(endedNode.format)) {
+          const cleared = clearProgress(progressRef.current, endedNode.path);
+          if (cleared !== progressRef.current) {
+            progressRef.current = cleared;
+            onProgressChange?.(endedNode.path, null);
+          }
         }
         const decision = decideOnEnded(
           effectiveOrder,
@@ -447,7 +567,10 @@ export function WorkspaceProvider({
           repeatMode,
         );
         if (decision.kind === "advance") {
-          activate(decision.id);
+          const next = playlist.find((node) => node.id === decision.id);
+          if (next) {
+            activate(next);
+          }
           return;
         }
         if (decision.kind === "replay") {
@@ -558,6 +681,9 @@ export function WorkspaceProvider({
     playbackCurrentSec,
     playbackDurationSec,
     seekToSec,
+    resumeAtSec,
+    clearResume,
+    persistProgress,
     volume,
     isMuted,
     playbackRate,
@@ -580,6 +706,7 @@ export function WorkspaceProvider({
     subtitlePickerOpen,
     audioPickerOpen,
     toggleLogs,
+    onProgressChange,
     onVolumeChange,
     onMutedChange,
     onPlaybackRateChange,

@@ -1,6 +1,6 @@
 import { createRoute } from "@tanstack/react-router";
 import { isTauri } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Workspace } from "@/components/workspace/workspace";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import {
@@ -8,6 +8,8 @@ import {
   createTauriLogStream,
 } from "@/lib/logging/log-stream";
 import { demoMedia } from "@/lib/playlist/demo-seed";
+import type { ProgressEntry } from "@/lib/progress/progress";
+import { useProgress } from "@/lib/progress/progress-context";
 import { isDevBrowser } from "@/lib/runtime/environment";
 import { useSettings } from "@/lib/settings/settings-context";
 import { rootRoute } from "@/routes/__root";
@@ -29,11 +31,24 @@ function HomePage() {
     saveSortDirection,
   } = useSettings();
   const [logStream] = useState(createLogStreamForEnv);
+  const { progress, recordProgress, forgetProgress } = useProgress();
+  const handleProgressChange = useCallback(
+    (path: string, entry: ProgressEntry | null) => {
+      if (entry === null) {
+        forgetProgress(path);
+        return;
+      }
+      recordProgress(path, entry);
+    },
+    [recordProgress, forgetProgress],
+  );
 
   return (
     <WorkspaceProvider
       media={isDevBrowser() ? demoMedia() : undefined}
       logStream={logStream}
+      initialProgress={progress}
+      onProgressChange={handleProgressChange}
       initialSortKeys={["title"]}
       initialSortDirection={settings.sortDirection}
       initialVolume={settings.volume}
