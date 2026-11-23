@@ -86,6 +86,7 @@ type WorkspaceContextValue = {
   selectNode: (id: string) => void;
   loadMedia: (media: MediaNode[]) => void;
   addMedia: (media: MediaNode[]) => void;
+  removeMedia: (id: string) => void;
   togglePlay: () => void;
   nextMedia: () => void;
   prevMedia: () => void;
@@ -475,6 +476,45 @@ export function WorkspaceProvider({
         activate(next[0]);
       },
       addMedia,
+      // Dropping the row would otherwise leave an active/selected id pointing at
+      // a node nobody can reach: hand playback to the item that followed it in
+      // the play order (wrapping), or stop on an empty list.
+      removeMedia: (id) => {
+        if (!playlist.some((video) => video.id === id)) {
+          return;
+        }
+        setSourceMedia((current) => current.filter((video) => video.id !== id));
+        if (activeMediaId !== id) {
+          if (selectedNodeId === id) {
+            setSelectedNodeId(activeMediaId);
+          }
+          return;
+        }
+        const order = effectiveOrder.includes(id)
+          ? effectiveOrder
+          : playlist.map((video) => video.id);
+        const remaining = order.filter((item) => item !== id);
+        const nextId =
+          remaining.length === 0
+            ? null
+            : remaining[order.indexOf(id) % remaining.length];
+        const next =
+          nextId === null
+            ? undefined
+            : playlist.find((video) => video.id === nextId);
+        if (next) {
+          activate(next);
+          return;
+        }
+        pendingResumeRef.current = null;
+        setActiveMediaId(null);
+        setSelectedNodeId(null);
+        setIsPlaying(false);
+        setPlaybackCurrentSec(0);
+        setPlaybackDurationSec(0);
+        setSeekToSec(null);
+        setResumeAtSec(null);
+      },
       togglePlay: () => setIsPlaying((playing) => !playing),
       nextMedia: () => stepMedia(1),
       prevMedia: () => stepMedia(-1),

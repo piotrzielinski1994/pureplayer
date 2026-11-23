@@ -1,34 +1,48 @@
 import { cn, ScrollArea } from "@pziel/pureui";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { FORMAT_COLOR } from "@/components/workspace/format-color";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 
 export function MediaList() {
-  const { playlist, selectedNodeId, selectNode } = useWorkspace();
+  const { playlist, selectedNodeId, selectNode, removeMedia } = useWorkspace();
 
   return (
     <ScrollArea className="min-h-0 flex-1" horizontal>
       <ul aria-label="Playlist">
         {playlist.map((media) => (
-          <li
-            key={media.id}
-            aria-selected={selectedNodeId === media.id}
-            aria-label={media.name}
-            onClick={() => selectNode(media.id)}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 px-3 py-1 text-[13px] hover:bg-accent",
-              selectedNodeId === media.id ? "bg-accent" : "bg-background",
-            )}
-          >
-            <span className="whitespace-nowrap">{media.name}</span>
-            <span
-              className={cn(
-                "sticky right-0 -mr-3 ml-auto shrink-0 bg-inherit pr-3 pl-2 font-mono text-[11px] font-semibold",
-                FORMAT_COLOR[media.format],
-              )}
-            >
-              {media.format}
-            </span>
-          </li>
+          <ContextMenu key={media.id}>
+            <ContextMenuTrigger asChild>
+              <li
+                aria-selected={selectedNodeId === media.id}
+                aria-label={media.name}
+                onClick={() => selectNode(media.id)}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 px-3 py-1 text-[13px] hover:bg-accent",
+                  selectedNodeId === media.id ? "bg-accent" : "bg-background",
+                )}
+              >
+                <span className="whitespace-nowrap">{media.name}</span>
+                <span
+                  className={cn(
+                    "sticky right-0 -mr-3 ml-auto shrink-0 bg-inherit pr-3 pl-2 font-mono text-[11px] font-semibold",
+                    FORMAT_COLOR[media.format],
+                  )}
+                >
+                  {media.format}
+                </span>
+              </li>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onSelect={() => removeMedia(media.id)}>
+                Remove from playlist
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         ))}
       </ul>
       {playlist.length === 0 && (

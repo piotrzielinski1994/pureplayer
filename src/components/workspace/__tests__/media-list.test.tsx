@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { MediaList } from "@/components/workspace/media-list";
@@ -101,6 +101,28 @@ describe("MediaList", () => {
       });
       expect(within(row).getByText(v.format)).toBeInTheDocument();
     });
+  });
+
+  // behavior: right-clicking a row offers "Remove from playlist" and removes it
+  it("should remove the row if Remove from playlist is picked from its context menu", async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    const row = within(getList()).getByRole("listitem", {
+      name: /3 - Intro/i,
+    });
+    fireEvent.contextMenu(row);
+
+    await user.click(
+      await screen.findByRole("menuitem", { name: /remove from playlist/i }),
+    );
+
+    expect(
+      within(getList()).queryByRole("listitem", { name: /3 - Intro/i }),
+    ).not.toBeInTheDocument();
+    expect(within(getList()).getAllByRole("listitem")).toHaveLength(
+      fixtureMedia.length - 1,
+    );
   });
 
   // behavior: clicking a row flips aria-selected on it (AC-004/TC-002)

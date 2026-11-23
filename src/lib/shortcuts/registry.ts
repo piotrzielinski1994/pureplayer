@@ -6,6 +6,7 @@ export type ShortcutActionId =
   | "toggle-play"
   | "next-media"
   | "prev-media"
+  | "remove-selected-media"
   | "seek-forward"
   | "seek-back"
   | "seek-forward-fine"
@@ -87,6 +88,13 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     name: "Previous media",
     description: "Activate the previous item in the current order.",
     defaultHotkey: "Mod+Left",
+  },
+  {
+    id: "remove-selected-media",
+    name: "Remove from playlist",
+    description: "Remove the selected media from the playlist.",
+    defaultHotkey: "Delete",
+    keywords: ["remove", "delete", "drop", "playlist"],
   },
   {
     id: "seek-forward",

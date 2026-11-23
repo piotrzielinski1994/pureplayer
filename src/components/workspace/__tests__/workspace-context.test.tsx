@@ -88,6 +88,9 @@ function Probe() {
       <button onClick={() => ws.togglePlay()}>do-play</button>
       <button onClick={() => ws.selectNode("v-9")}>select-9</button>
       <button onClick={() => ws.loadMedia(loadFixture)}>do-load</button>
+      <button onClick={() => ws.removeMedia("qa")}>remove-qa</button>
+      <button onClick={() => ws.removeMedia("qb")}>remove-qb</button>
+      <button onClick={() => ws.removeMedia("qc")}>remove-qc</button>
       <button onClick={() => ws.reportProgress(30, 60)}>do-progress</button>
       <button onClick={() => ws.reportEnded()}>do-ended</button>
     </div>
@@ -203,6 +206,47 @@ describe("workspace context", () => {
       "3 - Intro",
       "1 - Opening",
     ]);
+  });
+
+  // side-effect-contract: removing an inactive item drops only that row
+  it("should drop only the removed row and keep the active one if an inactive item is removed", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qa" });
+
+    await user.click(screen.getByRole("button", { name: "remove-qc" }));
+
+    expect(playlistNames()).toEqual(["A", "B"]);
+    expect(screen.getByLabelText("active-id")).toHaveTextContent("qa");
+  });
+
+  // side-effect-contract: removing the active item hands playback to the next one
+  it("should activate the next item and keep playing if the active item is removed", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: queueFixture, initialActiveMediaId: "qb" });
+
+    await user.click(screen.getByRole("button", { name: "remove-qb" }));
+
+    expect(playlistNames()).toEqual(["A", "C"]);
+    expect(screen.getByLabelText("active-id")).toHaveTextContent("qc");
+    expect(screen.getByLabelText("selected-id")).toHaveTextContent("qc");
+    expect(screen.getByLabelText("playing")).toHaveTextContent("true");
+  });
+
+  // side-effect-contract: removing the last item leaves an empty, stopped workspace
+  it("should clear the active media and stop playback if the last item is removed", async () => {
+    const user = userEvent.setup();
+    renderProbe({ media: [queueFixture[0]], initialActiveMediaId: "qa" });
+
+    await user.click(screen.getByRole("button", { name: "remove-qa" }));
+
+    expect(
+      within(
+        screen.getByRole("list", { name: "probe-playlist" }),
+      ).queryAllByRole("listitem"),
+    ).toHaveLength(0);
+    expect(screen.getByLabelText("active-id")).toHaveTextContent("none");
+    expect(screen.getByLabelText("selected-id")).toHaveTextContent("none");
+    expect(screen.getByLabelText("playing")).toHaveTextContent("false");
   });
 
   // behavior: selectNode highlights AND activates - selection and active coincide

@@ -31,6 +31,8 @@ export function Workspace() {
   const {
     loadMedia,
     addMedia,
+    removeMedia,
+    selectedNodeId,
     togglePlay,
     nextMedia,
     prevMedia,
@@ -134,6 +136,11 @@ export function Workspace() {
     "toggle-play": togglePlay,
     "next-media": nextMedia,
     "prev-media": prevMedia,
+    "remove-selected-media": () => {
+      if (selectedNodeId) {
+        removeMedia(selectedNodeId);
+      }
+    },
     "seek-forward": () => seekBy(5),
     "seek-back": () => seekBy(-5),
     "seek-forward-fine": () => seekBy(1),

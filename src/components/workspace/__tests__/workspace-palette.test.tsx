@@ -233,6 +233,24 @@ describe("Workspace command palette integration", () => {
     await waitFor(() => expect(searchInput()).not.toBeInTheDocument());
   });
 
+  // side-effect-contract: Delete drops the selected row from the playlist
+  it("should remove the selected media from the sidebar if Delete is pressed", async () => {
+    const user = userEvent.setup();
+    renderWorkspace({ media: fixtureMedia, initialActiveMediaId: "v-9" });
+
+    const list = () => screen.getByRole("list", { name: /playlist/i });
+    await screen.findByRole("list", { name: /playlist/i });
+    expect(
+      within(list()).getByRole("listitem", { name: /9 - Interlude/i }),
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Delete}");
+
+    expect(
+      within(list()).queryByRole("listitem", { name: /9 - Interlude/i }),
+    ).not.toBeInTheDocument();
+  });
+
   // behavior: EVERY registered action (except the palette opener) is runnable from the palette (no drift)
   it("should list a row for every registered action except the palette opener", async () => {
     const user = userEvent.setup();
