@@ -40,6 +40,7 @@ function Probe() {
     rotateClockwise,
     cycleFitMode,
     zoomBy,
+    toggleInvertColors,
     resetViewportTransform,
     selectNode,
     activeMediaId,
@@ -51,11 +52,15 @@ function Probe() {
       </output>
       <output aria-label="fit">{String(viewportTransform.fitMode)}</output>
       <output aria-label="zoom">{String(viewportTransform.zoom)}</output>
+      <output aria-label="invert">
+        {String(viewportTransform.invertColors === true)}
+      </output>
       <output aria-label="active-id">{String(activeMediaId)}</output>
       <button onClick={() => rotateClockwise()}>rotate-cw</button>
       <button onClick={() => cycleFitMode()}>cycle-fit</button>
       <button onClick={() => zoomBy(0.1)}>zoom-in</button>
       <button onClick={() => zoomBy(-0.1)}>zoom-out</button>
+      <button onClick={() => toggleInvertColors()}>invert-colors</button>
       <button onClick={() => resetViewportTransform()}>reset-viewport</button>
       <button onClick={() => selectNode("v-9")}>select-v-9</button>
     </div>
@@ -281,6 +286,58 @@ describe("viewport transforms: reset registry + verb + element (AC-004)", () => 
     await clickN(user, "reset-viewport", 1);
 
     expect(screen.queryByText(/1\.5x/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("viewport colors: invert registry + verb + element", () => {
+  // behavior: toggle-invert-colors is registered as a global hotkey bound to I
+  it("should register toggle-invert-colors bound to I if read", () => {
+    const invert = SHORTCUT_ACTIONS.find(
+      (a) => a.id === "toggle-invert-colors",
+    );
+
+    expect(invert?.defaultHotkey).toBe("I");
+    expect(invert?.name.trim().length).toBeGreaterThan(0);
+    expect(invert?.description.trim().length).toBeGreaterThan(0);
+  });
+
+  // side-effect-contract: toggling once applies an inverted CSS filter to the <video>
+  it("should set the element filter to invert(1) if the colors are inverted", async () => {
+    const user = userEvent.setup();
+    renderProbe("v-1");
+
+    const video = await findVideo();
+    await clickN(user, "invert-colors", 1);
+
+    expect(screen.getByLabelText("invert")).toHaveTextContent("true");
+    await waitFor(() => expect(video.style.filter).toBe("invert(1)"));
+  });
+
+  // side-effect-contract: toggling again clears the filter
+  it("should clear the element filter if the colors are inverted twice", async () => {
+    const user = userEvent.setup();
+    renderProbe("v-1");
+
+    const video = await findVideo();
+    await clickN(user, "invert-colors", 2);
+
+    expect(screen.getByLabelText("invert")).toHaveTextContent("false");
+    await waitFor(() => expect(video.style.filter).toBe(""));
+  });
+
+  // side-effect-contract: reset-viewport clears the inversion too
+  it("should clear the inversion and its readout if reset-viewport runs", async () => {
+    const user = userEvent.setup();
+    renderProbe("v-1");
+
+    const video = await findVideo();
+    await clickN(user, "invert-colors", 1);
+    expect(screen.getByText("inverted")).toBeInTheDocument();
+
+    await clickN(user, "reset-viewport", 1);
+
+    expect(screen.getByLabelText("invert")).toHaveTextContent("false");
+    await waitFor(() => expect(video.style.filter).toBe(""));
   });
 });
 

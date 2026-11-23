@@ -52,6 +52,7 @@ export function Workspace() {
     rotateClockwise,
     cycleFitMode,
     zoomBy,
+    toggleInvertColors,
     resetViewportTransform,
     setSubtitlePickerOpen,
     setAudioPickerOpen,
@@ -175,6 +176,7 @@ export function Workspace() {
     "cycle-fit-mode": cycleFitMode,
     "zoom-in": () => zoomBy(0.1),
     "zoom-out": () => zoomBy(-0.1),
+    "toggle-invert-colors": toggleInvertColors,
     "reset-viewport": resetViewportTransform,
     "change-subtitles": () => {
       setSubtitlePickerOpen(true);

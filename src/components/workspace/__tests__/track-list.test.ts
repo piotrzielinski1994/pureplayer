@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatTrackListOsd,
-  parseMpvTrackList,
-} from "@/components/workspace/track-list";
+import { parseMpvTrackList } from "@/components/workspace/track-list";
 
 // A slice of mpv's `track-list` property for the LOTR extended MKV: one video
 // track (must be ignored), two audio tracks and three subtitles.
@@ -80,32 +77,5 @@ describe("parseMpvTrackList", () => {
     expect(parseMpvTrackList({})).toEqual([]);
     expect(parseMpvTrackList("nope")).toEqual([]);
     expect(parseMpvTrackList([null, 7, { type: "video" }])).toEqual([]);
-  });
-});
-
-describe("formatTrackListOsd", () => {
-  // behavior: one line per group, audio first, each track numbered so a future
-  // selector can reference mpv's track ids
-  it("should format one OSD line per group if tracks exist", () => {
-    const osd = formatTrackListOsd(parseMpvTrackList(mpvTrackList));
-
-    expect(osd).toBe(
-      [
-        'Audio tracks (2): 2: truehd/eng "Atmos 7.1" [default]; 3: ac3/eng "AC-3 5.1"',
-        'Subtitles (3): 4: hdmv_pgs_subtitle/eng "SDH" [default]; 5: hdmv_pgs_subtitle/fre "fre"; 6: hdmv_pgs_subtitle/pol "SDL" [forced]',
-      ].join("\n"),
-    );
-  });
-
-  // behavior: a file with only audio lists no empty subtitles line
-  it("should omit the group line if that group has no tracks", () => {
-    const osd = formatTrackListOsd(parseMpvTrackList([mpvTrackList[1]]));
-
-    expect(osd).toBe('Audio tracks (1): 2: truehd/eng "Atmos 7.1" [default]');
-  });
-
-  // behavior: nothing to show is an empty string, so the caller can skip the OSD
-  it("should return an empty string if there is no track", () => {
-    expect(formatTrackListOsd([])).toBe("");
   });
 });

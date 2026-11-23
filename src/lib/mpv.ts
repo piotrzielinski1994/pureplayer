@@ -12,6 +12,9 @@ export type MpvHandle = {
   available: boolean;
 };
 
+const HWDEC = "auto-safe";
+const HWDEC_COPY = "auto-copy";
+
 let initialized = false;
 let initPromise: Promise<boolean> | null = null;
 
@@ -24,7 +27,7 @@ export async function ensureMpv(): Promise<boolean> {
         {
           initialOptions: {
             vo: "gpu-next",
-            hwdec: "auto-safe",
+            hwdec: HWDEC,
             "keep-open": "yes",
             "force-window": "yes",
             "osc": "no",
@@ -128,6 +131,27 @@ export async function mpvSetAudio(trackId: number | null): Promise<void> {
       await command("set", ["aid", String(trackId)]);
     }
   }
+}
+
+// Invert the picture through mpv's own filter chain. The native mpv window is
+// drawn above the webview, so a CSS filter on the <video> never reaches it.
+// Setting the `vf` property (rather than the `vf` command) replaces the whole
+// chain in one step, which is the same proven setProperty path as volume/speed.
+//
+// `negate` is a software filter: with zero-copy hwdec (d3d11va) mpv cannot
+// configure the graph ("Impossible to convert between the formats", then
+// "Disabling filter negate.00 because it has failed") and the picture stays
+// untouched. Switching hwdec to the copy variant keeps hardware decoding - the
+// frames are only copied out of the GPU - so the filter works.
+
+export async function mpvSetInvertColors(inverted: boolean): Promise<void> {
+  if (inverted) {
+    await setProperty("hwdec", HWDEC_COPY);
+    await setProperty("vf", "negate");
+    return;
+  }
+  await setProperty("vf", "");
+  await setProperty("hwdec", HWDEC);
 }
 
 // Draw a message with mpv's own OSD. The native mpv window covers the webview,

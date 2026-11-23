@@ -1,7 +1,6 @@
-// MKV files play through the native mpv window, which covers the webview - a
-// React overlay is invisible over it (CLAUDE.md). The audio/subtitle list is
-// therefore rendered with mpv's own OSD (`show-text`), so this module turns
-// mpv's `track-list` property into plain OSD text.
+// MPV tracks are read as scalar properties (`track-list/N/*`, see viewport.tsx)
+// and turned into plain track objects here for the in-app audio/subtitle
+// pickers.
 
 export type TrackKind = "audio" | "subtitle";
 
@@ -84,41 +83,4 @@ export function parseMpvTrackList(value: unknown): MediaTrack[] {
     });
   }
   return tracks;
-}
-
-function describeTrack(track: MediaTrack): string {
-  const codec = track.codec || "?";
-  const head = track.id === null ? "" : `${track.id}: `;
-  const title = track.title ? ` "${track.title}"` : "";
-  const flags = [
-    track.isDefault ? "[default]" : "",
-    track.isForced ? "[forced]" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return `${head}${codec}/${track.lang}${title}${flags ? ` ${flags}` : ""}`;
-}
-
-function groupLine(label: string, tracks: MediaTrack[]): string {
-  if (tracks.length === 0) {
-    return "";
-  }
-  return `${label} (${tracks.length}): ${tracks.map(describeTrack).join("; ")}`;
-}
-
-// One line per group, audio first, so the whole list stays a few wrapped OSD
-// lines even for a disc rip with 20+ subtitles.
-export function formatTrackListOsd(tracks: MediaTrack[]): string {
-  return [
-    groupLine(
-      "Audio tracks",
-      tracks.filter((track) => track.kind === "audio"),
-    ),
-    groupLine(
-      "Subtitles",
-      tracks.filter((track) => track.kind === "subtitle"),
-    ),
-  ]
-    .filter(Boolean)
-    .join("\n");
 }

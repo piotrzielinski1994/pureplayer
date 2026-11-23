@@ -5,6 +5,8 @@ export type ViewportTransform = {
   rotationDeg: Rotation;
   fitMode: FitMode;
   zoom: number;
+  // Optional so a transform without it reads as "not inverted".
+  invertColors?: boolean;
 };
 
 export const ROTATIONS: readonly Rotation[] = [0, 90, 180, 270];
@@ -18,6 +20,7 @@ export const DEFAULT_TRANSFORM: ViewportTransform = {
   rotationDeg: 0,
   fitMode: "contain",
   zoom: 1,
+  invertColors: false,
 };
 
 export function nextRotation(current: Rotation): Rotation {
@@ -38,7 +41,8 @@ export function isDefaultTransform(transform: ViewportTransform): boolean {
   return (
     transform.rotationDeg === DEFAULT_TRANSFORM.rotationDeg &&
     transform.fitMode === DEFAULT_TRANSFORM.fitMode &&
-    transform.zoom === DEFAULT_TRANSFORM.zoom
+    transform.zoom === DEFAULT_TRANSFORM.zoom &&
+    transform.invertColors !== true
   );
 }
 
@@ -47,6 +51,7 @@ export function formatTransform(transform: ViewportTransform): string {
     transform.rotationDeg === 0 ? null : `${transform.rotationDeg}deg`,
     transform.fitMode === "contain" ? null : transform.fitMode,
     transform.zoom === 1 ? null : `${transform.zoom}x`,
+    transform.invertColors === true ? "inverted" : null,
   ].filter((facet): facet is string => facet !== null);
   return facets.join(" ");
 }

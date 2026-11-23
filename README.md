@@ -53,7 +53,8 @@ Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
   (Shift ±1s), `Up`/`Down`/`M` volume + mute, `[`/`]` speed 0.5x-2x, auto-advance with repeat (`R`)
   and shuffle (`S`).
 - **Viewport** - single-click play/pause, double-click / F11 / green button fullscreen, rotate
-  (`Mod+Shift+R`), fit modes (`F`), zoom (`=`/`-`), reset (`Mod+0`). Transforms are session-sticky.
+  (`Mod+Shift+R`), fit modes (`F`), zoom (`=`/`-`), invert colors (`I`), reset (`Mod+0`). Transforms
+  are session-sticky.
 - **Command palette** (`Mod+K`) - every runnable action, each with its own global hotkey.
 - **Mini player** (`Mod+Shift+M`) - hide the viewport and shrink the window to just the playlist +
   transport bar.

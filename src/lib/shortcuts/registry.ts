@@ -30,6 +30,7 @@ export type ShortcutActionId =
   | "cycle-fit-mode"
   | "zoom-in"
   | "zoom-out"
+  | "toggle-invert-colors"
   | "reset-viewport"
   | "change-subtitles"
   | "change-audio";
@@ -259,9 +260,17 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
     keywords: ["zoom", "scale"],
   },
   {
+    id: "toggle-invert-colors",
+    name: "Invert video colors",
+    description: "Toggle an inverted (negative) picture.",
+    defaultHotkey: "I",
+    keywords: ["invert", "inverted", "negative", "colors", "colours", "filter"],
+  },
+  {
     id: "reset-viewport",
     name: "Reset viewport",
-    description: "Reset rotation, fit mode and zoom to defaults.",
+    description:
+      "Reset rotation, fit mode, zoom and color inversion to defaults.",
     defaultHotkey: "Mod+0",
     keywords: ["reset", "transform", "rotate", "zoom", "fit"],
   },

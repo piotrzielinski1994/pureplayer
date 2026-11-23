@@ -91,6 +91,7 @@ type WorkspaceContextValue = {
   rotateClockwise: () => void;
   cycleFitMode: () => void;
   zoomBy: (delta: number) => void;
+  toggleInvertColors: () => void;
   resetViewportTransform: () => void;
   toggleSortKey: (field: SortField) => void;
   toggleSortDirection: () => void;
@@ -505,6 +506,15 @@ export function WorkspaceProvider({
         setViewportTransform((transform) => ({
           ...transform,
           zoom: clampZoom(transform.zoom + delta),
+        }));
+      },
+      toggleInvertColors: () => {
+        if (activeMediaId === null) {
+          return;
+        }
+        setViewportTransform((transform) => ({
+          ...transform,
+          invertColors: transform.invertColors !== true,
         }));
       },
       resetViewportTransform: () => {

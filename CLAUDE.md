@@ -19,7 +19,7 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 ## Environment (Windows repo, read first)
 
 - This repo lives on a Windows drive and is edited from WSL, but **ALL commands (install, build, test, lint, typecheck, tauri) must run in PowerShell on Windows - never in WSL/Ubuntu.** WSL runs overwrite `node_modules` with Linux binaries and break Windows tooling; `npm ci`/`npm install`/builds/tests in WSL have already broken the tree multiple times.
-- Use `npm run tauri:fast` (debug, no-bundle) instead of `npm run tauri build` when iterating; full `npm run tauri build` for release verification.
+- Only release builds are tested - never debug builds. Iterating: `npm run tauri:fast` (release, no-bundle); final verification: `npm run tauri build` (release, with bundle).
 - If a WSL run broke `node_modules`, restore with `npm install` in PowerShell.
 - The build target is the host OS: Windows `.exe` from Windows, Linux bundle from WSL/Linux - say which one you built.
 

@@ -12,6 +12,7 @@ import {
   useWorkspace,
   WorkspaceProvider,
 } from "@/components/workspace/workspace-context";
+import { mpvSetInvertColors } from "@/lib/mpv";
 import { fixtureMedia } from "./fixtures";
 
 const prepareMediaUrl = vi.fn(
@@ -102,6 +103,7 @@ vi.mock("@/lib/mpv", () => ({
   mpvSetSubtitle: vi.fn(() => Promise.resolve()),
   mpvSetAudio: vi.fn(() => Promise.resolve()),
   mpvSetMargins: vi.fn(() => Promise.resolve()),
+  mpvSetInvertColors: vi.fn(() => Promise.resolve()),
   mpvShowText: (message: string, durationMs: number) =>
     mpvShowText(message, durationMs),
   getProperty: (name: string) => mpvGetProperty(name),
@@ -137,6 +139,11 @@ function CycleRepeatButton() {
 function TogglePlayButton() {
   const { togglePlay } = useWorkspace();
   return <button onClick={() => togglePlay()}>toggle-play</button>;
+}
+
+function InvertColorsButton() {
+  const { toggleInvertColors } = useWorkspace();
+  return <button onClick={() => toggleInvertColors()}>invert-colors</button>;
 }
 
 function DurationProbe() {
@@ -368,9 +375,9 @@ describe("Viewport", () => {
     expect(video.paused).toBe(false);
   });
 
-  // behavior: an mkv's audio and subtitle tracks are listed in mpv's OSD, since
-  // a React overlay is hidden behind the native mpv window
-  it("should show the audio and subtitle track list in the osd if an mkv loads in mpv", async () => {
+  // behavior: loading an mkv reads the track list for the track pickers, but
+  // never dumps it into mpv's OSD (the listing covered the video on every load)
+  it("should keep the mkv track list out of the osd if an mkv loads in mpv", async () => {
     const user = userEvent.setup();
     render(
       <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
@@ -381,12 +388,33 @@ describe("Viewport", () => {
 
     await user.click(screen.getByRole("button", { name: "select-v-12" }));
 
-    await waitFor(() => expect(mpvShowText).toHaveBeenCalled());
-    const osd = mpvShowText.mock.calls[0][0];
-    expect(osd).toContain("Audio tracks (2)");
-    expect(osd).toContain('2: truehd/eng "Atmos 7.1" [default]');
-    expect(osd).toContain("Subtitles (1)");
-    expect(osd).toContain('4: hdmv_pgs_subtitle/eng "SDH"');
+    await waitFor(() =>
+      expect(mpvGetProperty).toHaveBeenCalledWith("track-list/0/id"),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mpvShowText).not.toHaveBeenCalled();
+  });
+
+  // behavior: the mpv path inverts via mpv's own filter, since an HTML overlay
+  // (CSS filter) is hidden behind the native mpv window (CLAUDE.md playback rule)
+  it("should invert colors through mpv's negate filter if an mkv is active", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+        <SelectButton id="v-12" />
+        <InvertColorsButton />
+      </WorkspaceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "select-v-12" }));
+    await waitFor(() =>
+      expect(mpvGetProperty).toHaveBeenCalledWith("track-list/0/id"),
+    );
+
+    await user.click(screen.getByRole("button", { name: "invert-colors" }));
+
+    await waitFor(() => expect(mpvSetInvertColors).toHaveBeenCalledWith(true));
   });
 
   // behavior: the active video's name is shown in the viewport once ready (AC-004)

@@ -2,7 +2,6 @@ import { Film, Loader2, Pause } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import {
-  formatTrackListOsd,
   trackFromProperties,
   type MediaTrack,
 } from "@/components/workspace/track-list";
@@ -21,6 +20,7 @@ import {
   mpvPause,
   mpvPlay,
   mpvSeek,
+  mpvSetInvertColors,
   mpvSetMargins,
   mpvSetMuted,
   mpvSetSpeed,
@@ -47,10 +47,9 @@ import {
 // briefly before giving up on the listing.
 const TRACK_LIST_ATTEMPTS = 10;
 const TRACK_LIST_RETRY_MS = 300;
-const TRACK_LIST_OSD_MS = 8000;
 
-// Show the file's audio/subtitle tracks in mpv's OSD. Best-effort: an empty or
-// failed read only means no listing, never a playback error.
+// Read the file's audio/subtitle tracks for the in-app pickers. Best-effort: an
+// empty or failed read only means no tracks, never a playback error.
 async function readMpvProperty(
   name: string,
   format: "int64" | "string" | "flag",
@@ -62,7 +61,7 @@ async function readMpvProperty(
   }
 }
 
-async function showMpvTrackList(): Promise<MediaTrack[]> {
+async function readMpvTrackList(): Promise<MediaTrack[]> {
   const collected: MediaTrack[] = [];
   for (let attempt = 0; attempt < TRACK_LIST_ATTEMPTS; attempt++) {
     try {
@@ -99,9 +98,7 @@ async function showMpvTrackList(): Promise<MediaTrack[]> {
           collected.push(track);
         }
       }
-      const osd = formatTrackListOsd(tracks);
-      if (osd) {
-        await mpvShowText(osd, TRACK_LIST_OSD_MS);
+      if (tracks.length > 0) {
         return collected;
       }
     } catch (error) {
@@ -431,7 +428,7 @@ export function Viewport() {
           }
           mpvUnlistenRef.current = unlisten;
           // The track listing is a readout only: it never blocks the load.
-          void showMpvTrackList().then((tracks) => {
+          void readMpvTrackList().then((tracks) => {
             setMpvSubtitleTracks(tracks.filter((t) => t.kind === "subtitle"));
             setMpvAudioTracks(tracks.filter((t) => t.kind === "audio"));
           });
@@ -618,6 +615,41 @@ export function Viewport() {
     }
   }, [seekToSec, isPlaying, hlsUrl, mpvActive]);
 
+  // mpv draws its own window above the webview, so the <video> CSS filter cannot
+  // reach the picture: invert through mpv's `negate` filter instead. Re-applied
+  // whenever mpv (re)starts, because a fresh mpv instance has no filters. The
+  // toggle is confirmed with mpv's OSD (no React overlay shows over the native
+  // window) and only when the user actually flipped it, not on every load.
+  const prevInvertRef = useRef(viewportTransform.invertColors === true);
+  useEffect(() => {
+    const inverted = viewportTransform.invertColors === true;
+    const toggled = prevInvertRef.current !== inverted;
+    prevInvertRef.current = inverted;
+    if (toggled) {
+      void logPlayback(
+        `viewport: invert=${inverted} path=${mpvActive ? "mpv" : "html"}`,
+      );
+    }
+    if (!mpvActive) {
+      return;
+    }
+    void ensureMpv().then((ok) => {
+      if (!ok) {
+        return;
+      }
+      void mpvSetInvertColors(inverted)
+        .then(() => {
+          if (toggled) {
+            void mpvShowText(`Invert: ${inverted ? "on" : "off"}`, 1500);
+          }
+        })
+        .catch((error) => {
+          void logPlayback(`viewport: mpv invert failed: ${String(error)}`);
+          void mpvShowText(`Invert failed: ${String(error)}`, 3000);
+        });
+    });
+  }, [mpvActive, viewportTransform.invertColors]);
+
   useEffect(() => {
     if (mpvActive) {
       void mpvSetVolume(volume).catch(() => {});
@@ -681,6 +713,7 @@ export function Viewport() {
                 objectFit: viewportTransform.fitMode,
                 transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
                 transformOrigin: "center",
+                filter: viewportTransform.invertColors ? "invert(1)" : undefined,
               }}
               onCanPlay={(event) => {
                 if (hlsUrl !== null) {

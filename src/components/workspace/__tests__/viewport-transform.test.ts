@@ -21,6 +21,7 @@ describe("viewport-transform constants", () => {
       rotationDeg: 0,
       fitMode: "contain",
       zoom: 1,
+      invertColors: false,
     });
   });
 
@@ -151,6 +152,18 @@ describe("isDefaultTransform", () => {
       isDefaultTransform({ rotationDeg: 0, fitMode: "contain", zoom: 1.5 }),
     ).toBe(false);
   });
+
+  // behavior: inverted colors make the transform non-default even at the default geometry
+  it("should return false if the colors are inverted", () => {
+    expect(
+      isDefaultTransform({
+        rotationDeg: 0,
+        fitMode: "contain",
+        zoom: 1,
+        invertColors: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("formatTransform", () => {
@@ -185,5 +198,29 @@ describe("formatTransform", () => {
     expect(
       formatTransform({ rotationDeg: 90, fitMode: "cover", zoom: 1.5 }),
     ).toBe("90deg cover 1.5x");
+  });
+
+  // behavior: inverted colors are named as their own readout facet
+  it("should name only the inversion if only inversion is non-default", () => {
+    expect(
+      formatTransform({
+        rotationDeg: 0,
+        fitMode: "contain",
+        zoom: 1,
+        invertColors: true,
+      }),
+    ).toBe("inverted");
+  });
+
+  // behavior: the inversion is appended after the geometry facets
+  it("should name the inversion after rotation, fit and zoom", () => {
+    expect(
+      formatTransform({
+        rotationDeg: 90,
+        fitMode: "cover",
+        zoom: 1.5,
+        invertColors: true,
+      }),
+    ).toBe("90deg cover 1.5x inverted");
   });
 });
