@@ -51,11 +51,11 @@ export type PreparedSource = {
   swapId: number | null;
 };
 
-// Probe the file. Most files come back as a complete file path (a passthrough
-// original, or a freshly remuxed MP4) fed through the asset protocol, so the
-// `<video>` gets a finite duration and native instant seeking. Files whose video
-// can't be copied (AV1/VP9) stream as HLS and return an http://localhost playlist
-// URL the native player loads directly - we branch on the URL scheme. A `swapId`
+// Probe the file. A remuxed MP4 comes back as a file path fed through the asset
+// protocol, so the `<video>` gets a finite duration and native instant seeking. A
+// passthrough original and an HLS stream both come back as an http://127.0.0.1 URL
+// (the loopback server holds the passthrough file open, so deleting it mid-playback
+// doesn't end playback) - we branch on the URL scheme. A `swapId`
 // marks the two-phase path (silent video now, audio swapped in later).
 // `durationSec` is the real source length: an HLS stream's own duration reads
 // Infinity until it ends, so the FE falls back to this for the transport readout.
@@ -68,8 +68,8 @@ export async function prepareMediaUrl(path: string): Promise<PreparedSource> {
   };
 }
 
-// A playlist URL is served by the loopback server; a complete file goes through the
-// asset protocol, since the webview cannot read arbitrary paths itself.
+// A 127.0.0.1 URL is served by the loopback server; a path goes through the asset
+// protocol, since the webview cannot read arbitrary paths itself.
 function toPlayableUrl(path: string): string {
   const isUrl = path.startsWith("http://") || path.startsWith("https://");
   return isUrl ? path : convertFileSrc(path);

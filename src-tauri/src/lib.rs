@@ -44,12 +44,16 @@ pub fn run() {
                 let _ = std::fs::remove_dir_all(root);
                 std::fs::create_dir_all(root)?;
             }
-            let (port, _server) = hls_server::start(hls_root.clone())?;
+            // The same server also serves the passthrough source from a handle kept
+            // open for the session, so deleting the file mid-playback doesn't stop it.
+            let files = hls_server::HeldFiles::new();
+            let (port, _server) = hls_server::start(hls_root.clone(), files.clone())?;
             log::info!("HLS server listening on 127.0.0.1:{port} root={hls_root:?}");
             app.manage(media::MediaState {
                 hls_root,
                 remux_root,
                 port,
+                files,
                 current_hls: std::sync::Mutex::new(None),
                 current_bg: std::sync::Mutex::new(None),
             });

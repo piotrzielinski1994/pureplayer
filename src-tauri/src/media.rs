@@ -8,6 +8,8 @@ use tauri::{async_runtime, Emitter, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
+use crate::hls_server;
+
 #[derive(Serialize)]
 pub struct PreparedMedia {
     pub path: String,
@@ -59,12 +61,13 @@ pub struct BgJob {
 
 // App-lifetime media state: the HLS temp root the loopback server serves (rare
 // re-encode path) plus its port, the remux root where complete MP4s are written
-// (the common copy path), and the single in-flight job of each kind - only one
-// video plays at a time.
+// (the common copy path), the open handles the passthrough source is served from,
+// and the single in-flight job of each kind - only one video plays at a time.
 pub struct MediaState {
     pub hls_root: PathBuf,
     pub remux_root: PathBuf,
     pub port: u16,
+    pub files: hls_server::HeldFiles,
     pub current_hls: Mutex<Option<HlsJob>>,
     pub current_bg: Mutex<Option<BgJob>>,
 }
@@ -569,18 +572,53 @@ pub async fn prepare_media(app: tauri::AppHandle, path: String) -> Result<Prepar
     );
     log::info!("prepare_media plan={plan:?}");
 
-    // A new activation supersedes any in-flight work of either kind.
+    // A new activation supersedes any in-flight work of either kind, and drops the
+    // previous source's open handle (which also releases a deleted file's blocks).
     if let Some(state) = app.try_state::<MediaState>() {
         stop_current_hls(&state);
         stop_current_bg(&state);
+        state.files.clear();
     }
 
     let strategy = match strategy_for(plan) {
-        // Already webview-playable: serve the file untouched via the asset
-        // protocol. No remux, no HLS, no encode.
+        // Already webview-playable: serve the file untouched. No remux, no HLS, no
+        // encode. It goes out over the loopback server from a handle we keep OPEN
+        // for the session: the asset protocol re-opens the path on every byte-range
+        // request, so deleting the file mid-playback killed it at the next request,
+        // while an open handle keeps its bytes readable (VLC's behaviour).
         None => {
+            if let Some(state) = app.try_state::<MediaState>() {
+                let token = next_job_id().to_string();
+                match std::fs::File::open(&path) {
+                    Ok(file) => {
+                        match state.files.insert(&token, file, std::path::Path::new(&path)) {
+                            Ok(_) => {
+                                let url = format!("http://127.0.0.1:{}/f/{token}", state.port);
+                                log::info!(
+                                    "prepare_media passthrough in {}ms path={path} url={url}",
+                                    started.elapsed().as_millis()
+                                );
+                                return Ok(PreparedMedia {
+                                    path: url,
+                                    transcoded: false,
+                                    duration_sec,
+                                    swap_id: None,
+                                });
+                            }
+                            Err(err) => log::error!(
+                                "prepare_media passthrough could not read metadata: {err} path={path}"
+                            ),
+                        }
+                    }
+                    Err(err) => log::error!(
+                        "prepare_media passthrough could not open file: {err} path={path}"
+                    ),
+                }
+            }
+            // Could not hold it open: fall back to the asset protocol (plays, but a
+            // delete during playback ends it).
             log::info!(
-                "prepare_media passthrough in {}ms path={path}",
+                "prepare_media passthrough (asset) in {}ms path={path}",
                 started.elapsed().as_millis()
             );
             return Ok(PreparedMedia {
