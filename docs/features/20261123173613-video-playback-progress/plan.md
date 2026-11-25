@@ -13,9 +13,13 @@
   an in-memory adapter, and a `ProgressProvider` that blocks render until loaded (same
   pattern as `SettingsProvider`).
 - **Resume is an explicit context field**, not a reuse of `seekToSec`: `resumeAtSec` is set
-  when a video activates and is consumed by `Viewport` once the media has loaded, where it
-  is turned into a normal `seek()` - so the existing native-seek / HLS-restart / mpv-seek
-  logic is reused instead of duplicated.
+  only when the user accepts the resume prompt and is consumed by `Viewport` once the media
+  has loaded (or immediately when it already has), where it is turned into a normal `seek()` -
+  so the existing native-seek / HLS-restart / mpv-seek logic is reused instead of duplicated.
+- **The offer is a prompt, not an automatic jump**: activation always plays from 0 and sets
+  `resumePrompt` (file name + saved position). `ResumePrompt` renders it in a bar above the
+  transport bar - outside the viewport box - because the native mpv window covers the
+  viewport and would hide any overlay inside it.
 - **Saves are throttled in the pure layer** (`recordProgress` returns `null` below 5 s of
   movement), so the context/provider never writes on every `timeupdate` (~4/s).
 - **Video-only rule lives in one place**: `isVideoFormat` gates both resume and save.
@@ -43,9 +47,12 @@ src/lib/progress/progress-store.ts               (new)     ProgressStore + Tauri
 src/lib/progress/progress-context.tsx            (new)     ProgressProvider + useProgress
 src/lib/progress/__tests__/progress.test.ts      (new)
 src/lib/progress/__tests__/progress-context.test.tsx (new)
-src/components/workspace/workspace-context.tsx   (modify)  resume + save wiring
-src/components/workspace/viewport.tsx            (modify)  consume resumeAtSec
+src/components/workspace/workspace-context.tsx   (modify)  resume prompt + save wiring
+src/components/workspace/resume-prompt.tsx       (new)     resume offer bar (from start / resume)
+src/components/workspace/content.tsx             (modify)  mount the bar above the transport
+src/components/workspace/viewport.tsx            (modify)  consume resumeAtSec (late acceptance)
 src/components/workspace/__tests__/playback-progress.test.tsx (new)
+src/components/workspace/__tests__/resume-prompt.test.tsx (new)
 src/app/providers.tsx                            (modify)  mount ProgressProvider
 src/routes/index.tsx                             (modify)  pass progress props
 README.md / docs/learnings.md                    (check)   feature + gotcha if needed

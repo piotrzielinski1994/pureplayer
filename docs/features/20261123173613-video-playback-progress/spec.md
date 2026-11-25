@@ -25,10 +25,14 @@ Tauri store so it does not bloat `settings.json` and never mixes with settings m
   - Write `{ version: 1, entries: { [path]: { positionSec, durationSec, updatedAtMs } } }`
     to `progress.json` (Tauri `LazyStore`), through a store interface with an in-memory
     implementation for the dev browser and tests.
-  - Resume a video at the saved position when it becomes active (open, drop, prev/next,
-    select, playlist reload). Resume works on both playback paths - `<video>` and the
-    native mpv window - by issuing one normal seek once the media has loaded.
-  - Do not resume when the saved position is under 5 s or within 5 s of the end.
+  - Start a video at 0 when it becomes active (open, drop, prev/next, select, playlist
+    reload) and OFFER the saved position in a prompt bar above the transport: `From start`
+    (the default, focused action) and `Resume`. The bar disappears without an answer after
+    10 s, on Escape, and whenever another file is activated.
+  - Taking the offer seeks to the saved position on both playback paths - `<video>` and the
+    native mpv window - through one normal seek, applied once the media has loaded (or at
+    once when it already has).
+  - Do not offer a resume when the saved position is under 5 s or within 5 s of the end.
   - Forget a video's entry when it reaches the end (it is finished, next play starts at 0).
 - **Out:**
   - Audio progress (explicitly excluded).
@@ -42,9 +46,12 @@ Tauri store so it does not bloat `settings.json` and never mixes with settings m
 - **AC-2** While a video plays, its position is persisted at most once per 5 s of playback
   time, and the persisted entry carries the position and duration.
 - **AC-3** An audio item never produces a progress entry, even when it reports progress.
-- **AC-4** Activating a video with a saved mid-file position sets the resume position and
-  the transport time readout to that position; the player seeks there once the media has
-  loaded (HTML `<video>` path and mpv path).
+- **AC-4** Activating a video with a saved mid-file position starts it at 0 and exposes a
+  resume prompt carrying that position; accepting the prompt seeks there (HTML `<video>` path
+  and mpv path, immediately when the media is already loaded), while dismissing it or letting
+  it time out keeps playback at the beginning.
+- **AC-4b** The prompt is rendered outside the viewport box, so it stays visible while the
+  native mpv window covers the viewport (MKV).
 - **AC-5** A saved position under 5 s or within 5 s of the saved duration resumes at 0.
 - **AC-6** When a video reaches the end, its entry is removed from the map and the store.
 - **AC-7** The persisted `progress.json` payload is validated on load: malformed entries are
@@ -54,15 +61,18 @@ Tauri store so it does not bloat `settings.json` and never mixes with settings m
 
 ## 3. User test cases
 
-- **UT-1** Play a video to 10:00, close the app, reopen the same file: playback starts at
-  10:00 and the transport shows 10:00.
+- **UT-1** Play a video to 10:00, close the app, reopen the same file: playback starts, a bar
+  above the transport offers `Continue <name> from 10:00?`, and taking it seeks to 10:00 while
+  the transport shows 10:00. Ignoring the bar keeps playing from 00:00.
 - **UT-2** Do the same with an audio file: it starts at 00:00 and no entry appears in
   `progress.json`.
 - **UT-3** Play a video to its end, close and reopen: it starts at 00:00.
-- **UT-4** Watch 8 s of a video, switch to the next file, then back: it resumes near 8 s
-  (last save), not 00:00.
-- **UT-5** Start a video, pause at 3 s, quit and reopen: it starts at 00:00 (under the 5 s
-  resume threshold).
+- **UT-4** Watch 8 s of a video, switch to the next file, then back: the bar offers near 8 s
+  (last save) and taking it goes back there.
+- **UT-5** Start a video, pause at 3 s, quit and reopen: no bar appears (under the 5 s
+  resume threshold) and it plays from 00:00.
+- **UT-6** Open an MKV that mpv plays natively: the bar is still visible under the native
+  video, and `Resume` seeks the mpv instance.
 
 ## 4. Data model
 
@@ -97,6 +107,9 @@ Pure model in `src/lib/progress/progress.ts`:
   resolves.
 - A pending resume must not be re-applied when an audio-swap or HLS seek restart swaps
   the source: the resume is consumed once, then cleared.
+- Playback keeps running from 0 while the prompt is up, so its throttled saves overwrite the
+  offered entry; the prompt holds its own copy of the position, and a save below a just-chosen
+  resume position is ignored (pending guard).
 
 ## 6. Dependencies
 

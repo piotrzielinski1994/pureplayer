@@ -49,9 +49,10 @@ Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
   `ffmpeg`/`ffprobe` are bundled as Tauri sidecars - the app is standalone. MKV plays through a native
   mpv window, which lists the file's audio and subtitle tracks in its OSD on load (track names only -
   switching them is not implemented).
-- **Playback progress** - video files resume at the position you left them at (saved every few
-  seconds while playing and on pause); audio always starts at 0. A video played to the end is
-  treated as finished and restarts from 0.
+- **Playback progress** - video files remember the position you left them at (saved every few
+  seconds while playing and on pause); on open a bar above the transport offers to continue there,
+  and playback starts from the beginning unless you take the offer. Audio always starts at 0, and a
+  video played to the end is treated as finished and restarts from 0.
 - **Transport** - prev/play-pause/next, seekable progress bar (click or drag), arrows seek ±5s
   (Shift ±1s), `Up`/`Down`/`M` volume + mute, `[`/`]` speed 0.5x-2x, auto-advance with repeat (`R`)
   and shuffle (`S`).

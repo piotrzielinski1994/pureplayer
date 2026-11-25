@@ -12,7 +12,7 @@ import {
   useWorkspace,
   WorkspaceProvider,
 } from "@/components/workspace/workspace-context";
-import { mpvSetInvertColors } from "@/lib/mpv";
+import { mpvSeek, mpvSetInvertColors } from "@/lib/mpv";
 import { quitApp } from "@/lib/tauri";
 import { fixtureMedia } from "./fixtures";
 
@@ -146,6 +146,11 @@ function TogglePlayButton() {
 function InvertColorsButton() {
   const { toggleInvertColors } = useWorkspace();
   return <button onClick={() => toggleInvertColors()}>invert-colors</button>;
+}
+
+function AcceptResumeButton() {
+  const { acceptResume } = useWorkspace();
+  return <button onClick={() => acceptResume()}>accept-resume</button>;
 }
 
 function DurationProbe() {
@@ -375,6 +380,68 @@ describe("Viewport", () => {
 
     await waitFor(() => expect(video.currentTime).toBe(0));
     expect(video.paused).toBe(false);
+  });
+
+  // behavior: the resume prompt does not touch playback until it is accepted,
+  // and an acceptance that arrives after the media loaded still seeks (the
+  // chosen position goes through the normal seek path)
+  it("should seek a loaded video to the accepted resume position", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider
+        media={fixtureMedia}
+        initialActiveMediaId="v-3"
+        initialProgress={{
+          "/media/3 - Intro.mov": {
+            positionSec: 42,
+            durationSec: 100,
+            updatedAtMs: 1,
+          },
+        }}
+      >
+        <Viewport />
+        <AcceptResumeButton />
+      </WorkspaceProvider>,
+    );
+
+    const video = await findVideo();
+    expect(video.currentTime).toBe(0);
+    Object.defineProperty(video, "readyState", {
+      configurable: true,
+      value: HTMLMediaElement.HAVE_METADATA,
+    });
+    await user.click(screen.getByRole("button", { name: "accept-resume" }));
+
+    await waitFor(() => expect(video.currentTime).toBe(42));
+  });
+
+  // behavior: mpv can only seek a queued file, so an acceptance that arrives
+  // after loadfile resolved seeks the live mpv instance
+  it("should seek mpv to the accepted resume position if an mkv is active", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider
+        media={fixtureMedia}
+        initialActiveMediaId="v-12"
+        initialProgress={{
+          "/media/12 - Bridge.mkv": {
+            positionSec: 42,
+            durationSec: 100,
+            updatedAtMs: 1,
+          },
+        }}
+      >
+        <Viewport />
+        <AcceptResumeButton />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(mpvGetProperty).toHaveBeenCalledWith("track-list/0/id"),
+    );
+    await user.click(screen.getByRole("button", { name: "accept-resume" }));
+
+    await waitFor(() => expect(mpvSeek).toHaveBeenCalledWith(42));
   });
 
   // behavior: loading an mkv reads the track list for the track pickers, but

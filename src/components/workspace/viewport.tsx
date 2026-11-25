@@ -188,6 +188,8 @@ export function Viewport() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [source, setSource] = useState<SourceState | null>(null);
   const [mpvActive, setMpvActive] = useState(false);
+  // True once `loadfile` resolved: mpv can only seek a file that is queued.
+  const [mpvLoaded, setMpvLoaded] = useState(false);
   const [mpvAvailable, setMpvAvailable] = useState<boolean | null>(null);
   const mpvUnlistenRef = useRef<(() => void) | null>(null);
   const wasMpvRef = useRef(false);
@@ -400,6 +402,7 @@ export function Viewport() {
     if (useMpv) {
       wasMpvRef.current = true;
       setMpvActive(true);
+      setMpvLoaded(false);
       setSource(null);
       void (async () => {
         const ok = await ensureMpv();
@@ -412,12 +415,9 @@ export function Viewport() {
         try {
           await mpvLoadFile(activeMedia.path);
           if (cancelled) return;
-          // Resume a saved position through the normal seek path, which mpv
-          // applies to the file that was just queued.
-          if (resumeAtSec !== null) {
-            seek(resumeAtSec);
-            clearResume();
-          }
+          // A resume chosen while the file was still loading is applied by the
+          // resume effect once this flag flips (the same path a click uses).
+          setMpvLoaded(true);
           const unlisten = await observeProperties(
             [
               ["time-pos", "double", "none"],
@@ -630,6 +630,34 @@ export function Viewport() {
       void element.play().catch(logPlayError);
     }
   }, [seekToSec, isPlaying, hlsUrl, mpvActive]);
+
+  // A resume accepted AFTER the media loaded still has to land: the one-shot
+  // load handlers have already run by then. mpv needs a queued file, and the
+  // <video> needs metadata (otherwise its loadedmetadata handler applies it).
+  useEffect(() => {
+    if (resumeAtSec === null) {
+      return;
+    }
+    if (mpvActive) {
+      if (!mpvLoaded) {
+        return;
+      }
+      void mpvSeek(resumeAtSec)
+        .catch(() => {})
+        .finally(() => clearResume());
+      return;
+    }
+    const element = videoRef.current;
+    if (
+      !element ||
+      sourceUrl === null ||
+      element.readyState < HTMLMediaElement.HAVE_METADATA
+    ) {
+      return;
+    }
+    seek(resumeAtSec);
+    clearResume();
+  }, [resumeAtSec, mpvActive, mpvLoaded, sourceUrl, seek, clearResume]);
 
   // mpv draws its own window above the webview, so the <video> CSS filter cannot
   // reach the picture: invert through mpv's `negate` filter instead. Re-applied

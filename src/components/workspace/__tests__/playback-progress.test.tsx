@@ -14,6 +14,12 @@ const video: MediaNode = {
   format: "MP4",
   path: "/v/1.mp4",
 };
+const otherVideo: MediaNode = {
+  id: "v2",
+  name: "V2",
+  format: "MP4",
+  path: "/v/2.mp4",
+};
 const audio: MediaNode = {
   id: "a1",
   name: "A1",
@@ -29,6 +35,17 @@ function Probe() {
       <output aria-label="resume">
         {ws.resumeAtSec === null ? "none" : String(ws.resumeAtSec)}
       </output>
+      <output aria-label="prompt">
+        {ws.resumePrompt === null
+          ? "none"
+          : String(ws.resumePrompt.positionSec)}
+      </output>
+      <button type="button" onClick={() => ws.acceptResume()}>
+        accept resume
+      </button>
+      <button type="button" onClick={() => ws.dismissResume()}>
+        dismiss resume
+      </button>
       <button type="button" onClick={() => ws.reportProgress(50, 100)}>
         report
       </button>
@@ -37,6 +54,9 @@ function Probe() {
       </button>
       <button type="button" onClick={() => ws.selectNode("a1")}>
         select audio
+      </button>
+      <button type="button" onClick={() => ws.selectNode("v2")}>
+        select other
       </button>
     </div>
   );
@@ -48,7 +68,7 @@ function renderWorkspace(
   initialProgress: ProgressMap,
 ) {
   const onProgressChange = vi.fn();
-  render(
+  const view = render(
     <WorkspaceProvider
       media={media}
       initialActiveMediaId={initialActiveMediaId}
@@ -58,39 +78,76 @@ function renderWorkspace(
       <Probe />
     </WorkspaceProvider>,
   );
-  return { onProgressChange };
+  return { onProgressChange, view };
 }
 
 describe("video playback progress", () => {
-  it("resumes a video at its saved position", () => {
+  it("starts a resumable video from the beginning and offers the saved position", () => {
     renderWorkspace([video, audio], "v1", {
       "/v/1.mp4": { positionSec: 42, durationSec: 100, updatedAtMs: 1 },
     });
-    expect(screen.getByLabelText("current")).toHaveTextContent("42");
-    expect(screen.getByLabelText("resume")).toHaveTextContent("42");
+    expect(screen.getByLabelText("current")).toHaveTextContent("0");
+    expect(screen.getByLabelText("resume")).toHaveTextContent("none");
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("42");
   });
 
-  it("does not resume an audio item", () => {
+  it("resumes at the offered position once accepted", async () => {
+    renderWorkspace([video, audio], "v1", {
+      "/v/1.mp4": { positionSec: 42, durationSec: 100, updatedAtMs: 1 },
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "accept resume" }),
+    );
+    expect(screen.getByLabelText("current")).toHaveTextContent("42");
+    expect(screen.getByLabelText("resume")).toHaveTextContent("42");
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("none");
+  });
+
+  it("keeps playing from the beginning when the prompt is dismissed", async () => {
+    renderWorkspace([video, audio], "v1", {
+      "/v/1.mp4": { positionSec: 42, durationSec: 100, updatedAtMs: 1 },
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "dismiss resume" }),
+    );
+    expect(screen.getByLabelText("current")).toHaveTextContent("0");
+    expect(screen.getByLabelText("resume")).toHaveTextContent("none");
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("none");
+  });
+
+  it("does not offer a resume for an audio item", () => {
     renderWorkspace([video, audio], "a1", {
       "/a/1.mp3": { positionSec: 42, durationSec: 100, updatedAtMs: 1 },
     });
     expect(screen.getByLabelText("current")).toHaveTextContent("0");
-    expect(screen.getByLabelText("resume")).toHaveTextContent("none");
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("none");
   });
 
-  it("does not resume a finished video", () => {
+  it("does not offer a resume for a finished video", () => {
     renderWorkspace([video, audio], "v1", {
       "/v/1.mp4": { positionSec: 97, durationSec: 100, updatedAtMs: 1 },
     });
     expect(screen.getByLabelText("current")).toHaveTextContent("0");
-    expect(screen.getByLabelText("resume")).toHaveTextContent("none");
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("none");
   });
 
-  it("does not resume a near-start position", () => {
+  it("does not offer a resume for a near-start position", () => {
     renderWorkspace([video, audio], "v1", {
       "/v/1.mp4": { positionSec: 3, durationSec: 100, updatedAtMs: 1 },
     });
-    expect(screen.getByLabelText("resume")).toHaveTextContent("none");
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("none");
+  });
+
+  it("offers a resume prompt when another resumable video is activated", async () => {
+    const probe = renderWorkspace([video, otherVideo], "v1", {
+      "/v/2.mp4": { positionSec: 42, durationSec: 100, updatedAtMs: 1 },
+    });
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("none");
+    await userEvent.click(
+      probe.view.getByRole("button", { name: "select other" }),
+    );
+    expect(screen.getByLabelText("current")).toHaveTextContent("0");
+    expect(screen.getByLabelText("prompt")).toHaveTextContent("42");
   });
 
   it("persists playback progress of a video", async () => {

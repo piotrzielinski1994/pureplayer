@@ -5,6 +5,7 @@ import {
 } from "@pziel/pureui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LogsPanel } from "@/components/workspace/logs-panel";
+import { ResumePrompt } from "@/components/workspace/resume-prompt";
 import { TransportBar } from "@/components/workspace/transport-bar";
 import { Viewport } from "@/components/workspace/viewport";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -68,7 +69,10 @@ export function Content() {
   const isRevealed = canPeek && isPeeking;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      <div className="absolute inset-x-0 top-0 z-20">
+        <ResumePrompt />
+      </div>
       <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
         <ResizablePanel id="viewport" defaultSize="75%">
           <div

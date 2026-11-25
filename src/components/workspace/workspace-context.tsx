@@ -44,6 +44,24 @@ import {
 
 type SortDirection = "asc" | "desc";
 
+// A saved position worth offering to the user (video, mid-file, past the
+// near-start threshold).
+type ResumePrompt = {
+  name: string;
+  positionSec: number;
+};
+
+function resumePromptFor(
+  node: MediaNode,
+  progress: ProgressMap,
+): ResumePrompt | null {
+  if (!isVideoFormat(node.format)) {
+    return null;
+  }
+  const positionSec = resumePosition(progress[node.path]);
+  return positionSec > 0 ? { name: node.name, positionSec } : null;
+}
+
 const clampVolume = (value: number) =>
   Math.round(Math.min(1, Math.max(0, value)) * 100) / 100;
 
@@ -60,6 +78,11 @@ type WorkspaceContextValue = {
   // Consumed (cleared) by the viewport after it issues that seek.
   resumeAtSec: number | null;
   clearResume: () => void;
+  // Saved position of the file that just started from 0, offered as a choice.
+  // Playback never waits for an answer - "from the beginning" is the default.
+  resumePrompt: ResumePrompt | null;
+  acceptResume: () => void;
+  dismissResume: () => void;
   volume: number;
   isMuted: boolean;
   playbackRate: number;
@@ -182,24 +205,17 @@ export function WorkspaceProvider({
   const [activeMediaId, setActiveMediaId] = useState<string | null>(
     initialActiveMediaId ?? null,
   );
-  const initialStartSec = (() => {
-    const node = media.find((item) => item.id === initialActiveMediaId);
-    if (!node || !isVideoFormat(node.format)) {
-      return 0;
-    }
-    return resumePosition(progressRef.current[node.path]);
-  })();
   // The position a resumed file still has to reach. While set, reports below it
   // are ignored - the 0 an element (or a fresh mpv instance) reports before the
   // seek lands must never overwrite saved progress.
-  const pendingResumeRef = useRef<number | null>(
-    initialStartSec > 0 ? initialStartSec : null,
-  );
-  const [resumeAtSec, setResumeAtSec] = useState<number | null>(
-    initialStartSec > 0 ? initialStartSec : null,
-  );
+  const pendingResumeRef = useRef<number | null>(null);
+  const [resumeAtSec, setResumeAtSec] = useState<number | null>(null);
+  const [resumePrompt, setResumePrompt] = useState<ResumePrompt | null>(() => {
+    const node = media.find((item) => item.id === initialActiveMediaId);
+    return node ? resumePromptFor(node, progressRef.current) : null;
+  });
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackCurrentSec, setPlaybackCurrentSec] = useState(initialStartSec);
+  const [playbackCurrentSec, setPlaybackCurrentSec] = useState(0);
   const [playbackDurationSec, setPlaybackDurationSec] = useState(0);
   const [seekToSec, setSeekToSec] = useState<number | null>(null);
   const [volume, setVolumeState] = useState(initialVolume);
@@ -249,21 +265,35 @@ export function WorkspaceProvider({
     activeMediaIdRef.current = activeMediaId;
   }, [sourceMedia, activeMediaId]);
 
-  // Stable identity ([]-deps). Activates a node and starts playback - at the
-  // saved position for a video, from 0 for audio (and for a fresh file).
+  // Stable identity ([]-deps). Activates a node and starts playback from the
+  // beginning; a saved position is only OFFERED, never applied on its own.
   const activateMedia = useCallback((node: MediaNode) => {
-    const start = isVideoFormat(node.format)
-      ? resumePosition(progressRef.current[node.path])
-      : 0;
-    pendingResumeRef.current = start > 0 ? start : null;
+    pendingResumeRef.current = null;
+    setResumePrompt(resumePromptFor(node, progressRef.current));
     setActiveMediaId(node.id);
     setSelectedNodeId(node.id);
     setIsPlaying(true);
-    setPlaybackCurrentSec(start);
+    setPlaybackCurrentSec(0);
     setPlaybackDurationSec(0);
     setSeekToSec(null);
-    setResumeAtSec(start > 0 ? start : null);
+    setResumeAtSec(null);
   }, []);
+
+  const dismissResume = useCallback(() => setResumePrompt(null), []);
+
+  // Jumping back to the offered position goes through the normal seek path; the
+  // pending resume covers media that is still loading (mpv load / HLS prepare).
+  const acceptResume = useCallback(() => {
+    if (resumePrompt === null) {
+      return;
+    }
+    const position = resumePrompt.positionSec;
+    pendingResumeRef.current = position;
+    setPlaybackCurrentSec(position);
+    setSeekToSec(null);
+    setResumeAtSec(position);
+    setResumePrompt(null);
+  }, [resumePrompt]);
 
   // Clears the seek request only; the pending-position guard stays until the
   // player actually reports a position at (or past) the resume point.
@@ -435,6 +465,9 @@ export function WorkspaceProvider({
       seekToSec,
       resumeAtSec,
       clearResume,
+      resumePrompt,
+      acceptResume,
+      dismissResume,
       volume,
       isMuted,
       playbackRate,
@@ -591,6 +624,7 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        setResumePrompt(null);
         // A finished video is not resumable: drop its entry so the next play
         // starts from 0.
         const endedNode = activeMediaRef.current;
@@ -723,6 +757,9 @@ export function WorkspaceProvider({
     seekToSec,
     resumeAtSec,
     clearResume,
+    resumePrompt,
+    acceptResume,
+    dismissResume,
     persistProgress,
     volume,
     isMuted,
