@@ -13,6 +13,7 @@ import {
   WorkspaceProvider,
 } from "@/components/workspace/workspace-context";
 import { mpvSetInvertColors } from "@/lib/mpv";
+import { quitApp } from "@/lib/tauri";
 import { fixtureMedia } from "./fixtures";
 
 const prepareMediaUrl = vi.fn(
@@ -112,6 +113,7 @@ vi.mock("@/lib/mpv", () => ({
 }));
 
 vi.mock("@/lib/tauri", () => ({
+  quitApp: vi.fn(() => Promise.resolve()),
   takePendingOpenPaths: vi.fn(() => Promise.resolve([])),
   watchOpenPaths: vi.fn(() => Promise.resolve(() => {})),
   prepareMediaUrl: (path: string) => prepareMediaUrl(path),
@@ -540,6 +542,53 @@ describe("Viewport", () => {
     await user.click(region());
 
     expect(screen.getByLabelText("playing")).toHaveTextContent("false");
+  });
+
+  // behavior: right-clicking the video opens a context menu with a quit option
+  // (there is no other way out when the window chrome is hidden)
+  it("should show a quit option on right-click if a video is active", async () => {
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    fireEvent.contextMenu(region());
+
+    expect(
+      await screen.findByRole("menuitem", { name: /quit/i }),
+    ).toBeInTheDocument();
+  });
+
+  // side-effect-contract: choosing the quit option closes the app
+  it("should quit the app if the context menu quit option is chosen", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    fireEvent.contextMenu(region());
+    await user.click(await screen.findByRole("menuitem", { name: /quit/i }));
+
+    expect(quitApp).toHaveBeenCalledTimes(1);
+  });
+
+  // behavior: the quit option must stay reachable even with nothing loaded -
+  // the empty viewport is exactly where no video chrome exists to escape from
+  it("should show a quit option on right-click if no media is active", async () => {
+    render(
+      <WorkspaceProvider media={fixtureMedia}>
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    fireEvent.contextMenu(region());
+
+    expect(
+      await screen.findByRole("menuitem", { name: /quit/i }),
+    ).toBeInTheDocument();
   });
 
   // behavior: empty state placeholder + no <video> when nothing is active (Empty)

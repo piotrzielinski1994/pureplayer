@@ -1,6 +1,12 @@
-import { Film, Loader2, Pause } from "lucide-react";
+import { Film, Loader2, Pause, Power } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   type MediaTrack,
   trackFromProperties,
@@ -38,6 +44,7 @@ import {
 import {
   logPlayback,
   prepareMediaUrl,
+  quitApp,
   seekMediaUrl,
   toggleFullscreen,
   watchAudioReady,
@@ -676,263 +683,295 @@ export function Viewport() {
   }, [volume, isMuted, playbackRate, sourceUrl, mpvActive]);
 
   return (
-    <div
-      ref={containerRef}
-      role="region"
-      aria-label="Media viewport"
-      onClick={handleClick}
-      onDoubleClick={() => void toggleFullscreen()}
-      className={`relative flex h-full w-full items-center justify-center overflow-hidden ${mpvActive ? "bg-transparent" : "bg-black"}`}
-    >
-      {!activeMedia && (
-        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-          <Film className="size-10" />
-          <p className="text-sm">No media selected</p>
-        </div>
-      )}
-      {activeMedia && !mpvActive && !sourceForActive && (
-        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="size-10 animate-spin" />
-          <p className="text-sm">Preparing {activeMedia.name}…</p>
-        </div>
-      )}
-      {activeMedia && sourceForActive?.status === "error" && (
-        <div className="flex max-w-md flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
-          <Film className="size-10" />
-          <p className="text-sm font-medium text-white">
-            Could not play this file
-          </p>
-          <p className="text-xs">{sourceForActive.message}</p>
-        </div>
-      )}
-      {activeMedia && (mpvActive || sourceForActive?.status === "ready") && (
-        <>
-          {!mpvActive && (
-            <video
-              ref={videoRef}
-              src={
-                hlsUrl === null
-                  ? sourceForActive?.status === "ready"
-                    ? sourceForActive.url
-                    : undefined
-                  : undefined
-              }
-              className="h-full w-full"
-              style={{
-                objectFit: viewportTransform.fitMode,
-                transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
-                transformOrigin: "center",
-                filter: viewportTransform.invertColors ? "invert(1)" : undefined,
-              }}
-              onCanPlay={(event) => {
-                if (hlsUrl !== null) {
-                  void logPlayback(
-                    describeElementState(snapshotElement(event.currentTarget)),
-                  );
-                }
-                emitTimelineOnFirstFrame();
-              }}
-              onLoadedData={(event) => {
-                if (isPlaying) {
-                  void event.currentTarget.play().catch(logPlayError);
-                }
-              }}
-              onTimeUpdate={(event) =>
-                reportProgress(
-                  hlsBaseRef.current + event.currentTarget.currentTime,
-                  resolveDuration(
-                    event.currentTarget.duration,
-                    sourceForActive?.status === "ready"
-                      ? sourceForActive.durationSec
-                      : null,
-                  ),
-                )
-              }
-              onLoadedMetadata={(event) => {
-                if (resumeAfterSwapRef.current !== null) {
-                  event.currentTarget.currentTime = resumeAfterSwapRef.current;
-                  resumeAfterSwapRef.current = null;
-                }
-                reportProgress(
-                  hlsBaseRef.current + event.currentTarget.currentTime,
-                  resolveDuration(
-                    event.currentTarget.duration,
-                    sourceForActive?.status === "ready"
-                      ? sourceForActive.durationSec
-                      : null,
-                  ),
-                );
-                // Resume a saved position only once the element has metadata;
-                // the regular seek effect then handles native vs HLS restart.
-                if (resumeAtSec !== null) {
-                  seek(resumeAtSec);
-                  clearResume();
-                }
-              }}
-              onEnded={() => reportEnded()}
-            />
-          )}
-          {!isFullscreen && titleHiddenForId !== activeMedia.id && (
-            <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-sm text-white">
-              {activeMedia.name}
-            </p>
-          )}
-        </>
-      )}
-      {activeMedia && speedOverlayVisible && (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
         <div
-          data-testid="speed-overlay"
-          className="pointer-events-none absolute right-3 top-3 z-10 px-3 py-1.5 font-mono text-lg font-bold text-white"
+          ref={containerRef}
+          role="region"
+          aria-label="Media viewport"
+          onClick={handleClick}
+          onDoubleClick={() => void toggleFullscreen()}
+          className={`relative flex h-full w-full items-center justify-center overflow-hidden ${mpvActive ? "bg-transparent" : "bg-black"}`}
         >
-          {playbackRate}x
-        </div>
-      )}
-      {activeMedia && pauseOverlayVisible && (
-        <div
-          data-testid="pause-overlay"
-          role="img"
-          aria-label="Pause"
-          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
-        >
-          <Pause className="size-24 text-white drop-shadow-lg" />
-        </div>
-      )}
-      {subtitlePickerOpen &&
-        createPortal(
-          <div
-            data-testid="subtitle-picker"
-            className="fixed right-3 top-3 z-[9999] max-h-80 w-72 overflow-auto border border-border bg-background p-2 text-sm text-foreground shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-            onDoubleClick={(e) => e.stopPropagation()}
-          >
-          <div className="mb-2 flex items-center justify-between">
-            <span className="font-medium">Subtitles</span>
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => setSubtitlePickerOpen(false)}
-            >
-              ✕
-            </button>
-          </div>
-          <button
-            type="button"
-            className="block w-full px-2 py-1 text-left hover:bg-muted"
-            onClick={() => {
-              void mpvSetSubtitle(null)
-                .then(() => {
-                  void mpvShowText("Subtitles: none", 2000);
-                })
-                .catch((e) => {
-                  void mpvShowText(`Subtitle change failed: ${String(e)}`, 3000);
-                });
-              setSubtitlePickerOpen(false);
-            }}
-          >
-            None
-          </button>
-          {mpvSubtitleTracks.length === 0 && (
-            <p className="px-2 py-1 text-muted-foreground">No subtitles</p>
+          {!activeMedia && (
+            <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <Film className="size-10" />
+              <p className="text-sm">No media selected</p>
+            </div>
           )}
-          {mpvSubtitleTracks.map((track) => (
-            <button
-              key={track.id ?? track.title}
-              type="button"
-              className="block w-full px-2 py-1 text-left hover:bg-muted"
-              onClick={() => {
-                if (track.id !== null) {
-                  void mpvSetSubtitle(track.id)
-                    .then(() => {
-                      void mpvShowText(
-                        `Subtitles: ${track.lang ?? track.title ?? track.id}`,
-                        2000,
-                      );
-                    })
-                    .catch((e) => {
-                      void mpvShowText(`Subtitle change failed: ${String(e)}`, 3000);
-                    });
-                }
-                setSubtitlePickerOpen(false);
-              }}
-            >
-              {track.id !== null ? `${track.id}: ` : ""}
-              {track.codec}/{track.lang}
-              {track.title ? ` "${track.title}"` : ""}
-              {track.isDefault ? " [default]" : ""}
-              {track.isForced ? " [forced]" : ""}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-      {audioPickerOpen &&
-        createPortal(
-          <div
-            data-testid="audio-picker"
-            className="fixed right-3 top-3 z-[9999] max-h-80 w-72 overflow-auto border border-border bg-background p-2 text-sm text-foreground shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-            onDoubleClick={(e) => e.stopPropagation()}
-          >
-          <div className="mb-2 flex items-center justify-between">
-            <span className="font-medium">Audio</span>
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => setAudioPickerOpen(false)}
-            >
-              ✕
-            </button>
-          </div>
-          <button
-            type="button"
-            className="block w-full px-2 py-1 text-left hover:bg-muted"
-            onClick={() => {
-              void mpvSetAudio(null)
-                .then(() => {
-                  void mpvShowText("Audio: none", 2000);
-                })
-                .catch((e) => {
-                  void mpvShowText(`Audio change failed: ${String(e)}`, 3000);
-                });
-              setAudioPickerOpen(false);
-            }}
-          >
-            None
-          </button>
-          {mpvAudioTracks.length === 0 && (
-            <p className="px-2 py-1 text-muted-foreground">No audio</p>
+          {activeMedia && !mpvActive && !sourceForActive && (
+            <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="size-10 animate-spin" />
+              <p className="text-sm">Preparing {activeMedia.name}…</p>
+            </div>
           )}
-          {mpvAudioTracks.map((track) => (
-            <button
-              key={track.id ?? track.title}
-              type="button"
-              className="block w-full px-2 py-1 text-left hover:bg-muted"
-              onClick={() => {
-                if (track.id !== null) {
-                  void mpvSetAudio(track.id)
-                    .then(() => {
-                      void mpvShowText(
-                        `Audio: ${track.lang ?? track.title ?? track.id}`,
-                        2000,
+          {activeMedia && sourceForActive?.status === "error" && (
+            <div className="flex max-w-md flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
+              <Film className="size-10" />
+              <p className="text-sm font-medium text-white">
+                Could not play this file
+              </p>
+              <p className="text-xs">{sourceForActive.message}</p>
+            </div>
+          )}
+          {activeMedia &&
+            (mpvActive || sourceForActive?.status === "ready") && (
+              <>
+                {!mpvActive && (
+                  <video
+                    ref={videoRef}
+                    src={
+                      hlsUrl === null
+                        ? sourceForActive?.status === "ready"
+                          ? sourceForActive.url
+                          : undefined
+                        : undefined
+                    }
+                    className="h-full w-full"
+                    style={{
+                      objectFit: viewportTransform.fitMode,
+                      transform: `rotate(${viewportTransform.rotationDeg}deg) scale(${viewportTransform.zoom})`,
+                      transformOrigin: "center",
+                      filter: viewportTransform.invertColors
+                        ? "invert(1)"
+                        : undefined,
+                    }}
+                    onCanPlay={(event) => {
+                      if (hlsUrl !== null) {
+                        void logPlayback(
+                          describeElementState(
+                            snapshotElement(event.currentTarget),
+                          ),
+                        );
+                      }
+                      emitTimelineOnFirstFrame();
+                    }}
+                    onLoadedData={(event) => {
+                      if (isPlaying) {
+                        void event.currentTarget.play().catch(logPlayError);
+                      }
+                    }}
+                    onTimeUpdate={(event) =>
+                      reportProgress(
+                        hlsBaseRef.current + event.currentTarget.currentTime,
+                        resolveDuration(
+                          event.currentTarget.duration,
+                          sourceForActive?.status === "ready"
+                            ? sourceForActive.durationSec
+                            : null,
+                        ),
+                      )
+                    }
+                    onLoadedMetadata={(event) => {
+                      if (resumeAfterSwapRef.current !== null) {
+                        event.currentTarget.currentTime =
+                          resumeAfterSwapRef.current;
+                        resumeAfterSwapRef.current = null;
+                      }
+                      reportProgress(
+                        hlsBaseRef.current + event.currentTarget.currentTime,
+                        resolveDuration(
+                          event.currentTarget.duration,
+                          sourceForActive?.status === "ready"
+                            ? sourceForActive.durationSec
+                            : null,
+                        ),
                       );
-                    })
-                    .catch((e) => {
-                      void mpvShowText(`Audio change failed: ${String(e)}`, 3000);
-                    });
-                }
-                setAudioPickerOpen(false);
-              }}
+                      // Resume a saved position only once the element has metadata;
+                      // the regular seek effect then handles native vs HLS restart.
+                      if (resumeAtSec !== null) {
+                        seek(resumeAtSec);
+                        clearResume();
+                      }
+                    }}
+                    onEnded={() => reportEnded()}
+                  />
+                )}
+                {!isFullscreen && titleHiddenForId !== activeMedia.id && (
+                  <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-sm text-white">
+                    {activeMedia.name}
+                  </p>
+                )}
+              </>
+            )}
+          {activeMedia && speedOverlayVisible && (
+            <div
+              data-testid="speed-overlay"
+              className="pointer-events-none absolute right-3 top-3 z-10 px-3 py-1.5 font-mono text-lg font-bold text-white"
             >
-              {track.id !== null ? `${track.id}: ` : ""}
-              {track.codec}/{track.lang}
-              {track.title ? ` "${track.title}"` : ""}
-              {track.isDefault ? " [default]" : ""}
-              {track.isForced ? " [forced]" : ""}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </div>
+              {playbackRate}x
+            </div>
+          )}
+          {activeMedia && pauseOverlayVisible && (
+            <div
+              data-testid="pause-overlay"
+              role="img"
+              aria-label="Pause"
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+            >
+              <Pause className="size-24 text-white drop-shadow-lg" />
+            </div>
+          )}
+          {subtitlePickerOpen &&
+            createPortal(
+              <div
+                data-testid="subtitle-picker"
+                className="fixed right-3 top-3 z-[9999] max-h-80 w-72 overflow-auto border border-border bg-background p-2 text-sm text-foreground shadow-lg"
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-medium">Subtitles</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setSubtitlePickerOpen(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="block w-full px-2 py-1 text-left hover:bg-muted"
+                  onClick={() => {
+                    void mpvSetSubtitle(null)
+                      .then(() => {
+                        void mpvShowText("Subtitles: none", 2000);
+                      })
+                      .catch((e) => {
+                        void mpvShowText(
+                          `Subtitle change failed: ${String(e)}`,
+                          3000,
+                        );
+                      });
+                    setSubtitlePickerOpen(false);
+                  }}
+                >
+                  None
+                </button>
+                {mpvSubtitleTracks.length === 0 && (
+                  <p className="px-2 py-1 text-muted-foreground">
+                    No subtitles
+                  </p>
+                )}
+                {mpvSubtitleTracks.map((track) => (
+                  <button
+                    key={track.id ?? track.title}
+                    type="button"
+                    className="block w-full px-2 py-1 text-left hover:bg-muted"
+                    onClick={() => {
+                      if (track.id !== null) {
+                        void mpvSetSubtitle(track.id)
+                          .then(() => {
+                            void mpvShowText(
+                              `Subtitles: ${track.lang ?? track.title ?? track.id}`,
+                              2000,
+                            );
+                          })
+                          .catch((e) => {
+                            void mpvShowText(
+                              `Subtitle change failed: ${String(e)}`,
+                              3000,
+                            );
+                          });
+                      }
+                      setSubtitlePickerOpen(false);
+                    }}
+                  >
+                    {track.id !== null ? `${track.id}: ` : ""}
+                    {track.codec}/{track.lang}
+                    {track.title ? ` "${track.title}"` : ""}
+                    {track.isDefault ? " [default]" : ""}
+                    {track.isForced ? " [forced]" : ""}
+                  </button>
+                ))}
+              </div>,
+              document.body,
+            )}
+          {audioPickerOpen &&
+            createPortal(
+              <div
+                data-testid="audio-picker"
+                className="fixed right-3 top-3 z-[9999] max-h-80 w-72 overflow-auto border border-border bg-background p-2 text-sm text-foreground shadow-lg"
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-medium">Audio</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setAudioPickerOpen(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="block w-full px-2 py-1 text-left hover:bg-muted"
+                  onClick={() => {
+                    void mpvSetAudio(null)
+                      .then(() => {
+                        void mpvShowText("Audio: none", 2000);
+                      })
+                      .catch((e) => {
+                        void mpvShowText(
+                          `Audio change failed: ${String(e)}`,
+                          3000,
+                        );
+                      });
+                    setAudioPickerOpen(false);
+                  }}
+                >
+                  None
+                </button>
+                {mpvAudioTracks.length === 0 && (
+                  <p className="px-2 py-1 text-muted-foreground">No audio</p>
+                )}
+                {mpvAudioTracks.map((track) => (
+                  <button
+                    key={track.id ?? track.title}
+                    type="button"
+                    className="block w-full px-2 py-1 text-left hover:bg-muted"
+                    onClick={() => {
+                      if (track.id !== null) {
+                        void mpvSetAudio(track.id)
+                          .then(() => {
+                            void mpvShowText(
+                              `Audio: ${track.lang ?? track.title ?? track.id}`,
+                              2000,
+                            );
+                          })
+                          .catch((e) => {
+                            void mpvShowText(
+                              `Audio change failed: ${String(e)}`,
+                              3000,
+                            );
+                          });
+                      }
+                      setAudioPickerOpen(false);
+                    }}
+                  >
+                    {track.id !== null ? `${track.id}: ` : ""}
+                    {track.codec}/{track.lang}
+                    {track.title ? ` "${track.title}"` : ""}
+                    {track.isDefault ? " [default]" : ""}
+                    {track.isForced ? " [forced]" : ""}
+                  </button>
+                ))}
+              </div>,
+              document.body,
+            )}
+        </div>
+      </ContextMenuTrigger>
+      {/* Always offered, loaded video or empty state: when the window chrome is
+          hidden this menu is the only way out of the app. */}
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={() => void quitApp()}>
+          <Power className="size-3.5" />
+          Quit
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

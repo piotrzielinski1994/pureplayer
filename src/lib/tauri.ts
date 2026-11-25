@@ -1,9 +1,10 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
+import { exit } from "@tauri-apps/plugin-process";
 
 const VIDEO_EXTENSIONS = ["mp4", "mkv", "mov", "webm", "avi"];
 const AUDIO_EXTENSIONS = [
@@ -108,6 +109,20 @@ export function watchAudioReady(
 export async function logPlayback(message: string): Promise<void> {
   try {
     await invoke("log_playback", { message });
+  } catch {
+    // no-op outside a Tauri host
+  }
+}
+
+// Close the whole app (not just the window) - the viewport context menu's quit
+// action. Guarded so the dev browser and jsdom, which have no process plugin,
+// are a no-op instead of a rejected promise.
+export async function quitApp(): Promise<void> {
+  if (!isTauri()) {
+    return;
+  }
+  try {
+    await exit(0);
   } catch {
     // no-op outside a Tauri host
   }
