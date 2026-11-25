@@ -198,29 +198,78 @@ export type FileDropEvent =
   | { type: "leave" }
   | { type: "drop"; paths: string[] };
 
-// Subscribe to the webview drag-drop event, flattened to a FileDropEvent (the
-// `over` phase is ignored). No-op (NO_UNLISTEN) outside a Tauri host, so plain
-// browser dev and jsdom tests don't crash - same guard as watchFullscreen.
-export function watchFileDrop(
-  handler: (event: FileDropEvent) => void,
-): Promise<() => void> {
-  try {
-    return getCurrentWebview().onDragDropEvent(({ payload }) => {
-      if (payload.type === "enter") {
-        handler({ type: "enter", paths: payload.paths });
-        return;
+type FileDropHandler = (event: FileDropEvent) => void;
+
+// ONE native drag-drop subscription for the whole session, started as early as
+// possible (main.tsx, before React renders). It must exist before the React tree
+// subscribes: the webview throws away a drop with no JS listener registered, and
+// the Workspace only mounts after the settings store has loaded - so a file
+// dropped right after launch was silently lost.
+const fileDropHandlers = new Set<FileDropHandler>();
+// Drops that landed while nobody was listening (app still booting). Replayed to
+// the first handler that attaches. Only `drop` is kept: replaying a stale
+// `enter` would pin the drop overlay on.
+const pendingFileDrops: FileDropEvent[] = [];
+const MAX_PENDING_FILE_DROPS = 8;
+let fileDropSubscription: Promise<void> | null = null;
+
+function dispatchFileDrop(event: FileDropEvent): void {
+  if (fileDropHandlers.size === 0) {
+    if (event.type === "drop") {
+      pendingFileDrops.push(event);
+      if (pendingFileDrops.length > MAX_PENDING_FILE_DROPS) {
+        pendingFileDrops.shift();
       }
-      if (payload.type === "leave") {
-        handler({ type: "leave" });
-        return;
-      }
-      if (payload.type === "drop") {
-        handler({ type: "drop", paths: payload.paths });
-      }
-    });
-  } catch {
-    return Promise.resolve(NO_UNLISTEN);
+    }
+    return;
   }
+  for (const handler of fileDropHandlers) {
+    handler(event);
+  }
+}
+
+// Native drag-drop subscription, flattened to a FileDropEvent (the `over` phase
+// is ignored). Idempotent. No-op outside a Tauri host, so plain browser dev and
+// jsdom tests don't crash - same guard as watchFullscreen.
+export function startFileDropSubscription(): void {
+  if (fileDropSubscription) {
+    return;
+  }
+  try {
+    fileDropSubscription = getCurrentWebview()
+      .onDragDropEvent(({ payload }) => {
+        if (payload.type === "leave") {
+          void logPlayback("drag: leave");
+          dispatchFileDrop({ type: "leave" });
+          return;
+        }
+        void logPlayback(`drag: ${payload.type} paths=${payload.paths.length}`);
+        if (payload.type === "enter") {
+          dispatchFileDrop({ type: "enter", paths: payload.paths });
+          return;
+        }
+        if (payload.type === "drop") {
+          dispatchFileDrop({ type: "drop", paths: payload.paths });
+        }
+      })
+      .then(() => undefined)
+      .catch(() => undefined);
+  } catch {
+    fileDropSubscription = Promise.resolve();
+  }
+}
+
+// Subscribe a handler to the (already running) drag-drop stream. A drop buffered
+// before the app finished booting is delivered immediately on attach.
+export function watchFileDrop(handler: FileDropHandler): Promise<() => void> {
+  startFileDropSubscription();
+  fileDropHandlers.add(handler);
+  for (const event of pendingFileDrops.splice(0, pendingFileDrops.length)) {
+    handler(event);
+  }
+  return Promise.resolve(() => {
+    fileDropHandlers.delete(handler);
+  });
 }
 
 export async function toggleFullscreen(): Promise<void> {
