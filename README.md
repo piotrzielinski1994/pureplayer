@@ -91,3 +91,14 @@ repo secrets: `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWOR
 public key is baked into `src-tauri/tauri.conf.json`). **Caveat:** a build can only auto-update to
 releases published *after* it - the first updater-enabled release is still a manual download, and
 the pre-updater v0.1.0 cannot retro-update.
+
+Updates are **incremental** when the previous release allows it. The `deltas` job of the `Release`
+workflow (`src-tauri/patchgen`) diffs each new updater artifact against the previous release's and
+uploads one bsdiff patch per platform plus a `deltas.json` manifest. The app then downloads just
+that patch, applies it to the artifact it cached from its own last install, checks the result
+against the manifest hash and the `latest.json` signature, and installs the reconstructed artifact.
+Any miss - no cached artifact, no patch entry, failed hash or signature - quietly falls back to the
+full download. The saving is real but not a fixed fraction: the bundle is dominated by the rarely
+changing `ffmpeg`/`ffprobe` sidecars, so a patch is typically a few MB instead of ~100-200 MB. The
+cache (`<app data dir>/updates`) holds exactly one artifact, the one matching the running version - so the
+first update after this feature ships is still a full download, and that download seeds the cache.

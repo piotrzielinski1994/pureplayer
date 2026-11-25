@@ -1,3 +1,4 @@
+mod delta_update;
 mod focus;
 mod hls_server;
 mod import;
@@ -69,7 +70,9 @@ pub fn run() {
             media::log_playback,
             focus::focus_webview,
             import::expand_dropped_paths,
-            open_files::take_pending_open_paths
+            open_files::take_pending_open_paths,
+            delta_update::update_check,
+            delta_update::update_install
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

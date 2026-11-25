@@ -88,3 +88,53 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  # One job for every platform: the patches are plain bytes, so a single runner
+  # can diff all artifacts, and there is exactly one writer of deltas.json (the
+  # matrix jobs would otherwise race and clobber each other's manifest entries).
+  deltas:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Find the previous published release
+        id: previous
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          gh release list --exclude-drafts --limit 20 --json tagName \
+            --jq '.[].tagName' | grep -v -x "$TAG" | head -n 1 > previous-tag.txt
+          echo "tag=$(cat previous-tag.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch the previous release artifacts
+        if: steps.previous.outputs.tag != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ steps.previous.outputs.tag }}" --dir previous --clobber
+          gh release download "${{ github.event.inputs.tag }}" --dir current --clobber
+
+      - name: Generate delta patches
+        if: steps.previous.outputs.tag != ''
+        run: |
+          cargo run --release --manifest-path src-tauri/patchgen/Cargo.toml -- \
+            --old previous \
+            --new current \
+            --out deltas
+
+      - name: Upload delta patches
+        if: steps.previous.outputs.tag != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if compgen -G "deltas/*" > /dev/null; then
+            gh release upload "${{ github.event.inputs.tag }}" deltas/* --clobber
+          else
+            echo "no patches generated"
+          fi

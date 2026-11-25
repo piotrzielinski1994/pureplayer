@@ -1,7 +1,6 @@
 import {
   createAppVersionGetter,
   createNoopUpdateController,
-  createUpdateController,
   installBrowserDefaultGuards,
   UpdateChecker,
   UpdaterProvider,
@@ -9,9 +8,9 @@ import {
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getVersion } from "@tauri-apps/api/app";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check } from "@tauri-apps/plugin-updater";
 import { type ReactNode, useEffect, useState } from "react";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { demoSettings } from "@/lib/playlist/demo-seed";
@@ -25,15 +24,28 @@ import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SettingsProvider } from "@/lib/settings/settings-context";
 import { createTauriSettingsStore } from "@/lib/settings/tauri-store";
 import { ThemeProvider } from "@/lib/theme/theme-context";
+import {
+  createDeltaUpdateController,
+  type UpdateProgress,
+} from "@/lib/updater/delta-controller";
 import { createPlayerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 
 // Only the real Tauri host talks to the updater/process plugins; the dev-browser
 // and jsdom (both non-Tauri) get the noop - no network, no plugin calls. The
 // Tauri bindings are injected here because pureui declares no @tauri-apps dep.
+// The Tauri path goes through the app's own delta updater (patch-first, full
+// download as fallback), which owns install and progress; the port is unchanged.
 function createUpdateControllerForEnv() {
-  return isTauri()
-    ? createUpdateController({ check, relaunch })
-    : createNoopUpdateController();
+  if (!isTauri()) return createNoopUpdateController();
+  return createDeltaUpdateController({
+    check: () => invoke<{ version: string } | null>("update_check"),
+    install: () => invoke<void>("update_install"),
+    relaunch,
+    listenProgress: async (onProgress) =>
+      listen<UpdateProgress>("update-progress", (event) =>
+        onProgress(event.payload),
+      ),
+  });
 }
 
 const getAppVersion = createAppVersionGetter({ isTauri, getVersion });
