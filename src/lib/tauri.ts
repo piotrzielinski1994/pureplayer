@@ -243,6 +243,9 @@ export function startFileDropSubscription(): void {
           dispatchFileDrop({ type: "leave" });
           return;
         }
+        if (payload.type === "over") {
+          return;
+        }
         void logPlayback(`drag: ${payload.type} paths=${payload.paths.length}`);
         if (payload.type === "enter") {
           dispatchFileDrop({ type: "enter", paths: payload.paths });
