@@ -153,6 +153,16 @@ function AcceptResumeButton() {
   return <button onClick={() => acceptResume()}>accept-resume</button>;
 }
 
+function VolumeButtons() {
+  const { changeVolume, toggleMute } = useWorkspace();
+  return (
+    <>
+      <button onClick={() => changeVolume(-0.1)}>volume-down</button>
+      <button onClick={() => toggleMute()}>mute</button>
+    </>
+  );
+}
+
 function DurationProbe() {
   const { playbackDurationSec } = useWorkspace();
   return <output aria-label="duration">{playbackDurationSec}</output>;
@@ -351,6 +361,65 @@ describe("Viewport", () => {
     fireEvent.loadedData(video);
 
     expect(video.paused).toBe(false);
+  });
+
+  // behavior: a volume change shows the new level in the top-right corner (F3)
+  it("should show the volume level in the corner overlay if the volume changes", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+        <VolumeButtons />
+      </WorkspaceProvider>,
+    );
+    await findVideo();
+    expect(screen.queryByTestId("corner-overlay")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "volume-down" }));
+
+    expect(screen.getByTestId("corner-overlay")).toHaveTextContent(
+      "Volume: 90%",
+    );
+  });
+
+  // behavior: muting shows "Muted" in the same corner slot (F3)
+  it("should show Muted in the corner overlay if the volume is muted", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+        <VolumeButtons />
+      </WorkspaceProvider>,
+    );
+    await findVideo();
+
+    await user.click(screen.getByRole("button", { name: "mute" }));
+
+    expect(screen.getByTestId("corner-overlay")).toHaveTextContent("Muted");
+  });
+
+  // behavior: the native mpv window hides HTML overlays, so the level goes to
+  // the mpv OSD, aligned top-right (F3)
+  it("should show the volume level through the mpv osd if an mkv is active", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-12">
+        <Viewport />
+        <VolumeButtons />
+      </WorkspaceProvider>,
+    );
+    await waitFor(() =>
+      expect(mpvGetProperty).toHaveBeenCalledWith("track-list/0/id"),
+    );
+
+    await user.click(screen.getByRole("button", { name: "volume-down" }));
+
+    await waitFor(() =>
+      expect(mpvShowText).toHaveBeenCalledWith(
+        expect.stringMatching(/\\an9.*Volume: 90%$/),
+        expect.any(Number),
+      ),
+    );
   });
 
   // behavior: repeat-one replays the finished video - on ended the same element seeks

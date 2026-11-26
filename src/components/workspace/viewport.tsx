@@ -1,5 +1,5 @@
 import { Film, Loader2, Pause, Power } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ContextMenu,
@@ -201,11 +201,12 @@ export function Viewport() {
   // Latest seek-restart request, so a slow one cannot overwrite a newer one.
   const seekRestartTokenRef = useRef(0);
   const [titleHiddenForId, setTitleHiddenForId] = useState<string | null>(null);
-  const [speedOverlayVisible, setSpeedOverlayVisible] = useState(false);
+  const [cornerText, setCornerText] = useState<string | null>(null);
   const [pauseOverlayVisible, setPauseOverlayVisible] = useState(false);
   const prevRateRef = useRef(playbackRate);
+  const prevVolumeRef = useRef({ volume, isMuted });
   const prevPlayingRef = useRef(isPlaying);
-  const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cornerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Drop->first-frame timeline marks for the active video. Best-effort timing for
   // the log file; never gates render. Emitted once all three marks land.
@@ -242,28 +243,50 @@ export function Viewport() {
     return () => clearTimeout(timer);
   }, [activeMedia?.id]);
 
-  // Briefly surface the newly set playback speed in the top-right corner.
-  const SPEED_OVERLAY_MS = 1000;
+  // Briefly surface the newly set speed or volume in the top-right corner; one
+  // slot, so the latest change replaces the previous text.
+  const CORNER_OVERLAY_MS = 1000;
+  const flashCorner = useCallback((text: string) => {
+    setCornerText(text);
+    if (cornerTimerRef.current !== null) {
+      clearTimeout(cornerTimerRef.current);
+    }
+    cornerTimerRef.current = setTimeout(
+      () => setCornerText(null),
+      CORNER_OVERLAY_MS,
+    );
+  }, []);
+  useEffect(
+    () => () => {
+      if (cornerTimerRef.current !== null) {
+        clearTimeout(cornerTimerRef.current);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     if (playbackRate === prevRateRef.current) {
       return;
     }
     prevRateRef.current = playbackRate;
-    setSpeedOverlayVisible(true);
-    if (speedTimerRef.current !== null) {
-      clearTimeout(speedTimerRef.current);
+    flashCorner(`${playbackRate}x`);
+  }, [playbackRate, flashCorner]);
+
+  useEffect(() => {
+    const previous = prevVolumeRef.current;
+    if (previous.volume === volume && previous.isMuted === isMuted) {
+      return;
     }
-    speedTimerRef.current = setTimeout(
-      () => setSpeedOverlayVisible(false),
-      SPEED_OVERLAY_MS,
-    );
-    return () => {
-      if (speedTimerRef.current !== null) {
-        clearTimeout(speedTimerRef.current);
-        speedTimerRef.current = null;
-      }
-    };
-  }, [playbackRate]);
+    prevVolumeRef.current = { volume, isMuted };
+    const text = isMuted ? "Muted" : `Volume: ${Math.round(volume * 100)}%`;
+    flashCorner(text);
+    if (mpvActive) {
+      // The HTML overlay is hidden under the mpv window; {\an9} aligns the
+      // OSD message top-right.
+      void mpvShowText(`\${osd-ass-cc/0}{\\an9}${text}`, CORNER_OVERLAY_MS);
+    }
+  }, [volume, isMuted, mpvActive, flashCorner]);
 
   // Briefly show a pause icon in the center when playback pauses.
   const PAUSE_OVERLAY_MS = 1000;
@@ -822,12 +845,12 @@ export function Viewport() {
                 )}
               </>
             )}
-          {activeMedia && speedOverlayVisible && (
+          {activeMedia && cornerText !== null && (
             <div
-              data-testid="speed-overlay"
+              data-testid="corner-overlay"
               className="pointer-events-none absolute right-3 top-3 z-10 px-3 py-1.5 font-mono text-lg font-bold text-white"
             >
-              {playbackRate}x
+              {cornerText}
             </div>
           )}
           {activeMedia && pauseOverlayVisible && (
