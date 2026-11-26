@@ -1,4 +1,4 @@
-import { Film, Loader2, PanelLeft, Pause, Power } from "lucide-react";
+import { Contrast, Film, Loader2, PanelLeft, Pause, Power } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -186,6 +186,7 @@ export function Viewport() {
     setAudioPickerOpen,
     isSidebarVisible,
     toggleSidebar,
+    toggleInvertColors,
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1036,6 +1037,14 @@ export function Viewport() {
           <PanelLeft className="size-3.5" />
           {isSidebarVisible ? "Hide sidebar" : "Show sidebar"}
         </ContextMenuItem>
+        {activeMedia && (
+          <ContextMenuItem onSelect={toggleInvertColors}>
+            <Contrast className="size-3.5" />
+            {viewportTransform.invertColors === true
+              ? "Restore colors"
+              : "Invert colors"}
+          </ContextMenuItem>
+        )}
         <ContextMenuItem onSelect={() => void quitApp()}>
           <Power className="size-3.5" />
           Quit

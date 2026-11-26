@@ -181,6 +181,15 @@ function VolumeButtons() {
   );
 }
 
+function InvertProbe() {
+  const { viewportTransform } = useWorkspace();
+  return (
+    <output aria-label="invert">
+      {String(viewportTransform.invertColors === true)}
+    </output>
+  );
+}
+
 function SidebarProbe() {
   const { isSidebarVisible } = useWorkspace();
   return <output aria-label="sidebar">{String(isSidebarVisible)}</output>;
@@ -792,6 +801,45 @@ describe("Viewport", () => {
       expect(screen.getByLabelText("sidebar")).toHaveTextContent(expected);
     },
   );
+
+  // behavior: the context menu toggles inverted colors, labelled by the next state
+  it("should toggle inverted colors from the context menu if a video is active", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+        <InvertProbe />
+      </WorkspaceProvider>,
+    );
+
+    fireEvent.contextMenu(region());
+    await user.click(
+      await screen.findByRole("menuitem", { name: /invert colors/i }),
+    );
+    expect(screen.getByLabelText("invert")).toHaveTextContent("true");
+
+    fireEvent.contextMenu(region());
+    await user.click(
+      await screen.findByRole("menuitem", { name: /restore colors/i }),
+    );
+    expect(screen.getByLabelText("invert")).toHaveTextContent("false");
+  });
+
+  // behavior: with nothing loaded there is no picture to invert
+  it("should not offer inverting colors on right-click if no media is active", async () => {
+    render(
+      <WorkspaceProvider media={fixtureMedia}>
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    fireEvent.contextMenu(region());
+    await screen.findByRole("menuitem", { name: /quit/i });
+
+    expect(
+      screen.queryByRole("menuitem", { name: /invert colors/i }),
+    ).toBeNull();
+  });
 
   // side-effect-contract: choosing the quit option closes the app
   it("should quit the app if the context menu quit option is chosen", async () => {
