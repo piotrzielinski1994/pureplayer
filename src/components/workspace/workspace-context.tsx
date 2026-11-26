@@ -96,7 +96,7 @@ type WorkspaceContextValue = {
   isContentVisible: boolean;
   isTransportVisible: boolean;
   isLogsVisible: boolean;
-  // Tracks read from the native mpv instance for the active MKV, so a picker
+  // Tracks read from the native mpv instance for the active file, so a picker
   // can offer subtitle (and audio) selection. Empty outside mpv mode.
   mpvSubtitleTracks: MediaTrack[];
   setMpvSubtitleTracks: (tracks: MediaTrack[]) => void;

@@ -14,7 +14,7 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 
 ## Playback (pureplayer-only)
 
-- MKV is played through a **native `mpv` window** (`useMpv = isMkv && mpvAvailable`), which sits on top of the webview. HTML overlays therefore do **not** show over MKV video; for mpv mode use mpv OSD (`show-text` / `osd-*` commands) instead. Mouse events stop at that window too: the viewport's click-to-pause and its right-click menu (Hide/Show sidebar, Quit) only fire on the HTML path, never during mpv playback. Never disable the mpv path to "fix" overlay visibility - forcing ffmpeg to transcode large MKVs burns ~50% CPU and kills playback performance.
+- Every file is played through a **native `mpv` window** (`useMpv = mpvAvailable`); the ffmpeg + `<video>` path is only the fallback when mpv fails to start. The `<video>` CSS (rotate/fit/zoom/invert) does not reach the mpv picture, so each viewport transform also needs an mpv equivalent (`mpvSetTransform`, `mpvSetInvertColors`), and text drawn on the video in mpv mode goes through mpv OSD (`mpvShowText`). Never disable the mpv path to "fix" an overlay - forcing ffmpeg to transcode large files burns ~50% CPU and kills playback performance.
 
 ## Environment (Windows repo, read first)
 

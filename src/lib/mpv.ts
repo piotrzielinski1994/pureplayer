@@ -96,7 +96,7 @@ export async function mpvSetSpeed(speed: number): Promise<void> {
 }
 
 // Select a subtitle track by its mpv track id, or "no" to disable subtitles.
-// Only meaningful in mpv mode (MKV); other paths have no selectable tracks.
+// Only meaningful in mpv mode; the ffmpeg fallback has no selectable tracks.
 export async function mpvSetSubtitle(trackId: number | null): Promise<void> {
   // Make sure subtitles are actually rendered (mpv may have them disabled).
   await setProperty("sub-visibility", true);
@@ -116,7 +116,7 @@ export async function mpvSetSubtitle(trackId: number | null): Promise<void> {
 }
 
 // Select an audio track by its mpv track id, or "no" to disable audio.
-// Only meaningful in mpv mode (MKV); other paths have no selectable tracks.
+// Only meaningful in mpv mode; the ffmpeg fallback has no selectable tracks.
 export async function mpvSetAudio(trackId: number | null): Promise<void> {
   if (trackId === null) {
     try {
@@ -152,6 +152,19 @@ export async function mpvSetInvertColors(inverted: boolean): Promise<void> {
   }
   await setProperty("vf", "");
   await setProperty("hwdec", HWDEC);
+}
+
+// The <video> CSS transform cannot reach the mpv picture either. Cover crops
+// with full panscan, fill drops the aspect ratio; mpv takes zoom as log2.
+export async function mpvSetTransform(transform: {
+  rotationDeg: number;
+  fitMode: "contain" | "cover" | "fill";
+  zoom: number;
+}): Promise<void> {
+  await setProperty("video-rotate", transform.rotationDeg);
+  await setProperty("keepaspect", transform.fitMode !== "fill");
+  await setProperty("panscan", transform.fitMode === "cover" ? 1 : 0);
+  await setProperty("video-zoom", Math.log2(transform.zoom));
 }
 
 // Draw a message with mpv's own OSD. The native mpv window covers the webview,

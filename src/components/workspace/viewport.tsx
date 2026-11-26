@@ -32,6 +32,7 @@ import {
   mpvSetMuted,
   mpvSetSpeed,
   mpvSetSubtitle,
+  mpvSetTransform,
   mpvSetVolume,
   mpvShowText,
   observeProperties,
@@ -379,13 +380,12 @@ export function Viewport() {
     }
     setSubtitlePickerOpen(false);
     setAudioPickerOpen(false);
-    const isMkv = activeMedia.path.toLowerCase().endsWith(".mkv");
     // Wait for the mpv availability check before choosing a path: starting ffmpeg
-    // for an MKV that mpv can play wastes CPU transcoding the whole file.
+    // for a file that mpv can play wastes CPU transcoding the whole file.
     if (mpvAvailable === null) {
       return;
     }
-    const useMpv = isMkv && mpvAvailable === true;
+    const useMpv = mpvAvailable === true;
     let cancelled = false;
     const forId = activeMedia.id;
 
@@ -487,7 +487,7 @@ export function Viewport() {
       return cleanup;
     }
 
-    // non-mpv path: no selectable tracks; clear any stale list from a previous MKV.
+    // non-mpv path: no selectable tracks; clear any stale list from a previous mpv file.
     setMpvSubtitleTracks([]);
     setMpvAudioTracks([]);
     // non-mpv path: tear down mpv if it was active
@@ -718,6 +718,18 @@ export function Viewport() {
         });
     });
   }, [mpvActive, viewportTransform.invertColors]);
+
+  const { rotationDeg, fitMode, zoom } = viewportTransform;
+  useEffect(() => {
+    if (!mpvActive) {
+      return;
+    }
+    void ensureMpv().then((ok) => {
+      if (ok) {
+        void mpvSetTransform({ rotationDeg, fitMode, zoom }).catch(() => {});
+      }
+    });
+  }, [mpvActive, rotationDeg, fitMode, zoom]);
 
   useEffect(() => {
     if (mpvActive) {

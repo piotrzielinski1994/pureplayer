@@ -12,7 +12,12 @@ import {
   useWorkspace,
   WorkspaceProvider,
 } from "@/components/workspace/workspace-context";
-import { mpvSeek, mpvSetInvertColors } from "@/lib/mpv";
+import {
+  mpvLoadFile,
+  mpvSeek,
+  mpvSetInvertColors,
+  mpvSetTransform,
+} from "@/lib/mpv";
 import { quitApp } from "@/lib/tauri";
 import { fixtureMedia } from "./fixtures";
 
@@ -38,9 +43,10 @@ const logPlayback = vi.fn((message: string) => {
 });
 const watchAudioReady = vi.fn(() => Promise.resolve(() => {}));
 
-// MKV plays through the native mpv window, so the mpv surface is stubbed with a
-// working player: init succeeds and `track-list` reports two audio tracks and
+// Every file plays through the native mpv window when mpv starts (`mpvWorks`);
+// otherwise it takes the ffmpeg fallback. The working player stub: `track-list` reports two audio tracks and
 // one subtitle, like a disc rip. Everything else is a resolved no-op.
+let mpvWorks = false;
 const mpvShowText = vi.fn((_message: string, _durationMs: number) =>
   Promise.resolve(),
 );
@@ -93,7 +99,7 @@ const mpvGetProperty = vi.fn((name: string): Promise<unknown> => {
 });
 
 vi.mock("@/lib/mpv", () => ({
-  ensureMpv: vi.fn(() => Promise.resolve(true)),
+  ensureMpv: vi.fn(() => Promise.resolve(mpvWorks)),
   mpvLoadFile: vi.fn(() => Promise.resolve()),
   mpvPlay: vi.fn(() => Promise.resolve()),
   mpvPause: vi.fn(() => Promise.resolve()),
@@ -105,6 +111,7 @@ vi.mock("@/lib/mpv", () => ({
   mpvSetAudio: vi.fn(() => Promise.resolve()),
   mpvSetMargins: vi.fn(() => Promise.resolve()),
   mpvSetInvertColors: vi.fn(() => Promise.resolve()),
+  mpvSetTransform: vi.fn(() => Promise.resolve()),
   mpvShowText: (message: string, durationMs: number) =>
     mpvShowText(message, durationMs),
   getProperty: (name: string) => mpvGetProperty(name),
@@ -141,6 +148,17 @@ function CycleRepeatButton() {
 function TogglePlayButton() {
   const { togglePlay } = useWorkspace();
   return <button onClick={() => togglePlay()}>toggle-play</button>;
+}
+
+function TransformButtons() {
+  const { rotateClockwise, cycleFitMode, zoomBy } = useWorkspace();
+  return (
+    <>
+      <button onClick={() => rotateClockwise()}>rotate-cw</button>
+      <button onClick={() => cycleFitMode()}>cycle-fit</button>
+      <button onClick={() => zoomBy(0.1)}>zoom-in</button>
+    </>
+  );
 }
 
 function InvertColorsButton() {
@@ -181,6 +199,7 @@ const findVideo = async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mpvWorks = false;
 });
 
 describe("Viewport", () => {
@@ -406,6 +425,7 @@ describe("Viewport", () => {
   // behavior: the native mpv window hides HTML overlays, so the level goes to
   // the mpv OSD, aligned top-right (F3)
   it("should show the volume level through the mpv osd if an mkv is active", async () => {
+    mpvWorks = true;
     const user = userEvent.setup();
     render(
       <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-12">
@@ -492,6 +512,7 @@ describe("Viewport", () => {
   // behavior: mpv can only seek a queued file, so an acceptance that arrives
   // after loadfile resolved seeks the live mpv instance
   it("should seek mpv to the accepted resume position if an mkv is active", async () => {
+    mpvWorks = true;
     const user = userEvent.setup();
     render(
       <WorkspaceProvider
@@ -521,6 +542,7 @@ describe("Viewport", () => {
   // behavior: loading an mkv reads the track list for the track pickers, but
   // never dumps it into mpv's OSD (the listing covered the video on every load)
   it("should keep the mkv track list out of the osd if an mkv loads in mpv", async () => {
+    mpvWorks = true;
     const user = userEvent.setup();
     render(
       <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
@@ -541,6 +563,7 @@ describe("Viewport", () => {
   // behavior: the mpv path inverts via mpv's own filter, since an HTML overlay
   // (CSS filter) is hidden behind the native mpv window (CLAUDE.md playback rule)
   it("should invert colors through mpv's negate filter if an mkv is active", async () => {
+    mpvWorks = true;
     const user = userEvent.setup();
     render(
       <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
@@ -558,6 +581,48 @@ describe("Viewport", () => {
     await user.click(screen.getByRole("button", { name: "invert-colors" }));
 
     await waitFor(() => expect(mpvSetInvertColors).toHaveBeenCalledWith(true));
+  });
+
+  // behavior: every format plays through the native mpv window when mpv starts,
+  // so no file is transcoded by ffmpeg
+  it("should play a non-mkv file through mpv if mpv is available", async () => {
+    mpvWorks = true;
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(mpvLoadFile).toHaveBeenCalledWith("/media/3 - Intro.mov"),
+    );
+    expect(prepareMediaUrl).not.toHaveBeenCalled();
+  });
+
+  // behavior: the <video> CSS transform cannot reach the mpv picture, so
+  // rotation, fit and zoom go to mpv
+  it("should apply rotation, fit and zoom through mpv if mpv is active", async () => {
+    mpvWorks = true;
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+        <TransformButtons />
+      </WorkspaceProvider>,
+    );
+    await waitFor(() => expect(mpvLoadFile).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "rotate-cw" }));
+    await user.click(screen.getByRole("button", { name: "cycle-fit" }));
+    await user.click(screen.getByRole("button", { name: "zoom-in" }));
+
+    await waitFor(() =>
+      expect(mpvSetTransform).toHaveBeenLastCalledWith({
+        rotationDeg: 90,
+        fitMode: "cover",
+        zoom: 1.1,
+      }),
+    );
   });
 
   // behavior: the active video's name is shown in the viewport once ready (AC-004)
