@@ -4,7 +4,7 @@ import {
   useActionHotkeys,
 } from "@pziel/pureui";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { DropOverlay } from "@/components/workspace/drop-overlay";
 import { mediaFromPaths } from "@/components/workspace/media-from-paths";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -31,6 +31,7 @@ export function Workspace() {
   const {
     loadMedia,
     addMedia,
+    openMedia,
     removeMedia,
     selectedNodeId,
     togglePlay,
@@ -100,18 +101,13 @@ export function Workspace() {
   // Files handed to us by the OS (file association double-click, or a second
   // launch forwarded by the single-instance plugin): drain the queue on mount
   // for the cold start, then drain again on every `app://open-paths` poke.
-  // Opening a file REPLACES the playlist, same as the Open dialog.
-  // `loadMedia` has no stable identity, so it is read through a ref - otherwise
-  // the effect would re-subscribe on every render.
-  const loadMediaRef = useRef(loadMedia);
-  useEffect(() => {
-    loadMediaRef.current = loadMedia;
-  }, [loadMedia]);
+  // Opening a file APPENDS it to the playlist and plays it (unlike the Open
+  // dialog, which replaces).
   useEffect(() => {
     const drain = async () => {
       const paths = await takePendingOpenPaths();
       if (paths.length > 0) {
-        loadMediaRef.current(mediaFromPaths(paths));
+        openMedia(mediaFromPaths(paths));
       }
     };
     void drain();
@@ -121,7 +117,7 @@ export function Workspace() {
     return () => {
       void openPromise.then((unlisten) => unlisten());
     };
-  }, []);
+  }, [openMedia]);
 
   const openFiles = async () => {
     const paths = await openMediaFiles();

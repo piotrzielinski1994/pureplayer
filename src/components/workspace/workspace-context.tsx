@@ -109,6 +109,7 @@ type WorkspaceContextValue = {
   selectNode: (id: string) => void;
   loadMedia: (media: MediaNode[]) => void;
   addMedia: (media: MediaNode[]) => void;
+  openMedia: (media: MediaNode[]) => void;
   removeMedia: (id: string) => void;
   togglePlay: () => void;
   nextMedia: () => void;
@@ -362,6 +363,28 @@ export function WorkspaceProvider({
     [activateMedia],
   );
 
+  // Stable identity, like addMedia. An OS open (Explorer double-click) appends
+  // the new files and plays the first opened one, even when it is already listed.
+  const openMedia = useCallback(
+    (incoming: MediaNode[]) => {
+      if (incoming.length === 0) {
+        return;
+      }
+      const current = sourceMediaRef.current;
+      const fresh = incoming.filter(
+        (video) => !current.some((existing) => existing.id === video.id),
+      );
+      if (fresh.length > 0) {
+        setSourceMedia((media) => [...media, ...fresh]);
+      }
+      activateMedia(
+        current.find((existing) => existing.id === incoming[0].id) ??
+          incoming[0],
+      );
+    },
+    [activateMedia],
+  );
+
   // Mirror the live visibility into a ref so setFullscreen (stable, []-deps) can
   // read the CURRENT windowed values without going stale.
   useEffect(() => {
@@ -509,6 +532,7 @@ export function WorkspaceProvider({
         activate(next[0]);
       },
       addMedia,
+      openMedia,
       // Dropping the row would otherwise leave an active/selected id pointing at
       // a node nobody can reach: hand playback to the item that followed it in
       // the play order (wrapping), or stop on an empty list.
@@ -772,6 +796,7 @@ export function WorkspaceProvider({
     setFullscreen,
     activateMedia,
     addMedia,
+    openMedia,
     sortKeys,
     sortDirection,
     isSidebarVisible,

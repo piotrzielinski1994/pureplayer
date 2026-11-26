@@ -2,6 +2,7 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Workspace } from "@/components/workspace/workspace";
+import type { MediaNode } from "@/components/workspace/mock-data";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { createInMemorySettingsStore } from "@/lib/settings/in-memory-store";
 import { SettingsProvider } from "@/lib/settings/settings-context";
@@ -34,11 +35,11 @@ vi.mock("@/lib/tauri", () => ({
   watchOpenPaths: (handler: () => void) => watchOpenPaths(handler),
 }));
 
-const renderWorkspace = () =>
+const renderWorkspace = (media: MediaNode[] = []) =>
   render(
     <HotkeysProvider>
       <SettingsProvider store={createInMemorySettingsStore()}>
-        <WorkspaceProvider media={[]}>
+        <WorkspaceProvider media={media}>
           <Workspace />
         </WorkspaceProvider>
       </SettingsProvider>
@@ -53,6 +54,31 @@ const rows = () =>
 // Let the mount drain and the follow-up render settle.
 const flush = async () => {
   await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+};
+
+const listed: MediaNode[] = [
+  {
+    id: "/v/listed.mp4",
+    name: "listed.mp4",
+    format: "MP4",
+    path: "/v/listed.mp4",
+  },
+];
+const more: MediaNode[] = [
+  { id: "/v/more.mp4", name: "more.mp4", format: "MP4", path: "/v/more.mp4" },
+];
+
+const viewport = () =>
+  within(screen.getByRole("region", { name: /media viewport/i }));
+
+const forward = async (paths: string[]) => {
+  await waitFor(() => expect(watchOpenPaths).toHaveBeenCalled());
+  takePendingOpenPaths.mockResolvedValue(paths);
+  await act(async () => {
+    openPathsHandler?.();
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -91,6 +117,34 @@ describe("workspace open-from-OS wiring", () => {
 
     await waitFor(() => expect(rows()).toHaveLength(1));
     expect(rows()[0]).toHaveTextContent("forwarded.mp4");
+  });
+
+  it("appends a forwarded file to the playlist and plays it", async () => {
+    renderWorkspace(listed);
+    await flush();
+
+    await forward(["/v/forwarded.mp4"]);
+
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(rows().map((li) => li.getAttribute("aria-label"))).toEqual([
+      "listed.mp4",
+      "forwarded.mp4",
+    ]);
+    expect(viewport().getByText(/forwarded\.mp4/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pause/i })).toBeInTheDocument();
+  });
+
+  it("plays a forwarded file that is already in the playlist", async () => {
+    renderWorkspace([...listed, ...more]);
+    await flush();
+
+    await forward(["/v/listed.mp4"]);
+
+    await waitFor(() =>
+      expect(viewport().getByText(/listed\.mp4/i)).toBeInTheDocument(),
+    );
+    expect(rows()).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /pause/i })).toBeInTheDocument();
   });
 
   it("keeps the playlist when nothing was queued", async () => {
