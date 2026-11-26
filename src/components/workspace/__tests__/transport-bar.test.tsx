@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "@/components/workspace/sidebar";
@@ -236,6 +236,43 @@ describe("TransportBar", () => {
     expect(screen.getByLabelText("seek-target")).toHaveTextContent("30");
   });
 
+  // behavior: hovering the progress bar previews the time a click would seek to
+  it("should show the seek-target time in a tooltip if the progress bar is hovered", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-1">
+        <TransportBar />
+        <ProgressProbe current={0} duration={60} />
+      </WorkspaceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "report-progress" }));
+
+    const bar = screen.getByRole("slider", { name: /seek/i });
+    vi.spyOn(bar, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      width: 100,
+      top: 0,
+      bottom: 0,
+      right: 100,
+      height: 4,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+
+    fireEvent.pointerMove(bar, { clientX: 25, clientY: 0 });
+    expect(screen.getByRole("tooltip")).toHaveTextContent("00:15");
+
+    fireEvent.pointerMove(bar, { clientX: 50, clientY: 0 });
+    expect(screen.getByRole("tooltip")).toHaveTextContent("00:30");
+
+    fireEvent.pointerLeave(bar);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   // behavior: the bar shows shuffle + repeat controls reflecting state (TC-013 / AC-008)
   it("should render an unpressed shuffle control and a 'Repeat: off' control if mounted", () => {
     renderTransport("v-1");
@@ -348,7 +385,9 @@ describe("TransportBar", () => {
     const playIcon = screen
       .getByRole("button", { name: /play/i })
       .querySelector("svg");
-    expect(playIcon?.getAttribute("class")).toContain("size-[min(1.25rem,5cqw)]");
+    expect(playIcon?.getAttribute("class")).toContain(
+      "size-[min(1.25rem,5cqw)]",
+    );
     expect(playIcon?.getAttribute("class")).toContain("stroke-[1.6]");
   });
 

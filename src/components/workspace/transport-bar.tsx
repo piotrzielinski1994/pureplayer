@@ -10,7 +10,11 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { type PointerEvent as ReactPointerEvent, useRef } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState,
+} from "react";
 import { formatTime } from "@/components/workspace/format-time";
 import {
   fractionFromPointer,
@@ -63,6 +67,10 @@ export function TransportBar() {
   } = useWorkspace();
   const seekBarRef = useRef<HTMLDivElement>(null);
   const isScrubbing = useRef(false);
+  const [seekHover, setSeekHover] = useState<{
+    fraction: number;
+    seconds: number;
+  } | null>(null);
   const volumeBarRef = useRef<HTMLDivElement>(null);
   const isVolumeScrubbing = useRef(false);
 
@@ -89,16 +97,29 @@ export function TransportBar() {
     );
   };
 
+  // Hovering the bar previews where a click would land, in the readout's format.
+  const previewSeekTarget = (clientX: number) => {
+    const bar = seekBarRef.current;
+    if (!bar || !activeMedia || playbackDurationSec <= 0) {
+      setSeekHover(null);
+      return;
+    }
+    const fraction = fractionFromPointer(clientX, bar.getBoundingClientRect());
+    setSeekHover({ fraction, seconds: fraction * playbackDurationSec });
+  };
+
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!activeMedia) {
       return;
     }
     isScrubbing.current = true;
     event.currentTarget.setPointerCapture(event.pointerId);
+    previewSeekTarget(event.clientX);
     seekFromEvent(event.clientX);
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    previewSeekTarget(event.clientX);
     if (!isScrubbing.current) {
       return;
     }
@@ -107,6 +128,12 @@ export function TransportBar() {
 
   const stopScrubbing = () => {
     isScrubbing.current = false;
+  };
+
+  const clearSeekPreview = () => {
+    if (!isScrubbing.current) {
+      setSeekHover(null);
+    }
   };
 
   const volumeFromEvent = (clientX: number) => {
@@ -139,7 +166,10 @@ export function TransportBar() {
   };
 
   return (
-    <div data-transport-bar className="@container relative shrink-0 bg-background">
+    <div
+      data-transport-bar
+      className="@container relative shrink-0 bg-background"
+    >
       <div
         ref={seekBarRef}
         role="slider"
@@ -151,8 +181,18 @@ export function TransportBar() {
         onPointerMove={handlePointerMove}
         onPointerUp={stopScrubbing}
         onPointerCancel={stopScrubbing}
+        onPointerLeave={clearSeekPreview}
         className="absolute inset-x-0 top-0 z-10 flex h-2 -translate-y-1/2 cursor-pointer items-center"
       >
+        {seekHover && (
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute bottom-full z-20 mb-1 -translate-x-1/2 whitespace-nowrap border border-border bg-background px-1 py-px font-mono text-[0.65rem] text-foreground tabular-nums"
+            style={{ left: `${seekHover.fraction * 100}%` }}
+          >
+            {formatTime(seekHover.seconds, playbackDurationSec)}
+          </span>
+        )}
         <div className="h-px w-full bg-border">
           <div
             className="h-full bg-primary"
