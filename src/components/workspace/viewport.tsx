@@ -1,4 +1,4 @@
-import { Film, Loader2, Pause, Power } from "lucide-react";
+import { Film, Loader2, PanelLeft, Pause, Power } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -183,6 +183,8 @@ export function Viewport() {
     setSubtitlePickerOpen,
     audioPickerOpen,
     setAudioPickerOpen,
+    isSidebarVisible,
+    toggleSidebar,
   } = useWorkspace();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1018,6 +1020,10 @@ export function Viewport() {
       {/* Always offered, loaded video or empty state: when the window chrome is
           hidden this menu is the only way out of the app. */}
       <ContextMenuContent>
+        <ContextMenuItem onSelect={toggleSidebar}>
+          <PanelLeft className="size-3.5" />
+          {isSidebarVisible ? "Hide sidebar" : "Show sidebar"}
+        </ContextMenuItem>
         <ContextMenuItem onSelect={() => void quitApp()}>
           <Power className="size-3.5" />
           Quit

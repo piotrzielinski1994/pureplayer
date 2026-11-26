@@ -163,6 +163,11 @@ function VolumeButtons() {
   );
 }
 
+function SidebarProbe() {
+  const { isSidebarVisible } = useWorkspace();
+  return <output aria-label="sidebar">{String(isSidebarVisible)}</output>;
+}
+
 function DurationProbe() {
   const { playbackDurationSec } = useWorkspace();
   return <output aria-label="duration">{playbackDurationSec}</output>;
@@ -695,6 +700,33 @@ describe("Viewport", () => {
       await screen.findByRole("menuitem", { name: /quit/i }),
     ).toBeInTheDocument();
   });
+
+  // behavior: the context menu toggles the sidebar, so a hidden sidebar has a
+  // mouse path back (F5)
+  it.each([
+    [false, /hide sidebar/i, "false"],
+    [true, /show sidebar/i, "true"],
+  ])(
+    "should toggle the sidebar from the context menu if it starts hidden=%s",
+    async (hidden, label, expected) => {
+      const user = userEvent.setup();
+      render(
+        <WorkspaceProvider
+          media={fixtureMedia}
+          initialActiveMediaId="v-3"
+          initialSidebarHidden={hidden}
+        >
+          <Viewport />
+          <SidebarProbe />
+        </WorkspaceProvider>,
+      );
+
+      fireEvent.contextMenu(region());
+      await user.click(await screen.findByRole("menuitem", { name: label }));
+
+      expect(screen.getByLabelText("sidebar")).toHaveTextContent(expected);
+    },
+  );
 
   // side-effect-contract: choosing the quit option closes the app
   it("should quit the app if the context menu quit option is chosen", async () => {
