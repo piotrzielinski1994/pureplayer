@@ -431,9 +431,9 @@ describe("Viewport", () => {
     expect(screen.getByTestId("corner-overlay")).toHaveTextContent("Muted");
   });
 
-  // behavior: the native mpv window hides HTML overlays, so the level goes to
-  // the mpv OSD, aligned top-right (F3)
-  it("should show the volume level through the mpv osd if an mkv is active", async () => {
+  // behavior: the corner overlay already shows the level in mpv mode, so the
+  // mpv OSD must NOT draw a second copy at the window's top-left (F3)
+  it("should not draw the volume level through the mpv osd if an mkv is active", async () => {
     mpvWorks = true;
     const user = userEvent.setup();
     render(
@@ -448,11 +448,12 @@ describe("Viewport", () => {
 
     await user.click(screen.getByRole("button", { name: "volume-down" }));
 
-    await waitFor(() =>
-      expect(mpvShowText).toHaveBeenCalledWith(
-        expect.stringMatching(/\\an9.*Volume: 90%$/),
-        expect.any(Number),
-      ),
+    expect(screen.getByTestId("corner-overlay")).toHaveTextContent(
+      "Volume: 90%",
+    );
+    expect(mpvShowText).not.toHaveBeenCalledWith(
+      expect.stringContaining("Volume"),
+      expect.any(Number),
     );
   });
 

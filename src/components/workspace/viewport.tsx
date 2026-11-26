@@ -284,13 +284,10 @@ export function Viewport() {
     }
     prevVolumeRef.current = { volume, isMuted };
     const text = isMuted ? "Muted" : `Volume: ${Math.round(volume * 100)}%`;
+    // The corner overlay is visible above the mpv window too, so an extra mpv
+    // OSD copy would only duplicate it at the window's top-left.
     flashCorner(text);
-    if (mpvActive) {
-      // The HTML overlay is hidden under the mpv window; {\an9} aligns the
-      // OSD message top-right.
-      void mpvShowText(`\${osd-ass-cc/0}{\\an9}${text}`, CORNER_OVERLAY_MS);
-    }
-  }, [volume, isMuted, mpvActive, flashCorner]);
+  }, [volume, isMuted, flashCorner]);
 
   // Briefly show a pause icon in the center when playback pauses.
   const PAUSE_OVERLAY_MS = 1000;
