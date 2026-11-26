@@ -56,11 +56,17 @@ import {
 const TRACK_LIST_ATTEMPTS = 10;
 const TRACK_LIST_RETRY_MS = 300;
 
+// `duration` becomes known once the file's metadata is parsed, which can happen
+// before the JS listener attaches (the observation is a one-shot event), so the
+// property is read after the load and retried while it is still unavailable.
+const DURATION_READ_ATTEMPTS = 20;
+const DURATION_READ_RETRY_MS = 100;
+
 // Read the file's audio/subtitle tracks for the in-app pickers. Best-effort: an
 // empty or failed read only means no tracks, never a playback error.
 async function readMpvProperty(
   name: string,
-  format: "int64" | "string" | "flag",
+  format: "int64" | "string" | "flag" | "double",
 ): Promise<unknown> {
   try {
     return await getProperty(name, format);
@@ -119,6 +125,19 @@ async function readMpvTrackList(): Promise<MediaTrack[]> {
   }
   void logPlayback("viewport: mpv track-list: gave up, never got a list");
   return collected;
+}
+
+// The active file's length in seconds, or null when mpv never reports one.
+// A file that is still loading has no readable duration yet.
+async function readMpvDuration(): Promise<number | null> {
+  for (let attempt = 0; attempt < DURATION_READ_ATTEMPTS; attempt++) {
+    const value = await readMpvProperty("duration", "double");
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return value;
+    }
+    await new Promise((resolve) => setTimeout(resolve, DURATION_READ_RETRY_MS));
+  }
+  return null;
 }
 
 function logPlayError(error: unknown) {
@@ -427,6 +446,9 @@ export function Viewport() {
       setMpvActive(true);
       setMpvLoaded(false);
       setSource(null);
+      // Both refs describe the PREVIOUS file until mpv reports for this one.
+      mpvTimeRef.current = null;
+      mpvDurationRef.current = null;
       void (async () => {
         const ok = await ensureMpv();
         if (cancelled) return;
@@ -452,7 +474,7 @@ export function Viewport() {
                 mpvTimeRef.current = data;
                 reportProgress(data, mpvDurationRef.current ?? 0);
               }
-              if (name === "duration" && typeof data === "number") {
+              if (name === "duration" && typeof data === "number" && data > 0) {
                 mpvDurationRef.current = data;
                 reportProgress(mpvTimeRef.current ?? 0, data);
               }
@@ -466,6 +488,17 @@ export function Viewport() {
             return;
           }
           mpvUnlistenRef.current = unlisten;
+          // This listener attaches only after `loadfile` returned, so the
+          // one-shot duration change may already have fired. Read it rather
+          // than wait for an event that never comes (without it the transport
+          // shows 00:00 and a click on the bar restarts the file).
+          void readMpvDuration().then((duration) => {
+            if (cancelled || duration === null) {
+              return;
+            }
+            mpvDurationRef.current = duration;
+            reportProgress(mpvTimeRef.current ?? 0, duration);
+          });
           // The track listing is a readout only: it never blocks the load.
           void readMpvTrackList().then((tracks) => {
             setMpvSubtitleTracks(tracks.filter((t) => t.kind === "subtitle"));

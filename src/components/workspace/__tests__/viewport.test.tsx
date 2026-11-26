@@ -70,7 +70,14 @@ const TRACK_FIXTURE = [
   },
 ];
 
+// mpv's `duration` observation fires once, while the file loads - often before
+// the JS listener attaches. Tests set this to check the explicit read.
+let mpvDuration: number | null = null;
+
 const mpvGetProperty = vi.fn((name: string): Promise<unknown> => {
+  if (name === "duration") {
+    return Promise.resolve(mpvDuration);
+  }
   if (name === "track-list/count") {
     return Promise.resolve(TRACK_FIXTURE.length);
   }
@@ -209,6 +216,7 @@ const findVideo = async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   mpvWorks = false;
+  mpvDuration = null;
 });
 
 describe("Viewport", () => {
@@ -454,6 +462,24 @@ describe("Viewport", () => {
     expect(mpvShowText).not.toHaveBeenCalledWith(
       expect.stringContaining("Volume"),
       expect.any(Number),
+    );
+  });
+
+  // behavior: mpv delivers `duration` as a one-shot property change that can
+  // land before the listener attaches, so the duration is read after the load -
+  // without it the transport shows 00:00 and a seek goes back to 0
+  it("should report the duration read from mpv if no duration event arrives", async () => {
+    mpvWorks = true;
+    mpvDuration = 3620.75;
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-12">
+        <Viewport />
+        <DurationProbe />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("duration").textContent).toBe("3620.75"),
     );
   });
 
