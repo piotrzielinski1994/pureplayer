@@ -67,7 +67,7 @@ export function TransportBar() {
   const isVolumeScrubbing = useRef(false);
 
   const timeReadout = activeMedia
-    ? `${formatTime(playbackCurrentSec)} / ${formatTime(playbackDurationSec)}`
+    ? `${formatTime(playbackCurrentSec, playbackDurationSec)} / ${formatTime(playbackDurationSec)}`
     : EMPTY_TIME;
 
   const progressFraction =
