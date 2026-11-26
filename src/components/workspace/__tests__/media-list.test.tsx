@@ -83,7 +83,7 @@ describe("MediaList", () => {
 
     const rows = within(getList()).getAllByRole("listitem");
     rows.forEach((row) => {
-      expect(row.className).toMatch(/bg-background|bg-accent/);
+      expect(row.className).toMatch(/bg-background|bg-muted/);
       const badge = row.querySelectorAll("span")[1];
       expect(badge?.className).toContain("sticky");
       expect(badge?.className).toContain("right-0");
@@ -123,6 +123,23 @@ describe("MediaList", () => {
     expect(within(getList()).getAllByRole("listitem")).toHaveLength(
       fixtureMedia.length - 1,
     );
+  });
+
+  // behavior: only the active row stands out from the sidebar - inactive rows
+  // carry the sidebar's muted tone, the active one the background tone
+  it("should tint only the active row with the background color", async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    const row = within(getList()).getByRole("listitem", {
+      name: /3 - Intro/i,
+    });
+    expect(row.className).toMatch(/\bbg-muted\b/);
+
+    await user.click(row);
+
+    expect(row.className).toMatch(/\bbg-background\b/);
+    expect(row.className).not.toMatch(/\bbg-muted\b/);
   });
 
   // behavior: clicking a row flips aria-selected on it (AC-004/TC-002)
