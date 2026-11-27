@@ -49,6 +49,8 @@ const watchAudioReady = vi.fn(() => Promise.resolve(() => {}));
 // otherwise it takes the ffmpeg fallback. The working player stub: `track-list` reports two audio tracks and
 // one subtitle, like a disc rip. Everything else is a resolved no-op.
 let mpvWorks = false;
+// Windows ships no ffmpeg sidecars: there an mpv failure is final.
+let ffmpegFallback = true;
 const mpvShowText = vi.fn((_message: string, _durationMs: number) =>
   Promise.resolve(),
 );
@@ -139,6 +141,10 @@ vi.mock("@/lib/tauri", () => ({
   watchAudioReady: () => watchAudioReady(),
 }));
 
+vi.mock("@/lib/platform", () => ({
+  hasFfmpegFallback: () => ffmpegFallback,
+}));
+
 function SelectButton({ id }: { id: string }) {
   const { selectNode } = useWorkspace();
   return <button onClick={() => selectNode(id)}>select-{id}</button>;
@@ -223,6 +229,7 @@ const findVideo = async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   mpvWorks = false;
+  ffmpegFallback = true;
   mpvDuration = null;
 });
 
@@ -642,6 +649,38 @@ describe("Viewport", () => {
     expect(prepareMediaUrl).not.toHaveBeenCalled();
   });
 
+  // behavior: without the ffmpeg fallback (Windows) an mpv start failure is shown, never transcoded (AC-004)
+  it("should show an error and not prepare through ffmpeg if mpv fails to start without the ffmpeg fallback", async () => {
+    ffmpegFallback = false;
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(within(region()).getByText(/could not play/i)).toBeInTheDocument(),
+    );
+    expect(prepareMediaUrl).not.toHaveBeenCalled();
+  });
+
+  // behavior: without the ffmpeg fallback (Windows) an mpv load failure is shown, never transcoded (AC-004)
+  it("should show an error and not prepare through ffmpeg if mpv fails to load the file without the ffmpeg fallback", async () => {
+    mpvWorks = true;
+    ffmpegFallback = false;
+    vi.mocked(mpvLoadFile).mockRejectedValueOnce(new Error("loadfile failed"));
+    render(
+      <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-3">
+        <Viewport />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() =>
+      expect(within(region()).getByText(/could not play/i)).toBeInTheDocument(),
+    );
+    expect(prepareMediaUrl).not.toHaveBeenCalled();
+  });
+
   // regression: mpv with `keep-open` pauses itself at the end of a file (`set
   // pause yes` on EOF) and `loadfile` inherits that pause - so the play state
   // must be applied AFTER the new file is queued. Unpausing before the load only
@@ -674,8 +713,7 @@ describe("Viewport", () => {
     await waitFor(() => expect(mpvLoadFile).toHaveBeenCalledWith("/m/a.mp4"));
 
     const newFileLoad = vi.mocked(mpvLoadFile).mock.invocationCallOrder[1];
-    const lastPlay =
-      vi.mocked(mpvPlay).mock.invocationCallOrder.at(-1) ?? 0;
+    const lastPlay = vi.mocked(mpvPlay).mock.invocationCallOrder.at(-1) ?? 0;
     expect(lastPlay).toBeGreaterThan(newFileLoad);
   });
 

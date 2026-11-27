@@ -59,7 +59,9 @@ pub fn run() {
                 current_bg: std::sync::Mutex::new(None),
             });
             // Warm the ffmpeg/ffprobe sidecars now (behind the empty UI) so the
-            // first dropped file doesn't pay their cold first-spawn cost.
+            // first dropped file doesn't pay their cold first-spawn cost. The
+            // Windows build ships libmpv instead and has no sidecars.
+            #[cfg(not(windows))]
             media::prewarm_sidecars(app.handle());
             Ok(())
         })

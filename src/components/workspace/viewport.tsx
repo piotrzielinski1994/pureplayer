@@ -37,6 +37,7 @@ import {
   mpvShowText,
   observeProperties,
 } from "@/lib/mpv";
+import { hasFfmpegFallback } from "@/lib/platform";
 import {
   describeElementState,
   formatTimeline,
@@ -414,6 +415,19 @@ export function Viewport() {
 
     const prepareFfmpeg = () => {
       setMpvActive(false);
+      if (!hasFfmpegFallback()) {
+        void logPlayback(
+          `playback "${activeMedia.name}": mpv failed, no ffmpeg fallback`,
+        );
+        if (!cancelled) {
+          setSource({
+            status: "error",
+            forId,
+            message: "mpv failed to open this file",
+          });
+        }
+        return;
+      }
       timelineRef.current = {
         forId,
         name: activeMedia.name,
@@ -505,10 +519,8 @@ export function Viewport() {
             setMpvAudioTracks(tracks.filter((t) => t.kind === "audio"));
           });
         } catch (e) {
-          void logPlayback(
-            `viewport: mpv load failed, falling back to ffmpeg: ${String(e)}`,
-          );
-          console.error("mpv load failed, falling back to ffmpeg", e);
+          void logPlayback(`viewport: mpv load failed: ${String(e)}`);
+          console.error("mpv load failed", e);
           if (!cancelled) {
             setMpvActive(false);
             prepareFfmpeg();

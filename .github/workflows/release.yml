@@ -66,10 +66,10 @@ jobs:
             -output src-tauri/binaries/ffprobe-universal-apple-darwin
           chmod +x src-tauri/binaries/ffmpeg-universal-apple-darwin src-tauri/binaries/ffprobe-universal-apple-darwin
 
-      - name: Fetch ffmpeg sidecars (Windows)
+      - name: Fetch libmpv runtime (Windows)
         if: matrix.platform == 'windows-latest'
         shell: bash
-        run: scripts/fetch-ffmpeg.sh x86_64-pc-windows-msvc
+        run: scripts/fetch-libmpv.sh
 
       - name: Fetch ffmpeg sidecars (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -108,7 +108,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag }}
         run: |
-          gh release list --exclude-drafts --limit 20 --json tagName \
+          gh release list --exclude-drafts --exclude-pre-releases --limit 20 --json tagName \
             --jq '.[].tagName' | grep -v -x "$TAG" | head -n 1 > previous-tag.txt
           echo "tag=$(cat previous-tag.txt)" >> "$GITHUB_OUTPUT"
 

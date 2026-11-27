@@ -331,6 +331,7 @@ async fn probe_media(app: &tauri::AppHandle, path: &str) -> ProbeResult {
 // one-time Gatekeeper check + pages them in on first exec, which otherwise lands
 // as ~2-3s of latency on the first prepare_media. A trivial `-version` run warms
 // the OS caches. Best-effort: errors are ignored.
+#[cfg(not(windows))]
 pub fn prewarm_sidecars(app: &tauri::AppHandle) {
     for binary in ["ffprobe", "ffmpeg"] {
         let Ok(command) = app.shell().sidecar(binary) else {

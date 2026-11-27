@@ -15,6 +15,7 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 ## Playback (pureplayer-only)
 
 - Every file is played through a **native `mpv` window** (`useMpv = mpvAvailable`); the ffmpeg + `<video>` path is only the fallback when mpv fails to start. The `<video>` CSS (rotate/fit/zoom/invert) does not reach the mpv picture, so each viewport transform also needs an mpv equivalent (`mpvSetTransform`, `mpvSetInvertColors`), and status text for changes with no HTML overlay (track change, invert) goes through mpv OSD (`mpvShowText`). A React overlay above the mpv window IS visible (the top-right corner overlay proves it), so never duplicate one in the OSD: mpv `show-text` ignores `{\an9}` and always draws at the window's top-left, where the sidebar covers it. Never disable the mpv path to "fix" an overlay - forcing ffmpeg to transcode large files burns ~50% CPU and kills playback performance.
+- The Windows build has no ffmpeg fallback: `tauri.windows.conf.json` drops the sidecars and bundles `lib/libmpv-*.dll` instead, and `hasFfmpegFallback()` (`src/lib/platform.ts`) makes the viewport show the error state when mpv fails. Never call `prepareMediaUrl` or a sidecar on a Windows-only path.
 
 ## Environment (Windows repo, read first)
 

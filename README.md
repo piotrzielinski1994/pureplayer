@@ -21,13 +21,16 @@ a build error from Cargo.
 ```bash
 nvm use
 npm install
-scripts/fetch-ffmpeg.sh   # download the bundled ffmpeg/ffprobe sidecars (required before any build)
+scripts/fetch-ffmpeg.sh   # macOS/Linux: download the bundled ffmpeg/ffprobe sidecars (required before any build)
+scripts/fetch-libmpv.sh   # Windows: download the bundled libmpv DLLs (required before any build)
 ```
 
 `scripts/fetch-ffmpeg.sh` downloads statically-linked `ffmpeg`+`ffprobe` for all
 supported targets (macOS arm64/x64, Windows x64, Linux x64) into `src-tauri/binaries/`
 (gitignored, SHA-256 pinned). `cargo` fails to build without the binary for your host
 triple present. macOS binaries are GPLv3, Windows and Linux are LGPLv3 - see [docs/adr.md](docs/adr.md).
+The Windows build ships no ffmpeg: `scripts/fetch-libmpv.sh` puts `libmpv-2.dll` (LGPL) and
+`libmpv-wrapper.dll` into `src-tauri/lib/` (gitignored, SHA-256 pinned), bundled by `src-tauri/tauri.windows.conf.json`.
 
 ## Commands
 
@@ -47,7 +50,7 @@ Each launch writes a fresh `pureplayer-<ts>.log` to the OS app-log dir (macOS
   picture is instant and seeking is native: native-codec files play directly, others are stream-copied
   into a finished MP4, play with a background audio re-encode, or fall back to play-while-encode HLS.
   `ffmpeg`/`ffprobe` are bundled as Tauri sidecars - the app is standalone. Every file plays through a native
-  mpv window when mpv starts (the strategies above are the fallback), which lists the file's audio and subtitle tracks in its OSD on load (track names only -
+  mpv window when mpv starts (the strategies above are the fallback; on Windows there is no fallback, mpv is the only engine), which lists the file's audio and subtitle tracks in its OSD on load (track names only -
   switching them is not implemented).
 - **Playback progress** - video files remember the position you left them at (saved every few
   seconds while playing and on pause); on open a bar above the transport offers to continue there,
