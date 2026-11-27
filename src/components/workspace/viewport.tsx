@@ -565,6 +565,15 @@ export function Viewport() {
 
   useEffect(() => {
     if (mpvActive) {
+      // Apply the play state only to a QUEUED file. `keep-open` makes mpv pause
+      // itself at the end of a file (`set pause yes` on EOF) and `loadfile`
+      // inherits that pause, so unpausing while the next file is still loading
+      // only unpauses the FINISHED file - mpv pauses again at its EOF and the
+      // new one starts paused at 0:00. `mpvLoaded` flips after `loadfile`, and
+      // its dep re-runs this effect then.
+      if (!mpvLoaded) {
+        return;
+      }
       if (isPlaying) {
         void mpvPlay().catch(() => {});
       } else {
@@ -581,7 +590,7 @@ export function Viewport() {
       return;
     }
     element.pause();
-  }, [isPlaying, mpvActive]);
+  }, [isPlaying, mpvActive, mpvLoaded]);
 
   // The <video> only mounts once the source resolves (and remounts when an
   // audio swap points it at a new url), so the url is a dependency: without it

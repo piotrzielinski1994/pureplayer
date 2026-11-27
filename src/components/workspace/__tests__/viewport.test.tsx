@@ -14,6 +14,8 @@ import {
 } from "@/components/workspace/workspace-context";
 import {
   mpvLoadFile,
+  mpvPause,
+  mpvPlay,
   mpvSeek,
   mpvSetInvertColors,
   mpvSetTransform,
@@ -155,6 +157,11 @@ function CycleRepeatButton() {
 function TogglePlayButton() {
   const { togglePlay } = useWorkspace();
   return <button onClick={() => togglePlay()}>toggle-play</button>;
+}
+
+function EndedButton() {
+  const { reportEnded } = useWorkspace();
+  return <button onClick={() => reportEnded()}>ended</button>;
 }
 
 function TransformButtons() {
@@ -633,6 +640,43 @@ describe("Viewport", () => {
       expect(mpvLoadFile).toHaveBeenCalledWith("/media/3 - Intro.mov"),
     );
     expect(prepareMediaUrl).not.toHaveBeenCalled();
+  });
+
+  // regression: mpv with `keep-open` pauses itself at the end of a file (`set
+  // pause yes` on EOF) and `loadfile` inherits that pause - so the play state
+  // must be applied AFTER the new file is queued. Unpausing before the load only
+  // unpauses the FINISHED file (mpv pauses again at its EOF) and the next track
+  // then stays paused at 0:00.
+  it("should unpause the newly loaded file after the previous one ended in mpv mode", async () => {
+    mpvWorks = true;
+    const user = userEvent.setup();
+    const endedMedia: typeof fixtureMedia = [
+      { id: "e-a", name: "a.mp4", format: "MP4", path: "/m/a.mp4" },
+      { id: "e-b", name: "b.mp4", format: "MP4", path: "/m/b.mp4" },
+    ];
+    render(
+      <WorkspaceProvider media={endedMedia} initialActiveMediaId="e-b">
+        <Viewport />
+        <SelectButton id="e-b" />
+        <SelectButton id="e-a" />
+        <EndedButton />
+      </WorkspaceProvider>,
+    );
+
+    await waitFor(() => expect(mpvLoadFile).toHaveBeenCalledWith("/m/b.mp4"));
+    await user.click(screen.getByRole("button", { name: "select-e-b" }));
+    await waitFor(() => expect(mpvPlay).toHaveBeenCalled());
+    // e-b is the last file in play order with repeat off -> playback stops
+    await user.click(screen.getByRole("button", { name: "ended" }));
+    await waitFor(() => expect(mpvPause).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "select-e-a" }));
+    await waitFor(() => expect(mpvLoadFile).toHaveBeenCalledWith("/m/a.mp4"));
+
+    const newFileLoad = vi.mocked(mpvLoadFile).mock.invocationCallOrder[1];
+    const lastPlay =
+      vi.mocked(mpvPlay).mock.invocationCallOrder.at(-1) ?? 0;
+    expect(lastPlay).toBeGreaterThan(newFileLoad);
   });
 
   // behavior: the <video> CSS transform cannot reach the mpv picture, so
