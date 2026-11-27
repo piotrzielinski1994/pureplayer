@@ -11,5 +11,5 @@ export function formatTime(
   if (Math.max(totalSeconds, referenceSeconds) < HOUR_SEC) {
     return `${pad(minutes)}:${pad(seconds)}`;
   }
-  return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }

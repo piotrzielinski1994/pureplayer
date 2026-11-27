@@ -94,7 +94,7 @@ describe("TransportBar", () => {
   });
 
   // behavior: a video of 1 h or more shows both times as h:mm:ss (F4)
-  it("should read 0:00:30 / 1:15:12 if progress of 30s of 4512s is reported", async () => {
+  it("should read 00:00:30 / 01:15:12 if progress of 30s of 4512s is reported", async () => {
     const user = userEvent.setup();
     render(
       <WorkspaceProvider media={fixtureMedia} initialActiveMediaId="v-1">
@@ -105,7 +105,7 @@ describe("TransportBar", () => {
 
     await reportProgress(user);
 
-    expect(screen.getByText("0:00:30 / 1:15:12")).toBeInTheDocument();
+    expect(screen.getByText("00:00:30 / 01:15:12")).toBeInTheDocument();
   });
 
   // behavior: empty readout when nothing is active (E-2 / AC-006)

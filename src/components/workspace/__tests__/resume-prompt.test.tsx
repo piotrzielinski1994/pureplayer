@@ -49,7 +49,7 @@ describe("resume prompt", () => {
       screen.getByRole("group", { name: /resume playback/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("1 - Long film")).toBeInTheDocument();
-    expect(screen.getByText("1:02:05")).toBeInTheDocument();
+    expect(screen.getByText("01:02:05")).toBeInTheDocument();
   });
 
   it("keeps starting from the beginning as the default action", () => {
