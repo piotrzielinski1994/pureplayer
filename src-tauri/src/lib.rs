@@ -20,6 +20,7 @@ pub fn run() {
         // First, so a second launch (Explorer "Open with", double-clicked file)
         // forwards its argv to the running window instead of opening a new one.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            log::info!("app: second instance forwarded argv={}", argv.len());
             open_files::deliver(app, open_files::paths_from_args(argv));
         }))
         .plugin(tauri_plugin_opener::init())
@@ -42,6 +43,7 @@ pub fn run() {
             let hls_root = std::env::temp_dir().join("pureplayer-hls");
             let remux_root = std::env::temp_dir().join("pureplayer-remux");
             for root in [&hls_root, &remux_root] {
+                log::info!("app: resetting temp root {root:?}");
                 let _ = std::fs::remove_dir_all(root);
                 std::fs::create_dir_all(root)?;
             }
@@ -50,6 +52,7 @@ pub fn run() {
             let files = hls_server::HeldFiles::new();
             let (port, _server) = hls_server::start(hls_root.clone(), files.clone())?;
             log::info!("HLS server listening on 127.0.0.1:{port} root={hls_root:?}");
+            log::info!("app: media state ready (hls port {port})");
             app.manage(media::MediaState {
                 hls_root,
                 remux_root,
@@ -61,6 +64,7 @@ pub fn run() {
             // Warm the ffmpeg/ffprobe sidecars now (behind the empty UI) so the
             // first dropped file doesn't pay their cold first-spawn cost.
             media::prewarm_sidecars(app.handle());
+            log::info!("app: setup complete");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -81,13 +85,21 @@ pub fn run() {
         // macOS delivers a double-clicked file as an "open document" event, not
         // as argv, so it needs its own path into the queue.
         #[cfg(target_os = "macos")]
-        if let tauri::RunEvent::Opened { urls } = event {
-            let paths = urls
-                .iter()
-                .filter_map(|url| url.to_file_path().ok())
-                .map(|path| path.to_string_lossy().into_owned())
-                .collect();
-            open_files::deliver(app, paths);
+        {
+            match event {
+                tauri::RunEvent::Opened { urls } => {
+                    log::info!("app: macOS open event urls={}", urls.len());
+                    open_files::deliver(
+                        app,
+                        urls.iter()
+                            .filter_map(|url| url.to_file_path().ok())
+                            .map(|path| path.to_string_lossy().into_owned())
+                            .collect(),
+                    );
+                }
+                tauri::RunEvent::Exit => log::info!("app: exiting"),
+                _ => {}
+            }
         }
         #[cfg(not(target_os = "macos"))]
         let _ = (app, event);

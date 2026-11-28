@@ -16,11 +16,13 @@ pub fn focus_webview(window: tauri::WebviewWindow) -> Result<(), String> {
             let view = webview.inner() as *mut AnyObject;
             let ns_window = webview.ns_window() as *mut AnyObject;
             if view.is_null() || ns_window.is_null() {
+                log::warn!("focus: webview or ns_window was null, cannot re-arm focus");
                 return;
             }
             unsafe {
                 let _: bool = msg_send![ns_window, makeFirstResponder: view];
             }
+            log::debug!("focus: webview made first responder");
         })
         .map_err(|e| format!("with_webview failed: {e}"))
 }
@@ -28,5 +30,6 @@ pub fn focus_webview(window: tauri::WebviewWindow) -> Result<(), String> {
 #[cfg(not(target_os = "macos"))]
 #[tauri::command]
 pub fn focus_webview(_window: tauri::WebviewWindow) -> Result<(), String> {
+    log::debug!("focus: no-op on this platform");
     Ok(())
 }

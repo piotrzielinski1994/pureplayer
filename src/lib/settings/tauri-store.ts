@@ -1,4 +1,5 @@
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { log } from "@/lib/logging/log";
 import {
   DEFAULT_SETTINGS,
   mergeSettings,
@@ -23,6 +24,9 @@ export function createTauriSettingsStore(): SettingsStore {
       .get<unknown>(THEME_COLORS_KEY)
       .catch(() => undefined);
 
+    log.info(
+      `settings-store: loaded settings=${persistedSettings !== undefined} colors=${persistedColors !== undefined}`,
+    );
     const base = mergeSettings(DEFAULT_SETTINGS, persistedSettings);
     return mergeSettings(base, {
       ...base,
@@ -41,6 +45,7 @@ export function createTauriSettingsStore(): SettingsStore {
         colors: DEFAULT_SETTINGS.theme.colors,
       },
     };
+    log.debug(`settings-store: saving ${SETTINGS_FILE} + ${THEME_FILE}`);
     await persist(settingsStore, SETTINGS_KEY, settingsPayload);
     await persist(themeStore, THEME_COLORS_KEY, settings.theme.colors);
   };
@@ -57,6 +62,6 @@ async function persist(
     .set(key, value)
     .then(() => store.save())
     .catch((error) => {
-      console.warn(`Failed to persist ${key}`, error);
+      log.warn(`settings-store: failed to persist ${key}: ${String(error)}`);
     });
 }

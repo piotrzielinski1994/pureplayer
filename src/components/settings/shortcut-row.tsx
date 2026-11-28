@@ -1,6 +1,7 @@
 import { Button, useRecordHotkey } from "@pziel/pureui";
 import { formatForDisplay } from "@tanstack/hotkeys";
 import { useState } from "react";
+import { log } from "@/lib/logging/log";
 import { useSettings } from "@/lib/settings/settings-context";
 import {
   SHORTCUT_ACTIONS,
@@ -33,13 +34,20 @@ export function ShortcutRow({
     onRecord: (hotkey) => {
       const owner = findConflict(hotkey, action.id, effective);
       if (owner !== null) {
+        log.warn(
+          `shortcuts: ${action.id} rejected, ${owner} already uses ${hotkey}`,
+        );
         setConflictName(actionName(owner));
         return;
       }
+      log.info(`shortcuts: ${action.id} recorded as ${hotkey}`);
       setConflictName(null);
       saveShortcut(action.id, hotkey);
     },
-    onCancel: () => setConflictName(null),
+    onCancel: () => {
+      log.info(`shortcuts: ${action.id} recording cancelled`);
+      setConflictName(null);
+    },
   });
 
   return (
@@ -69,6 +77,7 @@ export function ShortcutRow({
           size="sm"
           aria-label={`Edit ${action.name}`}
           onClick={() => {
+            log.info(`shortcuts: recording ${action.id}`);
             setConflictName(null);
             recorder.startRecording();
           }}

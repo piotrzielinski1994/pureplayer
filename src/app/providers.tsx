@@ -13,6 +13,7 @@ import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { type ReactNode, useEffect, useState } from "react";
 import { ToastProvider, useToast } from "@/components/ui/toast";
+import { log } from "@/lib/logging/log";
 import { demoSettings } from "@/lib/playlist/demo-seed";
 import { ProgressProvider } from "@/lib/progress/progress-context";
 import {
@@ -36,7 +37,11 @@ import { createPlayerUpdateToastSink } from "@/lib/updater/update-toast-sink";
 // The Tauri path goes through the app's own delta updater (patch-first, full
 // download as fallback), which owns install and progress; the port is unchanged.
 function createUpdateControllerForEnv() {
-  if (!isTauri()) return createNoopUpdateController();
+  if (!isTauri()) {
+    log.info("update: noop controller (not a Tauri host)");
+    return createNoopUpdateController();
+  }
+  log.info("update: delta controller installed");
   return createDeltaUpdateController({
     check: () => invoke<{ version: string } | null>("update_check"),
     install: () => invoke<void>("update_install"),
@@ -72,18 +77,25 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
   // The dev-browser build seeds the in-memory store with the demo settings;
   // the Tauri build and jsdom keep the Tauri-backed adapter.
-  const [settingsStore] = useState(() =>
-    isDevBrowser()
+  const [settingsStore] = useState(() => {
+    log.info(`app: settings store=${isDevBrowser() ? "in-memory" : "tauri"}`);
+    return isDevBrowser()
       ? createInMemorySettingsStore(demoSettings())
-      : createTauriSettingsStore(),
-  );
+      : createTauriSettingsStore();
+  });
   // Same split as settings: the dev browser has no Tauri store plugin.
-  const [progressStore] = useState(() =>
-    isDevBrowser() ? createInMemoryProgressStore() : createTauriProgressStore(),
-  );
+  const [progressStore] = useState(() => {
+    log.info(`app: progress store=${isDevBrowser() ? "in-memory" : "tauri"}`);
+    return isDevBrowser()
+      ? createInMemoryProgressStore()
+      : createTauriProgressStore();
+  });
   const [updateController] = useState(createUpdateControllerForEnv);
 
-  useEffect(() => installBrowserDefaultGuards(window), []);
+  useEffect(() => {
+    log.debug("app: installing browser default guards");
+    installBrowserDefaultGuards(window);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -30,6 +30,7 @@ import {
   nextRotation,
   type ViewportTransform,
 } from "@/components/workspace/viewport-transform";
+import { log } from "@/lib/logging/log";
 import { type LogLine, parseLogLine } from "@/lib/logging/log-line";
 import { createNoopLogStream, type LogStream } from "@/lib/logging/log-stream";
 import {
@@ -269,8 +270,12 @@ export function WorkspaceProvider({
   // Stable identity ([]-deps). Activates a node and starts playback from the
   // beginning; a saved position is only OFFERED, never applied on its own.
   const activateMedia = useCallback((node: MediaNode) => {
+    const prompt = resumePromptFor(node, progressRef.current);
+    log.info(
+      `playback: activate name=${node.name} path=${node.path} resume=${prompt ? prompt.positionSec.toFixed(2) : "none"}`,
+    );
     pendingResumeRef.current = null;
-    setResumePrompt(resumePromptFor(node, progressRef.current));
+    setResumePrompt(prompt);
     setActiveMediaId(node.id);
     setSelectedNodeId(node.id);
     setIsPlaying(true);
@@ -280,7 +285,10 @@ export function WorkspaceProvider({
     setResumeAtSec(null);
   }, []);
 
-  const dismissResume = useCallback(() => setResumePrompt(null), []);
+  const dismissResume = useCallback(() => {
+    log.info("playback: resume prompt dismissed");
+    setResumePrompt(null);
+  }, []);
 
   // Jumping back to the offered position goes through the normal seek path; the
   // pending resume covers media that is still loading (mpv load / HLS prepare).
@@ -289,6 +297,7 @@ export function WorkspaceProvider({
       return;
     }
     const position = resumePrompt.positionSec;
+    log.info(`playback: resume accepted at ${position.toFixed(2)}s`);
     pendingResumeRef.current = position;
     setPlaybackCurrentSec(position);
     setSeekToSec(null);
@@ -298,7 +307,10 @@ export function WorkspaceProvider({
 
   // Clears the seek request only; the pending-position guard stays until the
   // player actually reports a position at (or past) the resume point.
-  const clearResume = useCallback(() => setResumeAtSec(null), []);
+  const clearResume = useCallback(() => {
+    log.debug("playback: resume seek consumed");
+    setResumeAtSec(null);
+  }, []);
 
   // Video-only, throttled in the pure layer; a finished position is never
   // written (the entry is dropped on end instead).
@@ -329,6 +341,9 @@ export function WorkspaceProvider({
         return;
       }
       progressRef.current = next;
+      log.info(
+        `progress: saved path=${node.path} pos=${currentSec.toFixed(2)}s duration=${durationSec.toFixed(2)}s`,
+      );
       onProgressChange?.(node.path, next[node.path]);
     },
     [onProgressChange],
@@ -351,7 +366,11 @@ export function WorkspaceProvider({
       const fresh = incoming.filter(
         (video) => !current.some((existing) => existing.id === video.id),
       );
+      log.info(
+        `playlist: add incoming=${incoming.length} new=${fresh.length} total=${current.length + fresh.length}`,
+      );
       if (fresh.length === 0) {
+        log.warn("playlist: add ignored (every file was already listed)");
         return;
       }
       setSourceMedia((media) => [...media, ...fresh]);
@@ -367,7 +386,9 @@ export function WorkspaceProvider({
   // the new files and plays the first opened one, even when it is already listed.
   const openMedia = useCallback(
     (incoming: MediaNode[]) => {
+      log.info(`open-files: incoming=${incoming.length}`);
       if (incoming.length === 0) {
+        log.warn("open-files: ignored (no paths)");
         return;
       }
       const current = sourceMediaRef.current;
@@ -406,6 +427,7 @@ export function WorkspaceProvider({
       return;
     }
     wasFullscreen.current = value;
+    log.info(`window: fullscreen=${value}`);
     if (value) {
       preFullscreenChrome.current = chromeRef.current;
       setIsSidebarVisible(false);
@@ -425,11 +447,14 @@ export function WorkspaceProvider({
       setLogLines((current) => [...current, parseLogLine(raw, level)]),
     [],
   );
-  const clearLogLines = useCallback(() => setLogLines([]), []);
-  const toggleLogs = useCallback(
-    () => setIsLogsVisible((visible) => !visible),
-    [],
-  );
+  const clearLogLines = useCallback(() => {
+    setLogLines([]);
+    log.info("logs: panel cleared");
+  }, []);
+  const toggleLogs = useCallback(() => {
+    log.info("layout: logs panel toggled");
+    setIsLogsVisible((visible) => !visible);
+  }, []);
 
   const playlist = useMemo(
     () => sortMedia(sourceMedia, sortKeys, sortDirection),
@@ -470,6 +495,9 @@ export function WorkspaceProvider({
         ];
       const next = playlist.find((node) => node.id === nextId);
       if (next) {
+        log.info(
+          `playback: ${delta > 0 ? "next" : "previous"} -> ${next.name}`,
+        );
         activate(next);
       }
     };
@@ -515,10 +543,12 @@ export function WorkspaceProvider({
       selectNode: (id) => {
         const node = playlist.find((item) => item.id === id);
         if (node) {
+          log.info(`playlist: select name=${node.name}`);
           activate(node);
         }
       },
       loadMedia: (next) => {
+        log.info(`playlist: load count=${next.length}`);
         setSourceMedia(next);
         if (next.length === 0) {
           setActiveMediaId(null);
@@ -538,8 +568,10 @@ export function WorkspaceProvider({
       // the play order (wrapping), or stop on an empty list.
       removeMedia: (id) => {
         if (!playlist.some((video) => video.id === id)) {
+          log.warn(`playlist: remove ignored, unknown id=${id}`);
           return;
         }
+        log.info(`playlist: remove id=${id} active=${activeMediaId === id}`);
         setSourceMedia((current) => current.filter((video) => video.id !== id));
         if (activeMediaId !== id) {
           if (selectedNodeId === id) {
@@ -572,10 +604,14 @@ export function WorkspaceProvider({
         setSeekToSec(null);
         setResumeAtSec(null);
       },
-      togglePlay: () => setIsPlaying((playing) => !playing),
+      togglePlay: () => {
+        log.info(`playback: ${isPlaying ? "pause" : "play"}`);
+        setIsPlaying((playing) => !playing);
+      },
       nextMedia: () => stepMedia(1),
       prevMedia: () => stepMedia(-1),
       seek: (sec) => {
+        log.info(`playback: seek to ${sec.toFixed(2)}s`);
         setPlaybackCurrentSec(sec);
         setSeekToSec(sec);
         // Scrubbing while paused produces no timeupdate, so persist here too.
@@ -590,6 +626,7 @@ export function WorkspaceProvider({
           delta,
           playbackDurationSec,
         );
+        log.info(`playback: seek by ${delta.toFixed(2)}s -> ${clamped.toFixed(2)}s`);
         setPlaybackCurrentSec(clamped);
         setSeekToSec(clamped);
       },
@@ -597,6 +634,7 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        log.info(`playback: frame step ${direction > 0 ? "forward" : "back"}`);
         setIsPlaying(false);
         const clamped = clampSeekTarget(
           playbackCurrentSec,
@@ -611,6 +649,7 @@ export function WorkspaceProvider({
           return;
         }
         const clamped = clampVolume(next);
+        log.info(`audio: volume=${clamped}`);
         setVolumeState(clamped);
         onVolumeChange?.(clamped);
       },
@@ -619,6 +658,7 @@ export function WorkspaceProvider({
           return;
         }
         const clamped = clampVolume(volume + delta);
+        log.info(`audio: volume=${clamped} (${delta > 0 ? "+" : ""}${delta})`);
         setVolumeState(clamped);
         onVolumeChange?.(clamped);
       },
@@ -627,6 +667,7 @@ export function WorkspaceProvider({
           return;
         }
         const next = !isMuted;
+        log.info(`audio: muted=${next}`);
         setIsMuted(next);
         onMutedChange?.(next);
       },
@@ -635,6 +676,7 @@ export function WorkspaceProvider({
           return;
         }
         const clamped = clampRate(playbackRate + delta);
+        log.info(`playback: rate=${clamped}x`);
         setPlaybackRate(clamped);
         onPlaybackRateChange?.(clamped);
       },
@@ -664,6 +706,7 @@ export function WorkspaceProvider({
           activeMediaId,
           repeatMode,
         );
+        log.info(`playback: ended decision=${decision.kind}`);
         if (decision.kind === "advance") {
           const next = playlist.find((node) => node.id === decision.id);
           if (next) {
@@ -683,12 +726,14 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        log.info(`playback: repeat ${repeatMode} -> ${nextRepeatMode(repeatMode)}`);
         setRepeatMode(nextRepeatMode);
       },
       toggleShuffle: () => {
         if (activeMediaId === null) {
           return;
         }
+        log.info(`playback: shuffle=${!isShuffling}`);
         setIsShuffling((shuffling) => {
           if (!shuffling) {
             setShuffleOrder(
@@ -706,6 +751,7 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        log.info("viewport: rotate clockwise");
         setViewportTransform((transform) => ({
           ...transform,
           rotationDeg: nextRotation(transform.rotationDeg),
@@ -715,6 +761,7 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        log.info("viewport: cycle fit mode");
         setViewportTransform((transform) => ({
           ...transform,
           fitMode: nextFitMode(transform.fitMode),
@@ -724,6 +771,7 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        log.info(`viewport: zoom ${delta > 0 ? "in" : "out"} by ${delta}`);
         setViewportTransform((transform) => ({
           ...transform,
           zoom: clampZoom(transform.zoom + delta),
@@ -733,6 +781,7 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        log.info(`viewport: invert=${!viewportTransform.invertColors}`);
         setViewportTransform((transform) => ({
           ...transform,
           invertColors: transform.invertColors !== true,
@@ -742,29 +791,36 @@ export function WorkspaceProvider({
         if (activeMediaId === null) {
           return;
         }
+        log.info("viewport: transform reset");
         setViewportTransform(DEFAULT_TRANSFORM);
       },
-      toggleSortKey: (field) =>
+      toggleSortKey: (field) => {
+        log.info(`playlist: sort key toggled field=${field}`);
         setSortKeys((current) =>
           current.includes(field)
             ? current.filter((key) => key !== field)
             : [...current, field],
-        ),
+        );
+      },
       toggleSortDirection: () => {
         const next = sortDirection === "asc" ? "desc" : "asc";
+        log.info(`playlist: sort direction=${next}`);
         setSortDirection(next);
         onSortDirectionChange?.(next);
       },
       toggleSidebar: () => {
         const next = !isSidebarVisible;
+        log.info(`layout: sidebar visible=${next}`);
         setIsSidebarVisible(next);
         onSidebarHiddenChange?.(!next);
       },
       toggleContent: () => {
+        log.info(`layout: content visible=${!isContentVisible}`);
         setIsContentVisible((visible) => !visible);
       },
       toggleTransport: () => {
         const next = !isTransportVisible;
+        log.info(`layout: transport visible=${next}`);
         setIsTransportVisible(next);
         onTransportHiddenChange?.(!next);
       },

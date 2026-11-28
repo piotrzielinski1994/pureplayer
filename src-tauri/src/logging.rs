@@ -49,7 +49,13 @@ pub fn init<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
             }),
             Target::new(TargetKind::Webview),
         ])
+        // Info for everything; Debug only for this crate and the frontend
+        // (`webview`) target, so the high-frequency app lines (scrubbing,
+        // per-request HLS serving, settings saves) reach the file and the Logs
+        // panel without letting tao/wry/hyper debug records in.
         .level(log::LevelFilter::Info)
+        .level_for("pureplayer_lib", log::LevelFilter::Debug)
+        .level_for("webview", log::LevelFilter::Debug)
         .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
         .max_file_size(50_000_000)
         .build();

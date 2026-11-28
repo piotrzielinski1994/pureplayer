@@ -25,15 +25,22 @@ fn has_media_extension(name: &str) -> bool {
 fn collect_into(path: &Path, out: &mut Vec<String>) {
     let metadata = match std::fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
-        Err(_) => return,
+        Err(error) => {
+            log::warn!("import: skipped {path:?}: {error}");
+            return;
+        }
     };
     if metadata.file_type().is_symlink() {
+        log::debug!("import: skipped symlink {path:?}");
         return;
     }
     if metadata.is_dir() {
         let entries = match std::fs::read_dir(path) {
             Ok(entries) => entries,
-            Err(_) => return,
+            Err(error) => {
+                log::warn!("import: could not read dir {path:?}: {error}");
+                return;
+            }
         };
         for entry in entries.flatten() {
             collect_into(&entry.path(), out);
@@ -58,7 +65,13 @@ pub(crate) fn collect_media_paths(roots: &[String]) -> Vec<String> {
 
 #[tauri::command]
 pub fn expand_dropped_paths(paths: Vec<String>) -> Vec<String> {
-    collect_media_paths(&paths)
+    let collected = collect_media_paths(&paths);
+    log::info!(
+        "import: expanded dropped roots={} media={}",
+        paths.len(),
+        collected.len()
+    );
+    collected
 }
 
 #[cfg(test)]

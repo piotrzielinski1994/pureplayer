@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { log } from "@/lib/logging/log";
 import {
   clearProgress,
   type ProgressEntry,
@@ -34,8 +35,10 @@ export function ProgressProvider({ store, children }: ProgressProviderProps) {
 
   useEffect(() => {
     let isMounted = true;
+    log.info("progress: loading saved positions");
     store.load().then((loaded) => {
       if (isMounted) {
+        log.info(`progress: loaded entries=${Object.keys(loaded).length}`);
         setProgress(loaded);
       }
     });
@@ -46,9 +49,12 @@ export function ProgressProvider({ store, children }: ProgressProviderProps) {
 
   const recordProgress = useCallback(
     (path: string, entry: ProgressEntry) => {
+      log.info(
+        `progress: record path=${path} pos=${entry.positionSec.toFixed(2)}s`,
+      );
       setProgress((current) => {
         const next = { ...(current ?? {}), [path]: entry };
-        store.save(next);
+        void store.save(next);
         return next;
       });
     },
@@ -57,10 +63,11 @@ export function ProgressProvider({ store, children }: ProgressProviderProps) {
 
   const forgetProgress = useCallback(
     (path: string) => {
+      log.info(`progress: forget path=${path}`);
       setProgress((current) => {
         const next = clearProgress(current ?? {}, path);
         if (next !== current) {
-          store.save(next);
+          void store.save(next);
         }
         return next;
       });

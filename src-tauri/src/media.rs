@@ -332,6 +332,7 @@ async fn probe_media(app: &tauri::AppHandle, path: &str) -> ProbeResult {
 // as ~2-3s of latency on the first prepare_media. A trivial `-version` run warms
 // the OS caches. Best-effort: errors are ignored.
 pub fn prewarm_sidecars(app: &tauri::AppHandle) {
+    log::info!("media: prewarming ffmpeg/ffprobe sidecars");
     for binary in ["ffprobe", "ffmpeg"] {
         let Ok(command) = app.shell().sidecar(binary) else {
             continue;
@@ -428,10 +429,12 @@ async fn select_video_encoder(app: &tauri::AppHandle) -> &'static str {
     }
     for candidate in video_encoder_candidates() {
         if encoder_available(app, candidate).await {
+            log::info!("media: using video encoder {candidate}");
             let _ = SELECTED.set(candidate);
             return candidate;
         }
     }
+    log::warn!("media: no hardware encoder found, falling back to {SOFTWARE_VIDEO_ENCODER}");
     let _ = SELECTED.set(SOFTWARE_VIDEO_ENCODER);
     SOFTWARE_VIDEO_ENCODER
 }

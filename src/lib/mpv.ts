@@ -7,6 +7,7 @@ import {
   setVideoMarginRatio,
   destroy as mpvDestroy,
 } from "tauri-plugin-libmpv-api";
+import { log, logError } from "@/lib/logging/log";
 
 export type MpvHandle = {
   available: boolean;
@@ -52,9 +53,10 @@ export async function ensureMpv(): Promise<boolean> {
         undefined,
       );
       initialized = true;
+      log.info("mpv: initialized");
       return true;
     } catch (e) {
-      console.error("mpv init failed", e);
+      logError("mpv: init failed", e);
       initialized = false;
       initPromise = null;
       return false;
@@ -68,36 +70,45 @@ export function isMpvInitialized(): boolean {
 }
 
 export async function mpvLoadFile(path: string): Promise<void> {
+  log.info(`mpv: loadfile path=${path}`);
   await command("loadfile", [path, "replace"]);
 }
 
 export async function mpvPlay(): Promise<void> {
+  log.info("mpv: play");
   await setProperty("pause", false);
 }
 
 export async function mpvPause(): Promise<void> {
+  log.info("mpv: pause");
   await setProperty("pause", true);
 }
 
 export async function mpvSeek(timeSec: number): Promise<void> {
+  log.info(`mpv: seek ${timeSec.toFixed(2)}s`);
   await command("seek", [timeSec, "absolute"]);
 }
 
 export async function mpvSetVolume(volume: number): Promise<void> {
-  await setProperty("volume", Math.round(volume * 100));
+  const percent = Math.round(volume * 100);
+  log.debug(`mpv: volume=${percent}`);
+  await setProperty("volume", percent);
 }
 
 export async function mpvSetMuted(muted: boolean): Promise<void> {
+  log.debug(`mpv: muted=${muted}`);
   await setProperty("mute", muted);
 }
 
 export async function mpvSetSpeed(speed: number): Promise<void> {
+  log.debug(`mpv: speed=${speed}`);
   await setProperty("speed", speed);
 }
 
 // Select a subtitle track by its mpv track id, or "no" to disable subtitles.
 // Only meaningful in mpv mode; the ffmpeg fallback has no selectable tracks.
 export async function mpvSetSubtitle(trackId: number | null): Promise<void> {
+  log.info(`mpv: subtitle track=${trackId ?? "off"}`);
   // Make sure subtitles are actually rendered (mpv may have them disabled).
   await setProperty("sub-visibility", true);
   if (trackId === null) {
@@ -118,6 +129,7 @@ export async function mpvSetSubtitle(trackId: number | null): Promise<void> {
 // Select an audio track by its mpv track id, or "no" to disable audio.
 // Only meaningful in mpv mode; the ffmpeg fallback has no selectable tracks.
 export async function mpvSetAudio(trackId: number | null): Promise<void> {
+  log.info(`mpv: audio track=${trackId ?? "off"}`);
   if (trackId === null) {
     try {
       await setProperty("aid", "no");
@@ -145,6 +157,7 @@ export async function mpvSetAudio(trackId: number | null): Promise<void> {
 // frames are only copied out of the GPU - so the filter works.
 
 export async function mpvSetInvertColors(inverted: boolean): Promise<void> {
+  log.info(`mpv: invert colors=${inverted}`);
   if (inverted) {
     await setProperty("hwdec", HWDEC_COPY);
     await setProperty("vf", "negate");
@@ -161,6 +174,9 @@ export async function mpvSetTransform(transform: {
   fitMode: "contain" | "cover" | "fill";
   zoom: number;
 }): Promise<void> {
+  log.info(
+    `mpv: transform rotation=${transform.rotationDeg} fit=${transform.fitMode} zoom=${transform.zoom}`,
+  );
   await setProperty("video-rotate", transform.rotationDeg);
   await setProperty("keepaspect", transform.fitMode !== "fill");
   await setProperty("panscan", transform.fitMode === "cover" ? 1 : 0);
@@ -174,6 +190,7 @@ export async function mpvShowText(
   message: string,
   durationMs: number,
 ): Promise<void> {
+  log.debug(`mpv: osd text=${message}`);
   await command("show-text", [message, durationMs]);
 }
 
@@ -191,6 +208,7 @@ export async function mpvSetMargins(ratio: {
 }
 
 export async function mpvDestroyAndReset(): Promise<void> {
+  log.info("mpv: destroy and reset");
   try {
     await setProperty("force-window", "no");
   } catch {

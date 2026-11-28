@@ -1,4 +1,5 @@
 import type { UpdateController } from "@pziel/pureui";
+import { log, logError } from "@/lib/logging/log";
 
 // Byte progress emitted by the Rust side (`update-progress` event). The total is
 // null when the server sends no content-length, e.g. a chunked patch response.
@@ -35,21 +36,34 @@ export function createDeltaUpdateController(
 ): UpdateController {
   return {
     check: async () => {
+      log.info("update: checking for a new version");
       const info = await deps.check();
-      if (!info) return null;
+      if (!info) {
+        log.info("update: running the latest version");
+        return null;
+      }
+      log.info(`update: version ${info.version} available`);
       return {
         version: info.version,
         downloadAndInstall: async (onProgress) => {
+          log.info(`update: installing ${info.version}`);
           const unlisten = await deps.listenProgress((payload) =>
             onProgress(percentOf(payload)),
           );
           try {
             await deps.install();
+            log.info(`update: ${info.version} installed`);
+          } catch (error) {
+            logError(`update: install of ${info.version} failed`, error);
+            throw error;
           } finally {
             unlisten();
           }
         },
-        relaunch: deps.relaunch,
+        relaunch: async () => {
+          log.info("update: relaunch requested");
+          await deps.relaunch();
+        },
       };
     },
   };

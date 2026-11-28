@@ -5,6 +5,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { exit } from "@tauri-apps/plugin-process";
+import { log } from "@/lib/logging/log";
 
 const VIDEO_EXTENSIONS = ["mp4", "mkv", "mov", "webm", "avi"];
 const AUDIO_EXTENSIONS = [
@@ -118,6 +119,7 @@ export async function logPlayback(message: string): Promise<void> {
 // action. Guarded so the dev browser and jsdom, which have no process plugin,
 // are a no-op instead of a rejected promise.
 export async function quitApp(): Promise<void> {
+  log.info("app: quit requested");
   if (!isTauri()) {
     return;
   }
@@ -133,6 +135,7 @@ export async function quitApp(): Promise<void> {
 // focus_webview command (tao#208). No-op outside a Tauri host.
 export async function focusWebview(): Promise<void> {
   try {
+    log.debug("window: re-arm webview focus");
     await invoke("focus_webview");
   } catch {
     // no-op outside a Tauri host
@@ -279,6 +282,7 @@ export async function toggleFullscreen(): Promise<void> {
   try {
     const appWindow = getCurrentWindow();
     const next = !(await appWindow.isFullscreen());
+    log.info(`window: fullscreen -> ${next}`);
     await appWindow.setFullscreen(next);
   } catch {
     // no-op outside a Tauri host
@@ -332,6 +336,9 @@ export async function setMiniWindow(layout: MiniLayout): Promise<void> {
     const appWindow = getCurrentWindow();
     if (layout.contentVisible) {
       if (preMini !== null) {
+        log.info(
+          `window: mini-player off, restoring ${preMini.width}x${preMini.height}`,
+        );
         await appWindow.setSize(new LogicalSize(preMini.width, preMini.height));
         preMini = null;
       }
@@ -346,7 +353,11 @@ export async function setMiniWindow(layout: MiniLayout): Promise<void> {
       );
       preMini = { width: inner.width, height: inner.height, titleBarHeight };
     }
-    await appWindow.setSize(miniSize(layout.sidebarVisible, preMini));
+    const size = miniSize(layout.sidebarVisible, preMini);
+    log.info(
+      `window: mini-player size=${size.width}x${size.height} sidebar=${layout.sidebarVisible}`,
+    );
+    await appWindow.setSize(size);
   } catch {
     // no-op outside a Tauri host
   }

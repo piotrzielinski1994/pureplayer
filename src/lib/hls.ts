@@ -3,6 +3,8 @@
 // HLS itself (AVFoundation), and attaching hls.js there would fight the element.
 // This module is the only place that knows the difference.
 
+import { log } from "@/lib/logging/log";
+
 const HLS_MIME = "application/vnd.apple.mpegurl";
 
 // True for the backend's loopback HLS playlist URL (`http://localhost:<port>/<job>/index.m3u8`).
@@ -59,6 +61,7 @@ export function canPlayNativeHls(): boolean {
         isChromiumEngine(),
         document.createElement("video").canPlayType(HLS_MIME),
       );
+    log.info(`hls: native support=${nativeHlsCache}`);
   }
   return nativeHlsCache;
 }
@@ -104,8 +107,10 @@ export async function attachHlsJs(
 ): Promise<(() => void) | null> {
   const { default: Hls } = await import("hls.js");
   if (!Hls.isSupported()) {
+    log.warn("hls: MediaSource unsupported in this webview");
     return null;
   }
+  log.info(`hls: attach hls.js url=${url}`);
   const hls = new Hls();
   hls.on(Hls.Events.ERROR, (_event, data: HlsErrorData) => {
     const message = describeHlsError(data);
@@ -115,5 +120,8 @@ export async function attachHlsJs(
   });
   hls.loadSource(url);
   hls.attachMedia(element);
-  return () => hls.destroy();
+  return () => {
+    log.debug("hls: detach hls.js");
+    hls.destroy();
+  };
 }

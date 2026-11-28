@@ -545,9 +545,13 @@ export function Viewport() {
     void watchAudioReady(({ swapId, url }) => {
       setSource((current) => {
         if (current?.status !== "ready" || current.swapId !== swapId) {
+          void logPlayback(
+            `playback: audio-ready swap_id=${swapId} ignored (stale)`,
+          );
           return current;
         }
         resumeAfterSwapRef.current = videoRef.current?.currentTime ?? 0;
+        void logPlayback(`playback: audio-ready swap_id=${swapId} url=${url}`);
         return { ...current, url, swapId: null };
       });
     }).then((fn) => {

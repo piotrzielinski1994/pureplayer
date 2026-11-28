@@ -12,6 +12,14 @@ Briefing for Claude Code. Read [README.md](README.md) first - setup, commands, r
 - Read [docs/design.md](docs/design.md) before any UI change - it's the visual contract, shared verbatim with the `requi` and `dbui` repos to keep all three consistent. Key rule: **no rounded corners anywhere** (`--radius` and every `--radius-*` pinned to `0rem` in `index.css`); don't raise them or add `rounded-full` / `rounded-xs` / `rounded-[..]` (token-based `rounded-{sm,md,lg}` resolve to 0 so are tolerated, but prefer stripping). Buttons in a thin bar (the transport bar) fill the bar's full height, square, divided by a 1px border - not floating chips with their own height/padding (see `transport-bar.tsx` `BAR_BUTTON`).
 - Keep design.md in sync with `requi`/`dbui` when the shared contract changes; pureplayer-only rules can be added but mark them as such.
 
+## Logging (mandatory)
+
+- Every action - a button, shortcut, menu item, drop, window change, backend command - gets a log line when it is added or extended, in the SAME change. No action ships unlogged.
+- Frontend: `import { log } from "@/lib/logging/log"` then `log.info("area: what happened")` (`debug`/`warn`/`error` for those levels). It forwards to tauri-plugin-log, so the line lands in the per-launch log file and the in-app Logs panel; outside Tauri it goes to the console. Include the identifiers that matter (path, name, count, seconds) as `key=value` so the Logs search can filter them.
+- Rust: `log::info!` / `warn!` / `error!` in every `#[tauri::command]` and every long-running step (spawn, process exit, file write, network fetch). Log outcomes AND failure branches, never just the happy path.
+- Prefix the message with the area (`playback:`, `playlist:`, `layout:`, `settings:`, `update:`, `hls:`, `mpv:`, `app:`) so lines group in the panel.
+- High-frequency loops (`timeupdate` progress reports, pointer-move scrubbing, per-request serving) stay at `debug` or are logged only when state is actually written, so the log file stays readable.
+
 ## Playback (pureplayer-only)
 
 - Every file is played through a **native `mpv` window** (`useMpv = mpvAvailable`); the ffmpeg + `<video>` path is only the fallback when mpv fails to start. The `<video>` CSS (rotate/fit/zoom/invert) does not reach the mpv picture, so each viewport transform also needs an mpv equivalent (`mpvSetTransform`, `mpvSetInvertColors`), and status text for changes with no HTML overlay (track change, invert) goes through mpv OSD (`mpvShowText`). A React overlay above the mpv window IS visible (the top-right corner overlay proves it), so never duplicate one in the OSD: mpv `show-text` ignores `{\an9}` and always draws at the window's top-left, where the sidebar covers it. Never disable the mpv path to "fix" an overlay - forcing ffmpeg to transcode large files burns ~50% CPU and kills playback performance.

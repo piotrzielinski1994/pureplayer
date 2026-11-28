@@ -186,15 +186,21 @@ fn http_client() -> Result<reqwest::Client, String> {
 /// the two calls (and a stale offer cannot install a newer version silently).
 #[tauri::command]
 pub async fn update_check(app: tauri::AppHandle) -> Result<Option<UpdateSummary>, String> {
+    log::info!("update: checking for a new version");
     let update = app
         .updater()
         .map_err(|error| format!("updater unavailable: {error}"))?
         .check()
         .await
         .map_err(|error| format!("update check failed: {error}"))?;
-    Ok(update.map(|update| UpdateSummary {
+    let summary = update.map(|update| UpdateSummary {
         version: update.version,
-    }))
+    });
+    match &summary {
+        Some(summary) => log::info!("update: version {} available", summary.version),
+        None => log::info!("update: running the latest version"),
+    }
+    Ok(summary)
 }
 
 /// Delta when possible, full artifact otherwise; then install and let the
@@ -231,9 +237,10 @@ pub async fn update_install(app: tauri::AppHandle) -> Result<(), String> {
         update.version,
         bytes.len()
     );
-    update
-        .install(bytes)
-        .map_err(|error| format!("install failed: {error}"))
+    update.install(bytes).map_err(|error| {
+        log::error!("update: install failed: {error}");
+        format!("install failed: {error}")
+    })
 }
 
 /// `Ok(None)` means "no delta applies, take the full artifact"; `Err` means the

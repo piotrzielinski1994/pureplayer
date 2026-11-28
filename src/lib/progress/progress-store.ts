@@ -1,4 +1,5 @@
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { log } from "@/lib/logging/log";
 import {
   type ProgressMap,
   parseProgressFile,
@@ -19,14 +20,23 @@ export function createTauriProgressStore(): ProgressStore {
   return {
     load: async () => {
       const raw = await store.get<unknown>(PROGRESS_KEY).catch(() => undefined);
-      return parseProgressFile(raw);
+      const parsed = parseProgressFile(raw);
+      log.info(`progress-store: loaded entries=${Object.keys(parsed).length}`);
+      return parsed;
     },
     save: async (map) => {
       await store
         .set(PROGRESS_KEY, toProgressFile(map))
         .then(() => store.save())
+        .then(() => {
+          log.debug(
+            `progress-store: saved entries=${Object.keys(map).length}`,
+          );
+        })
         .catch((error) => {
-          console.warn("Failed to persist playback progress", error);
+          log.warn(
+            `progress-store: failed to persist playback progress: ${String(error)}`,
+          );
         });
     },
   };

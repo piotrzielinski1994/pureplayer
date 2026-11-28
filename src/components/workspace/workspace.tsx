@@ -9,6 +9,7 @@ import { DropOverlay } from "@/components/workspace/drop-overlay";
 import { mediaFromPaths } from "@/components/workspace/media-from-paths";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { WorkspaceLayout } from "@/components/workspace/workspace-layout";
+import { log, logError } from "@/lib/logging/log";
 import { useSettings } from "@/lib/settings/settings-context";
 import {
   SHORTCUT_ACTIONS,
@@ -71,6 +72,7 @@ export function Workspace() {
   useEffect(() => {
     const fsPromise = watchFullscreen(setFullscreen);
     const focusPromise = watchWindowFocus();
+    log.info("window: fullscreen + focus watchers attached");
     return () => {
       void fsPromise.then((unlisten) => unlisten());
       void focusPromise.then((unlisten) => unlisten());
@@ -90,8 +92,15 @@ export function Workspace() {
         return;
       }
       setIsDragging(false);
-      const paths = await expandDroppedPaths(event.paths);
-      addMedia(mediaFromPaths(paths));
+      try {
+        const paths = await expandDroppedPaths(event.paths);
+        log.info(
+          `drag: drop paths=${event.paths.length} media=${paths.length}`,
+        );
+        addMedia(mediaFromPaths(paths));
+      } catch (error) {
+        logError("drag: expand failed", error);
+      }
     });
     return () => {
       void dropPromise.then((unlisten) => unlisten());
@@ -106,6 +115,7 @@ export function Workspace() {
   useEffect(() => {
     const drain = async () => {
       const paths = await takePendingOpenPaths();
+      log.info(`open-files: pending paths=${paths.length}`);
       if (paths.length > 0) {
         openMedia(mediaFromPaths(paths));
       }
@@ -120,7 +130,9 @@ export function Workspace() {
   }, [openMedia]);
 
   const openFiles = async () => {
+    log.info("open-files: dialog opened");
     const paths = await openMediaFiles();
+    log.info(`open-files: dialog selected paths=${paths.length}`);
     if (paths.length === 0) {
       return;
     }
@@ -165,16 +177,27 @@ export function Workspace() {
     "toggle-transport": toggleTransport,
     "toggle-logs": toggleLogs,
     "toggle-mini-player": () => {
+      log.info(`layout: mini-player active=${isContentVisible}`);
       toggleContent();
       void setMiniWindow({
         contentVisible: !isContentVisible,
         sidebarVisible: isSidebarVisible,
       });
     },
-    "toggle-fullscreen": () => void toggleFullscreen(),
-    "toggle-reveal-transport": () =>
-      saveRevealTransportOnHover(!settings.revealTransportOnHover),
-    "open-settings": () => void navigate({ to: "/settings" }),
+    "toggle-fullscreen": () => {
+      log.info("window: fullscreen toggle requested");
+      void toggleFullscreen();
+    },
+    "toggle-reveal-transport": () => {
+      log.info(
+        `settings: reveal transport on hover=${!settings.revealTransportOnHover}`,
+      );
+      saveRevealTransportOnHover(!settings.revealTransportOnHover);
+    },
+    "open-settings": () => {
+      log.info("navigation: open settings");
+      void navigate({ to: "/settings" });
+    },
     "rotate-cw": rotateClockwise,
     "cycle-fit-mode": cycleFitMode,
     "zoom-in": () => zoomBy(0.1),
@@ -182,9 +205,11 @@ export function Workspace() {
     "toggle-invert-colors": toggleInvertColors,
     "reset-viewport": resetViewportTransform,
     "change-subtitles": () => {
+      log.info("track: subtitle picker opened");
       setSubtitlePickerOpen(true);
     },
     "change-audio": () => {
+      log.info("track: audio picker opened");
       setAudioPickerOpen(true);
     },
   };
@@ -192,7 +217,10 @@ export function Workspace() {
   useActionHotkeys(
     {
       ...handlers,
-      "open-command-palette": () => setIsPaletteOpen(true),
+      "open-command-palette": () => {
+        log.info("ui: command palette opened");
+        setIsPaletteOpen(true);
+      },
     },
     useEffectiveShortcuts(),
     { ignoreInputs: true, preventDefault: true },

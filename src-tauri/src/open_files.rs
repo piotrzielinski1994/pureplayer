@@ -31,17 +31,22 @@ where
 /// poke the frontend. An empty expansion is a no-op, so a bare launch never
 /// replaces the current playlist with nothing.
 pub fn deliver(app: &AppHandle, raw: Vec<String>) {
+    log::info!("open_files: deliver raw_args={}", raw.len());
     let paths = crate::import::collect_media_paths(&raw);
     if paths.is_empty() {
+        log::warn!("open_files: deliver ignored, no media paths in the request");
         return;
     }
+    log::info!("open_files: queued paths={}", paths.len());
     PENDING.lock().expect("open paths lock").extend(paths);
     let _ = app.emit(OPEN_PATHS_EVENT, ());
 }
 
 #[tauri::command]
 pub fn take_pending_open_paths() -> Vec<String> {
-    std::mem::take(&mut *PENDING.lock().expect("open paths lock"))
+    let paths = std::mem::take(&mut *PENDING.lock().expect("open paths lock"));
+    log::info!("open_files: drained pending paths={}", paths.len());
+    paths
 }
 
 #[cfg(test)]

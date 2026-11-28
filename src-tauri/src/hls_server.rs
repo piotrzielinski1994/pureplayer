@@ -82,11 +82,13 @@ impl HeldFiles {
         if let Ok(mut held_files) = self.0.lock() {
             held_files.insert(token.to_string(), held);
         }
+        log::info!("hls: holding file open token={token} bytes={len} mime={mime} path={path:?}");
         Ok(len)
     }
 
     pub fn clear(&self) {
         if let Ok(mut held_files) = self.0.lock() {
+            log::debug!("hls: dropping {} held file(s)", held_files.len());
             held_files.clear();
         }
     }
@@ -159,12 +161,14 @@ fn header(name: &str, value: &str) -> Header {
 // handle is duplicated per request, so concurrent requests can't fight over the
 // read position and none of them touch the path.
 fn serve_held(request: tiny_http::Request, held: &HeldFile) {
+    log::debug!("hls: serve held url={}", request.url());
     let range = request
         .headers()
         .iter()
         .find(|header| header.field.equiv("Range"))
         .and_then(|header| parse_range(header.value.as_str(), held.len));
     let Ok(mut file) = held.file.try_clone() else {
+        log::warn!("hls: could not clone the held handle for {}", request.url());
         let _ = request.respond(Response::empty(404).with_header(cors_header()));
         return;
     };
@@ -173,6 +177,7 @@ fn serve_held(request: tiny_http::Request, held: &HeldFile) {
         None => (200, 0, held.len),
     };
     if file.seek(SeekFrom::Start(start)).is_err() {
+        log::warn!("hls: seek to {start} failed for {}", request.url());
         let _ = request.respond(Response::empty(404).with_header(cors_header()));
         return;
     }
@@ -203,16 +208,19 @@ fn respond(request: tiny_http::Request, root: &Path, held_files: &HeldFiles) {
         match held_files.get(token) {
             Some(held) => serve_held(request, &held),
             None => {
+                log::warn!("hls: unknown held token url={url_path}");
                 let _ = request.respond(Response::empty(404).with_header(cors_header()));
             }
         }
         return;
     }
     let Some(path) = resolve_under_root(root, &url_path) else {
+        log::warn!("hls: refused url outside the served root url={url_path}");
         let _ = request.respond(Response::empty(404).with_header(cors_header()));
         return;
     };
     let Ok(file) = std::fs::File::open(&path) else {
+        log::debug!("hls: not written yet url={url_path}");
         let _ = request.respond(Response::empty(404).with_header(cors_header()));
         return;
     };
